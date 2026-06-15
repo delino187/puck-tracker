@@ -47,12 +47,15 @@ export default function App() {
   const [puckAnim,    setPuckAnim]   = useState(null)
   const [pinInput,    setPinInput]   = useState('')
   const [pinErr,      setPinErr]     = useState(false)
-  const [npName,      setNpName]     = useState('')
-  const [npNum,       setNpNum]      = useState('')
-  const [npPw,        setNpPw]       = useState('')
+  const [npName,        setNpName]       = useState('')
+  const [npNum,         setNpNum]        = useState('')
+  const [npPw,          setNpPw]         = useState('')
+  const [dashMutePrompt,setDashMutePrompt] = useState(false)
+  const [rankDetailOpen,setRankDetailOpen] = useState(false)
 
   const badgeQRef    = useRef([])
   const epicAudioRef = useRef(null)
+  const dashAudioRef = useRef(null)
   const play         = useAudio()
   const { theme, toggleOutsideMode } = useTheme()
 
@@ -68,6 +71,35 @@ export default function App() {
   useEffect(() => {
     if (st) saveSt(st)
   }, [st])
+
+  // ── Dashboard intro music: start on Dash tab, stop on any other tab ───────
+  useEffect(() => {
+    if (!st || st.view !== 'player' || tab !== 'dashboard') {
+      if (dashAudioRef.current) {
+        dashAudioRef.current.pause()
+        dashAudioRef.current.currentTime = 0
+        dashAudioRef.current = null
+      }
+      setDashMutePrompt(false)
+      return
+    }
+    const audio = new Audio('/intro-song.m4a')
+    audio.volume = 0.6
+    dashAudioRef.current = audio
+    audio.play().catch(() => setDashMutePrompt(true))
+    return () => {
+      audio.pause()
+      audio.currentTime = 0
+    }
+  }, [tab, st?.view]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Pause dash music the moment any celebration opens ─────────────────────
+  useEffect(() => {
+    if (epicCeleb && dashAudioRef.current) {
+      dashAudioRef.current.pause()
+      // Do NOT reset currentTime — so it resumes seamlessly when modal closes
+    }
+  }, [epicCeleb])
 
   const upd = patch => setSt(prev => ({ ...prev, ...patch }))
 
@@ -110,9 +142,24 @@ export default function App() {
   function handleEpicClose() {
     stopEpicAudio()
     setEpicCeleb(null)
-    setTimeout(() => {
-      if (badgeQRef.current.length > 0) popNextBadge()
-    }, 150)
+    const hasMoreBadges = badgeQRef.current.length > 0
+    if (hasMoreBadges) {
+      setTimeout(popNextBadge, 150)
+    } else if (tab === 'dashboard' && dashAudioRef.current) {
+      // All celebrations done — resume the intro song from where it paused
+      dashAudioRef.current.play().catch(() => setDashMutePrompt(true))
+    }
+  }
+
+  function handleDashUnmute() {
+    dashAudioRef.current?.play().catch(() => {})
+    setDashMutePrompt(false)
+  }
+
+  function handleDashNavigate(tabId, openRankDetail = false) {
+    setTab(tabId)
+    setRankDetailOpen(tabId === 'ranks' && openRankDetail)
+    if (tabId === 'session' && !aSess) startSession()
   }
 
   // ── Session handlers ──────────────────────────────────────────────────────
@@ -388,6 +435,29 @@ export default function App() {
           />
         )}
         {celeb && <CelebOverlay data={celeb} onClose={() => setCeleb(null)} />}
+
+        {dashMutePrompt && tab === 'dashboard' && (
+          <div
+            onClick={handleDashUnmute}
+            style={{
+              position: 'fixed', bottom: 24, right: 20, zIndex: 200,
+              background: 'rgba(10,15,26,0.92)',
+              border: '1px solid #3b82f644',
+              borderRadius: 24, padding: '9px 16px',
+              cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 7,
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 0 14px #3b82f622',
+              fontFamily: "'Barlow Condensed',sans-serif",
+              fontSize: 12, fontWeight: 700,
+              color: '#93c5fd', letterSpacing: '0.08em',
+              userSelect: 'none',
+            }}
+          >
+            🔊 Tap to Unmute Music
+          </div>
+        )}
+
         {aPlayer.coachMsg && (
           <CoachMsgPopup
             message={aPlayer.coachMsg}
@@ -427,6 +497,7 @@ export default function App() {
               newBadgeIds={newBadgeIds}
               onBadgeClick={b => setBadgePreview({ badge: b })}
               onStartSession={() => { startSession(); setTab('session') }}
+              onNavigate={handleDashNavigate}
             />
           )}
           {tab === 'session' && (
@@ -496,7 +567,7 @@ export default function App() {
               onBadgeClick={b => setBadgePreview({ badge: b })}
             />
           )}
-          {tab === 'ranks' && <RanksTab stats={stats} />}
+          {tab === 'ranks' && <RanksTab stats={stats} openDetail={rankDetailOpen} onDetailClose={() => setRankDetailOpen(false)} />}
         </div>
       </div>
     )

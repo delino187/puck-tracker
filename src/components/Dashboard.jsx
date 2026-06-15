@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
-import { Target, Zap, CalendarDays, BookOpen, Lock } from 'lucide-react'
+import { Target, Zap, CalendarDays, BookOpen, Lock, ChevronRight } from 'lucide-react'
 import { LEVELS } from '../constants/levels.js'
 import { ZONES }  from '../constants/zones.js'
 import { BADGES } from '../constants/badges.js'
@@ -77,7 +76,7 @@ function ChallengeRow({ ch, label, Icon, color, sessions, playerId }) {
 }
 
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
-export default function Dashboard({ player, stats, sessions, dailyChallenge, weeklyChallenge, players, onStartSession, newBadgeIds, onBadgeClick }) {
+export default function Dashboard({ player, stats, sessions, dailyChallenge, weeklyChallenge, players, onStartSession, newBadgeIds, onBadgeClick, onNavigate }) {
   const ws      = getWeekStart()
   const cur     = LEVELS[stats.li]
   const next    = LEVELS[stats.li + 1]
@@ -100,36 +99,17 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
   // Highest streak milestone badge the player's current streak qualifies for
   const activeStreakBadge = [...STREAK_BADGES].reverse().find(b => stats.streak >= b.milestone) ?? null
 
-  // ── Dash entrance music ────────────────────────────────────────────────────
-  const audioRef          = useRef(null)
-  const [mutePrompt, setMutePrompt] = useState(false)
-
-  useEffect(() => {
-    const audio = new Audio('/intro-song.m4a')
-    audio.volume = 0.6
-    audioRef.current = audio
-
-    audio.play().catch(() => setMutePrompt(true))
-
-    return () => {
-      audio.pause()
-      audio.currentTime = 0
-    }
-  }, [])
-
-  function handleUnmute() {
-    audioRef.current?.play().catch(() => {})
-    setMutePrompt(false)
-  }
-
   return (
     <div style={{ padding: '14px 16px 80px' }}>
 
       {/* ── Rank hero + This Week: side-by-side on md+ ────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
 
-      {/* Rank hero */}
-      <div style={{ ...C.card, display: 'flex', alignItems: 'center', gap: 16, marginBottom: 0 }}>
+      {/* Rank hero — tap to open Rank Detail */}
+      <div
+        onClick={() => onNavigate?.('ranks', true)}
+        style={{ ...C.card, display: 'flex', alignItems: 'center', gap: 16, marginBottom: 0, cursor: 'pointer' }}
+      >
         <div style={{
           width: 80, height: 80, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
           background: cur.bg, border: `3px solid ${cur.color}`,
@@ -152,6 +132,9 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
             {stats.xp} XP{next ? ` · ${(next.xpNeeded - stats.xp).toLocaleString()} to ${next.name}` : ' · Max Rank!'}
           </div>
           <XPBar li={stats.li} xp={stats.xp} compact />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginTop: 7, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: cur.color, letterSpacing: '0.08em' }}>
+            VIEW RANK PROGRESS <ChevronRight size={11} />
+          </div>
         </div>
       </div>
 
@@ -181,7 +164,7 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
           </div>
 
           {/* Streak — earned badge with day count, or locked Spark as motivational goal */}
-          <div style={{ textAlign: 'center' }}>
+          <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => onNavigate?.('streak')}>
             {(() => {
               const displayBadge = activeStreakBadge ?? STREAK_BADGES[0]
               const isActive     = !!activeStreakBadge
@@ -236,7 +219,10 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
 
       {/* ── Active challenges — dynamic engine + coach override ───────────── */}
       {hasChallenges && (
-        <div style={{ ...C.card, padding: '20px 18px', borderColor: '#f59e0b44' }}>
+        <div
+          onClick={() => onNavigate?.('challenges')}
+          style={{ ...C.card, padding: '20px 18px', borderColor: '#f59e0b44', cursor: 'pointer' }}
+        >
           {/* Card header */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
             <BookOpen size={13} color="#f59e0b" />
@@ -244,10 +230,11 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
               ACTIVE CHALLENGES
             </span>
             {(dailyChallenge?.source === 'coach' || weeklyChallenge?.source === 'coach') && (
-              <span style={{ marginLeft: 'auto', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#f59e0b', background: '#f59e0b18', border: '1px solid #f59e0b33', borderRadius: 4, padding: '1px 6px' }}>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#f59e0b', background: '#f59e0b18', border: '1px solid #f59e0b33', borderRadius: 4, padding: '1px 6px' }}>
                 COACH SET
               </span>
             )}
+            <ChevronRight size={13} color="#f59e0b" style={{ marginLeft: 'auto' }} />
           </div>
 
           {/* Divider */}
@@ -269,7 +256,10 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
       {/* ── Recent badges ─────────────────────────────────────────────────── */}
       {earnedBadges.length > 0 && (
         <div style={C.card}>
-          <div style={C.label}>Recent Badges ({earnedBadges.length}/{BADGES.length})</div>
+          <div style={{ ...C.label, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => onNavigate?.('badges')}>
+            <span>Recent Badges ({earnedBadges.length}/{BADGES.length})</span>
+            <ChevronRight size={13} color="#64748b" />
+          </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
             {earnedBadges
               .sort((a, b) => (player.earnedBadges[b.id]?.ts || 0) - (player.earnedBadges[a.id]?.ts || 0))
@@ -289,7 +279,10 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
       {/* ── Recent sessions ───────────────────────────────────────────────── */}
       {recent.length > 0 && (
         <div style={{ ...C.card, padding: '18px 18px' }}>
-          <div style={C.label}>Recent Sessions</div>
+          <div style={{ ...C.label, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => { onNavigate?.('session') }}>
+            <span>Recent Sessions</span>
+            <ChevronRight size={13} color="#64748b" />
+          </div>
           {recent.map((s, i) => {
             const sh = s.sets.length * 10
             const hi = s.sets.reduce((a, x) => a + x.hits, 0)
@@ -307,28 +300,6 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
       <button style={C.btnP} onClick={onStartSession}>
         <Target size={16} /> Start New Session
       </button>
-
-      {mutePrompt && (
-        <div
-          onClick={handleUnmute}
-          style={{
-            position: 'fixed', bottom: 24, right: 20, zIndex: 200,
-            background: 'rgba(10,15,26,0.92)',
-            border: '1px solid #3b82f644',
-            borderRadius: 24, padding: '9px 16px',
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 7,
-            backdropFilter: 'blur(10px)',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 0 14px #3b82f622',
-            fontFamily: "'Barlow Condensed',sans-serif",
-            fontSize: 12, fontWeight: 700,
-            color: '#93c5fd', letterSpacing: '0.08em',
-            userSelect: 'none',
-          }}
-        >
-          🔊 Tap to Unmute Music
-        </div>
-      )}
     </div>
   )
 }
