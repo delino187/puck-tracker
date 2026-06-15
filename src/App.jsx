@@ -26,10 +26,10 @@ import PlayerHeader  from './components/shared/PlayerHeader.jsx'
 import GlobalStyles  from './components/shared/GlobalStyles.jsx'
 import Scaffold      from './components/shared/Scaffold.jsx'
 
-import BadgePopup    from './components/overlays/BadgePopup.jsx'
-import LevelUpPopup  from './components/overlays/LevelUpPopup.jsx'
-import CelebOverlay  from './components/overlays/CelebOverlay.jsx'
-import CoachMsgPopup from './components/overlays/CoachMsgPopup.jsx'
+import BadgePopup        from './components/overlays/BadgePopup.jsx'
+import EpicCelebration  from './components/overlays/EpicCelebration.jsx'
+import CelebOverlay     from './components/overlays/CelebOverlay.jsx'
+import CoachMsgPopup    from './components/overlays/CoachMsgPopup.jsx'
 
 import { C, APP_BG } from './styles.js'
 
@@ -39,8 +39,8 @@ export default function App() {
   const [tab,         setTab]        = useState('dashboard')
   const [sesGoal,     setSesGoal]    = useState(10)
   const [badgePreview,setBadgePreview] = useState(null)
-  const [levelPopup,  setLevelPopup] = useState(null)
-  const [celeb,       setCeleb]      = useState(null)
+  const [epicCeleb,   setEpicCeleb]   = useState(null)
+  const [celeb,       setCeleb]       = useState(null)
   const [newBadgeIds, setNewBadgeIds] = useState({})
   const [flashZone,   setFlashZone]  = useState(null)
   const [flashType,   setFlashType]  = useState(null)
@@ -51,8 +51,9 @@ export default function App() {
   const [npNum,       setNpNum]      = useState('')
   const [npPw,        setNpPw]       = useState('')
 
-  const badgeQRef = useRef([])
-  const play      = useAudio()
+  const badgeQRef    = useRef([])
+  const epicAudioRef = useRef(null)
+  const play         = useAudio()
   const { theme, toggleOutsideMode } = useTheme()
 
   // ── Boot: Firestore → localStorage fallback ───────────────────────────────
@@ -86,16 +87,32 @@ export default function App() {
   const aSess   = st.sessions.find(s => s.id === st.activeSessionId)
 
   // ── Badge queue helpers ───────────────────────────────────────────────────
+  function stopEpicAudio() {
+    if (epicAudioRef.current) {
+      epicAudioRef.current.pause()
+      epicAudioRef.current.currentTime = 0
+      epicAudioRef.current = null
+    }
+  }
+
   function popNextBadge() {
     if (badgeQRef.current.length === 0) return
     const next = badgeQRef.current.shift()
-    setBadgePreview({ badge: next })
+    setEpicCeleb({ type: 'badge', badge: next })
     play('badge')
   }
 
   function handleBadgeClose() {
     setBadgePreview(null)
     setTimeout(popNextBadge, 150)
+  }
+
+  function handleEpicClose() {
+    stopEpicAudio()
+    setEpicCeleb(null)
+    setTimeout(() => {
+      if (badgeQRef.current.length > 0) popNextBadge()
+    }, 150)
   }
 
   // ── Session handlers ──────────────────────────────────────────────────────
@@ -140,8 +157,11 @@ export default function App() {
     const prevLi = playerStats(aPlayer, st.sessions).li
     const newSt  = playerStats(aPlayer, updSessions)
     if (newSt.li > prevLi) {
-      play('levelup')
-      setLevelPopup(newSt.level)
+      const audio = new Audio('/level-up-music.mp3')
+      audio.volume = 0.75
+      epicAudioRef.current = audio
+      audio.play().catch(() => {})
+      setEpicCeleb({ type: 'levelup', level: newSt.level })
     }
 
     // Badge check
@@ -161,11 +181,11 @@ export default function App() {
         return n
       })
       badgeQRef.current.push(...newBadges)
-      setBadgePreview(cur => {
+      setEpicCeleb(cur => {
         if (cur) return cur
         const next = badgeQRef.current.shift()
         if (next) play('badge')
-        return next ? { badge: next } : null
+        return next ? { type: 'badge', badge: next } : null
       })
     }
 
@@ -191,8 +211,11 @@ export default function App() {
     const prevLi = playerStats(aPlayer, st.sessions).li
     const newSt  = playerStats(aPlayer, updSessions)
     if (newSt.li > prevLi) {
-      play('levelup')
-      setLevelPopup(newSt.level)
+      const audio = new Audio('/level-up-music.mp3')
+      audio.volume = 0.75
+      epicAudioRef.current = audio
+      audio.play().catch(() => {})
+      setEpicCeleb({ type: 'levelup', level: newSt.level })
     }
 
     // Badge check
@@ -212,11 +235,11 @@ export default function App() {
         return n
       })
       badgeQRef.current.push(...newBadges)
-      setBadgePreview(cur => {
+      setEpicCeleb(cur => {
         if (cur) return cur
         const next = badgeQRef.current.shift()
         if (next) play('badge')
-        return next ? { badge: next } : null
+        return next ? { type: 'badge', badge: next } : null
       })
     }
 
@@ -356,8 +379,15 @@ export default function App() {
       <div style={{ ...APP_BG, minHeight: '100vh', position: 'relative' }}>
         <GlobalStyles />
 
-        {levelPopup && <LevelUpPopup level={levelPopup} onClose={() => setLevelPopup(null)} />}
-        {celeb      && <CelebOverlay data={celeb}       onClose={() => setCeleb(null)} />}
+        {epicCeleb && (
+          <EpicCelebration
+            type={epicCeleb.type}
+            level={epicCeleb.level}
+            badge={epicCeleb.badge}
+            onClose={handleEpicClose}
+          />
+        )}
+        {celeb && <CelebOverlay data={celeb} onClose={() => setCeleb(null)} />}
         {aPlayer.coachMsg && (
           <CoachMsgPopup
             message={aPlayer.coachMsg}

@@ -118,7 +118,7 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, letterSpacing: '0.15em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 3 }}>
             Current Rank
           </div>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 26, fontWeight: 700, color: cur.color, lineHeight: 1, marginBottom: 5 }}>
+          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 30, color: cur.color, lineHeight: 1, marginBottom: 5 }}>
             {cur.name}
           </div>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: 'var(--text-muted)', marginBottom: 7 }}>

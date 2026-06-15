@@ -80,7 +80,7 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
               </span>
             </div>
             <div style={{
-              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 56, fontWeight: 900,
+              fontFamily: "'Bangers',sans-serif", fontSize: 56,
               color: stats.streak > 0 ? '#f97316' : 'var(--score-inactive)',
               lineHeight: 1,
               textShadow: stats.streak > 0 ? '0 0 24px #f9731644' : 'none',
@@ -106,7 +106,7 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
               </span>
             </div>
             <div style={{
-              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 56, fontWeight: 900,
+              fontFamily: "'Bangers',sans-serif", fontSize: 56,
               color: pb > 0 ? '#fbbf24' : 'var(--score-inactive)',
               lineHeight: 1,
               textShadow: pb > 0 ? '0 0 24px #fbbf2444' : 'none',

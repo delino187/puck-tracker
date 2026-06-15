@@ -141,22 +141,14 @@ class AudioEngine {
     this._note(1319, 0.12, 0.18, 'sine', 0.09)
   }
 
-  /** Sliding metallic descent — 0-hit freeze */
+  /** Warm ascending chime — gentle nudge on 0-hit set */
   playIce() {
     this.init()
-    const { ctx: ac } = this; const T = ac.currentTime
-    const o = ac.createOscillator(); const g = ac.createGain()
-    o.type = 'triangle'
-    o.frequency.setValueAtTime(680, T); o.frequency.exponentialRampToValueAtTime(82, T + 0.72)
-    g.gain.setValueAtTime(0.22, T); g.gain.setValueAtTime(0.20, T + 0.25)
-    g.gain.exponentialRampToValueAtTime(0.001, T + 0.78)
-    o.connect(g); g.connect(ac.destination); o.start(T); o.stop(T + 0.80)
-    const o2 = ac.createOscillator(); const g2 = ac.createGain()
-    o2.type = 'sawtooth'
-    o2.frequency.setValueAtTime(1400, T); o2.frequency.exponentialRampToValueAtTime(220, T + 0.56)
-    g2.gain.setValueAtTime(0.07, T); g2.gain.exponentialRampToValueAtTime(0.001, T + 0.56)
-    o2.connect(g2); g2.connect(ac.destination); o2.start(T); o2.stop(T + 0.58)
-    this._noise(0, 0.18, 5000, 500, 0.09)
+    // G4 → B4 → D5 → G5 soft ascending chime
+    ;[[392, 0.00, 0.22], [494, 0.11, 0.22], [587, 0.22, 0.24], [784, 0.34, 0.38]]
+      .forEach(([freq, delay, dur]) => this._note(freq, delay, dur, 'sine', 0.13))
+    // Gentle shimmer overtone
+    this._note(1568, 0.36, 0.30, 'triangle', 0.04)
   }
 
   /** Snappy ascending arpeggio — badge unlock */

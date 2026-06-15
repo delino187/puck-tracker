@@ -12,11 +12,11 @@ import {
 } from '../utils/badgeHelpers.js'
 
 export const TIER = {
-  1: { ring: '#6b7280', glow: '#6b728055', bg: 'linear-gradient(135deg,#1f2937,#374151)', icon: '#e5e7eb', label: 'Common',     desc: 'Entry-level achievements' },
-  2: { ring: '#3b82f6', glow: '#3b82f655', bg: 'linear-gradient(135deg,#1e3a5f,#1e4976)', icon: '#93c5fd', label: 'Rare',       desc: 'Solid accomplishments' },
-  3: { ring: '#f59e0b', glow: '#f59e0b55', bg: 'linear-gradient(135deg,#451a03,#78350f)', icon: '#fde68a', label: 'Epic',       desc: 'Impressive milestones' },
-  4: { ring: '#a855f7', glow: '#a855f755', bg: 'linear-gradient(135deg,#2e1065,#4c1d95)', icon: '#e9d5ff', label: 'Legendary',  desc: 'Elite-level achievements' },
-  5: { ring: '#f59e0b', glow: '#f59e0b99', bg: 'linear-gradient(135deg,#451a03,#854d0e)', icon: '#fef08a', label: 'Ultra-Rare', desc: 'Extraordinary once-in-a-season achievements' },
+  1: { ring: '#22c55e', glow: '#22c55e80', lockedGlow: '#22c55e28', bg: 'linear-gradient(135deg,#052e16,#14532d)', icon: '#86efac', label: 'Uncommon',  desc: 'Entry-level achievements' },
+  2: { ring: '#3b82f6', glow: '#3b82f680', lockedGlow: '#3b82f628', bg: 'linear-gradient(135deg,#1e3a5f,#1e4976)', icon: '#93c5fd', label: 'Rare',       desc: 'Solid accomplishments' },
+  3: { ring: '#a855f7', glow: '#a855f780', lockedGlow: '#a855f728', bg: 'linear-gradient(135deg,#2e1065,#581c87)', icon: '#d8b4fe', label: 'Epic',       desc: 'Impressive milestones' },
+  4: { ring: '#eab308', glow: '#eab30880', lockedGlow: '#eab30828', bg: 'linear-gradient(135deg,#422006,#713f12)', icon: '#fef08a', label: 'Legendary',  desc: 'Elite-level achievements' },
+  5: { ring: '#f59e0b', glow: '#f59e0b99', lockedGlow: '#f59e0b33', bg: 'linear-gradient(135deg,#451a03,#854d0e)', icon: '#fef08a', label: 'Ultra-Rare', desc: 'Extraordinary once-in-a-season achievements' },
 }
 
 export const BADGES = [

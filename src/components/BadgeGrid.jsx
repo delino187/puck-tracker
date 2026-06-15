@@ -73,7 +73,7 @@ export default function BadgeGrid({ player, sessions, newBadgeIds, onBadgeClick 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <cat.Icon size={13} color="#64748b" />
-                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                  <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 14, color: '#64748b', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                     {cat.label}
                   </span>
                 </div>
@@ -114,8 +114,8 @@ export default function BadgeGrid({ player, sessions, newBadgeIds, onBadgeClick 
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
                 <Gem size={16} color="#f59e0b" />
                 <span style={{
-                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700,
-                  color: '#f59e0b', letterSpacing: '0.18em', textTransform: 'uppercase', flex: 1,
+                  fontFamily: "'Bangers',sans-serif", fontSize: 17,
+                  color: '#f59e0b', letterSpacing: '0.15em', textTransform: 'uppercase', flex: 1,
                 }}>
                   Ultra-Rare Achievements
                 </span>

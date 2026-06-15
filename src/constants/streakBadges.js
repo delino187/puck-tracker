@@ -16,15 +16,15 @@ export const STREAK_BADGES = [
 
 // Tier + gradient mapping shared by BadgeGrid and StreakHub
 export const STREAK_META = {
-  1:  { tier: 1, innerBg: 'linear-gradient(135deg,#7f1d1d,#dc2626)', innerIcon: '#fca5a5' },
-  2:  { tier: 1, innerBg: 'linear-gradient(135deg,#7f1d1d,#ef4444)', innerIcon: '#fca5a5' },
-  3:  { tier: 2, innerBg: 'linear-gradient(135deg,#92400e,#f97316)', innerIcon: '#fed7aa' },
-  5:  { tier: 2, innerBg: 'linear-gradient(135deg,#92400e,#fb923c)', innerIcon: '#ffedd5' },
-  7:  { tier: 2, innerBg: 'linear-gradient(135deg,#b45309,#fbbf24)', innerIcon: '#fef3c7' },
-  14: { tier: 3, innerBg: 'linear-gradient(135deg,#78350f,#f59e0b)', innerIcon: '#fde68a' },
-  30: { tier: 3, innerBg: 'linear-gradient(135deg,#7c2d12,#ea580c)', innerIcon: '#fdba74' },
-  60: { tier: 4, innerBg: 'linear-gradient(135deg,#4c1d95,#7c3aed)', innerIcon: '#ddd6fe' },
-  90: { tier: 4, innerBg: 'linear-gradient(135deg,#3b0764,#6d28d9)', innerIcon: '#e9d5ff' },
+  1:  { tier: 1, innerBg: 'linear-gradient(135deg,#052e16,#14532d)', innerIcon: '#86efac' },
+  2:  { tier: 1, innerBg: 'linear-gradient(135deg,#14532d,#22c55e)', innerIcon: '#bbf7d0' },
+  3:  { tier: 2, innerBg: 'linear-gradient(135deg,#1e3a5f,#2563eb)', innerIcon: '#93c5fd' },
+  5:  { tier: 2, innerBg: 'linear-gradient(135deg,#1e3a8a,#3b82f6)', innerIcon: '#bfdbfe' },
+  7:  { tier: 2, innerBg: 'linear-gradient(135deg,#1e40af,#60a5fa)', innerIcon: '#dbeafe' },
+  14: { tier: 3, innerBg: 'linear-gradient(135deg,#3b0764,#7c3aed)', innerIcon: '#d8b4fe' },
+  30: { tier: 3, innerBg: 'linear-gradient(135deg,#4c1d95,#a855f7)', innerIcon: '#e9d5ff' },
+  60: { tier: 4, innerBg: 'linear-gradient(135deg,#422006,#b45309)', innerIcon: '#fef08a' },
+  90: { tier: 4, innerBg: 'linear-gradient(135deg,#713f12,#eab308)', innerIcon: '#fef9c3' },
 }
 
 // Converts a STREAK_BADGE into a BadgeCircle/BadgePopup-compatible shape.

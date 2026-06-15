@@ -23,20 +23,29 @@ export default function BadgeCircle({ badge, earned, earnedDate, isNew, size = 8
           }}>NEW!</div>
         )}
 
+        {/* Glow ring — separate from the filtered circle so color shows even when locked */}
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: '50%',
+          boxShadow: earned
+            ? `0 0 20px 5px ${tc.glow}, 0 0 40px 10px ${tc.glow}40`
+            : `0 0 14px 4px ${tc.lockedGlow}, 0 0 28px 6px ${tc.lockedGlow}`,
+          pointerEvents: 'none',
+          zIndex: 0,
+          transition: 'box-shadow 0.3s',
+        }} />
+
         {/* Circle — always renders actual badge colors; filter desaturates when locked */}
         <div style={{
           width: size, height: size, borderRadius: '50%',
           background: badge.innerBg,
-          border: `3px solid ${earned ? tc.ring : '#1e3a5f'}`,
+          border: `3px solid ${earned ? tc.ring : '#1f2937'}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: earned
-            ? `0 0 16px ${tc.glow}, inset 0 1px 0 rgba(255,255,255,0.15)`
-            : 'none',
           filter: earned ? 'none' : 'grayscale(1) brightness(0.32)',
-          opacity: earned ? 1 : 0.52,
-          transition: 'filter 0.3s, opacity 0.3s, box-shadow 0.3s',
+          opacity: earned ? 1 : 0.55,
+          transition: 'filter 0.3s, opacity 0.3s',
           position: 'relative',
           overflow: 'hidden',
+          zIndex: 1,
         }}>
           {/* Specular highlight — earned icon badges only */}
           {earned && !badge.img && (

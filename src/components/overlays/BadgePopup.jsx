@@ -85,7 +85,7 @@ export default function BadgePopup({ badge, earned, earnedDate, onClose }) {
         </div>
 
         {/* Name */}
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 26, fontWeight: 900, color: '#f1f5f9', marginBottom: 6 }}>
+        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 30, color: '#f1f5f9', marginBottom: 6 }}>
           {badge.name}
         </div>
 

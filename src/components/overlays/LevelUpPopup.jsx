@@ -9,7 +9,7 @@ export default function LevelUpPopup({ level, onClose }) {
         borderRadius: 20, padding: '40px 28px', maxWidth: 310, width: '90%', textAlign: 'center',
         boxShadow: `0 0 80px ${level.glow}55`, zIndex: 1,
       }}>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, letterSpacing: '0.15em', color: level.color, marginBottom: 16 }}>
+        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.12em', color: level.color, marginBottom: 16 }}>
           LEVEL UP!
         </div>
 
@@ -30,7 +30,7 @@ export default function LevelUpPopup({ level, onClose }) {
           />
         </div>
 
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 40, fontWeight: 900, color: level.color, letterSpacing: '0.05em', marginBottom: 6 }}>
+        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 48, color: level.color, letterSpacing: '0.05em', marginBottom: 6 }}>
           {level.name}
         </div>
         <div style={{ color: '#e2e8f0', fontSize: 14, marginBottom: 24 }}>You've reached a new rank!</div>

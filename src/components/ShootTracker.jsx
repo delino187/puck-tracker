@@ -1,4 +1,12 @@
 import { useRef, useEffect, useState } from 'react'
+
+const ENCOURAGE_MSGS = [
+  "Keep your head up when you shoot! 🏒",
+  "Stick with it!",
+  "Everyone sells sometimes, but winners keep at it 💪",
+  "Keep your head up and try another set",
+  "Don't look down at the puck. Lock in on your target!",
+]
 import { Target, CheckCircle, Zap, ChevronLeft } from 'lucide-react'
 import { ZONES } from '../constants/zones.js'
 import { C } from '../styles.js'
@@ -210,10 +218,17 @@ export default function ShootTracker({
             {Array.from({ length: puckAnim.hits }).map((_, i) => <span key={i} style={{ fontSize: 16 }}>🏒</span>)}
           </div>
           <div style={{
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700,
-            color: puckAnim.type === 'ice' ? '#60a5fa' : puckAnim.type === 'fire' ? '#f97316' : '#22c55e',
+            fontFamily: "'Barlow Condensed',sans-serif",
+            fontSize: puckAnim.type === 'ice' ? 12 : 14,
+            fontWeight: 700,
+            color: puckAnim.type === 'ice' ? '#fbbf24' : puckAnim.type === 'fire' ? '#f97316' : '#22c55e',
+            maxWidth: 220, lineHeight: 1.35,
           }}>
-            {puckAnim.type === 'fire' ? 'ON FIRE 🔥' : puckAnim.type === 'ice' ? 'FROZEN ❄️' : 'NICE ✅'}
+            {puckAnim.type === 'fire'
+              ? 'ON FIRE 🔥'
+              : puckAnim.type === 'ice'
+                ? ENCOURAGE_MSGS[puckAnim.ts % ENCOURAGE_MSGS.length]
+                : 'NICE ✅'}
           </div>
         </div>
       )}
