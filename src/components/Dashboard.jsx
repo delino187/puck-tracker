@@ -169,7 +169,7 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
                     : 'linear-gradient(135deg,#1e293b,#334155)',
                 }}>
                   <img
-                    src={`/src/assets/images/badges/${displayBadge.image}`}
+                    src={`/badges/${displayBadge.image}`}
                     alt={displayBadge.name}
                     style={{
                       width: '100%', height: '100%', objectFit: 'cover', display: 'block',
