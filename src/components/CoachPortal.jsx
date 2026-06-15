@@ -1,0 +1,414 @@
+import { useState } from 'react'
+import {
+  Plus, Trash2, Shuffle, CheckCircle, X, Zap, CalendarDays,
+  Swords, Users, Lock, ChevronLeft, History, Eye, EyeOff,
+  AlertCircle, Edit2, KeyRound, Trophy, Sun, Moon,
+} from 'lucide-react'
+import CoachLeaderboard from './CoachLeaderboard.jsx'
+import { ZONES } from '../constants/zones.js'
+import { getWeekStart, playerStats, calcXP, getLevel } from '../utils/stats.js'
+import { getPSessions } from '../utils/badgeHelpers.js'
+import { useTheme } from '../hooks/useTheme.js'
+import { C } from '../styles.js'
+import LevelBadge from './shared/LevelBadge.jsx'
+
+// ─── Challenge editor ─────────────────────────────────────────────────────────
+function CoachChallenges({ st, upd }) {
+  const [dZone,   setDZone]   = useState(st.dailyChallenge?.zone   || '')
+  const [dTarget, setDTarget] = useState(st.dailyChallenge?.target || '')
+  const [wZone,   setWZone]   = useState(st.weeklyChallenge?.zone  || '')
+  const [wTarget, setWTarget] = useState(st.weeklyChallenge?.target || '')
+  const [dSaved,  setDSaved]  = useState(!!st.dailyChallenge)
+  const [wSaved,  setWSaved]  = useState(!!st.weeklyChallenge)
+
+  return (
+    <div>
+      {/* Active challenges preview */}
+      {(st.dailyChallenge || st.weeklyChallenge) && (
+        <div style={{ background: '#0a0f1a', borderRadius: 10, padding: 14, border: '1px solid #334155', marginBottom: 14 }}>
+          <div style={C.label}>Active Challenges</div>
+          {st.dailyChallenge && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: st.weeklyChallenge ? '1px solid #1e3a5f' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Zap size={12} color="#f59e0b" />
+                <span style={{ color: '#f1f5f9', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13 }}>Daily: {ZONES.find(z => z.id === st.dailyChallenge.zone)?.label} — {st.dailyChallenge.target} hits</span>
+              </div>
+              <button style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }} onClick={() => { upd({ dailyChallenge: null }); setDSaved(false) }}><X size={14} /></button>
+            </div>
+          )}
+          {st.weeklyChallenge && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <CalendarDays size={12} color="#60a5fa" />
+                <span style={{ color: '#f1f5f9', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13 }}>Weekly: {ZONES.find(z => z.id === st.weeklyChallenge.zone)?.label} — {st.weeklyChallenge.target} hits</span>
+              </div>
+              <button style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }} onClick={() => { upd({ weeklyChallenge: null }); setWSaved(false) }}><X size={14} /></button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Daily challenge editor */}
+      <div style={C.card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 12 }}>
+          <Zap size={13} color="#f59e0b" />
+          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#f59e0b', letterSpacing: '0.08em' }}>DAILY CHALLENGE</span>
+        </div>
+        <label style={C.label}>Zone</label>
+        <select value={dZone} onChange={e => { setDZone(e.target.value); setDSaved(false) }} style={C.inp}>
+          <option value="">Select zone…</option>
+          {ZONES.map(z => <option key={z.id} value={z.id}>{z.label}</option>)}
+        </select>
+        <label style={C.label}>Target hits</label>
+        <input type="number" min="1" max="200" value={dTarget} onChange={e => { setDTarget(e.target.value); setDSaved(false) }} placeholder="e.g. 10" style={C.inp} />
+        <button
+          onClick={() => { if (!dZone || !dTarget) return; upd({ dailyChallenge: { zone: dZone, target: dTarget, source: 'coach', date: Date.now() } }); setDSaved(true) }}
+          style={{ width: '100%', background: dSaved ? '#064e3b' : '#f59e0b', color: dSaved ? '#6ee7b7' : '#000', border: 'none', borderRadius: 8, padding: '11px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.3s' }}
+        >
+          {dSaved ? <><CheckCircle size={14} />Published!</> : <><Zap size={14} />Publish Daily</>}
+        </button>
+      </div>
+
+      {/* Weekly challenge editor */}
+      <div style={C.card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 12 }}>
+          <CalendarDays size={13} color="#60a5fa" />
+          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#60a5fa', letterSpacing: '0.08em' }}>WEEKLY CHALLENGE</span>
+        </div>
+        <label style={C.label}>Zone</label>
+        <select value={wZone} onChange={e => { setWZone(e.target.value); setWSaved(false) }} style={C.inp}>
+          <option value="">Select zone…</option>
+          {ZONES.map(z => <option key={z.id} value={z.id}>{z.label}</option>)}
+        </select>
+        <label style={C.label}>Target hits</label>
+        <input type="number" min="1" max="500" value={wTarget} onChange={e => { setWTarget(e.target.value); setWSaved(false) }} placeholder="e.g. 50" style={C.inp} />
+        <button
+          onClick={() => { if (!wZone || !wTarget) return; upd({ weeklyChallenge: { zone: wZone, target: wTarget, source: 'coach', date: Date.now() } }); setWSaved(true) }}
+          style={{ width: '100%', background: wSaved ? '#1e3a5f' : '#1d4ed8', color: wSaved ? '#93c5fd' : '#fff', border: 'none', borderRadius: 8, padding: '11px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.3s' }}
+        >
+          {wSaved ? <><CheckCircle size={14} />Published!</> : <><CalendarDays size={14} />Publish Weekly</>}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Matchup editor ────────────────────────────────────────────────────────────
+function CoachMatchups({ st, upd }) {
+  const [p1, setP1]     = useState(st.h2h?.p1 || '')
+  const [p2, setP2]     = useState(st.h2h?.p2 || '')
+  const [saved, setSaved] = useState(!!st.h2h)
+
+  const ws = getWeekStart()
+
+  const randomize = () => {
+    if (st.players.length < 2) return
+    const s = [...st.players].sort(() => Math.random() - 0.5)
+    setP1(s[0].id); setP2(s[1].id); setSaved(false)
+  }
+
+  const cur = st.h2h?.p1 && st.h2h?.p2 ? {
+    p1: st.players.find(p => p.id === st.h2h.p1),
+    p2: st.players.find(p => p.id === st.h2h.p2),
+    s1: st.sessions.filter(s => s.playerId === st.h2h.p1 && new Date(s.date) >= ws).flatMap(s => s.sets).length * 10,
+    s2: st.sessions.filter(s => s.playerId === st.h2h.p2 && new Date(s.date) >= ws).flatMap(s => s.sets).length * 10,
+  } : null
+
+  return (
+    <div>
+      {/* Live matchup display */}
+      {cur?.p1 && cur?.p2 && (
+        <div style={{ background: '#0a0f1a', borderRadius: 10, padding: 14, border: '1px solid #334155', marginBottom: 14 }}>
+          <div style={C.label}>Current Matchup</div>
+          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+            {[{ p: cur.p1, s: cur.s1 }, { p: cur.p2, s: cur.s2 }].map((x, idx) => (
+              <div key={idx} style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 800, color: x.s > (idx === 0 ? cur.s2 : cur.s1) ? '#f59e0b' : '#f1f5f9' }}>{x.p?.name}</div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 34, fontWeight: 900, color: '#3b82f6' }}>{x.s}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={C.card}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Swords size={13} color="#ef4444" />
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#ef4444', letterSpacing: '0.08em' }}>SET MATCHUP</span>
+          </div>
+          <button onClick={randomize} style={{ background: '#1e3a5f', color: '#60a5fa', border: 'none', borderRadius: 6, padding: '5px 10px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Shuffle size={11} /> Random
+          </button>
+        </div>
+        {[['Player 1', p1, setP1], ['Player 2', p2, setP2]].map(([lbl, val, setter]) => (
+          <div key={lbl}>
+            <label style={C.label}>{lbl}</label>
+            <select value={val} onChange={e => { setter(e.target.value); setSaved(false) }} style={C.inp}>
+              <option value="">Select player…</option>
+              {st.players.map(p => <option key={p.id} value={p.id}>{p.name}{p.jerseyNum ? ` #${p.jerseyNum}` : ''}</option>)}
+            </select>
+          </div>
+        ))}
+        <button
+          onClick={() => { if (!p1 || !p2 || p1 === p2) return; upd({ h2h: { p1, p2, set: Date.now() } }); setSaved(true) }}
+          style={{ width: '100%', background: saved ? '#064e3b' : '#ef4444', color: saved ? '#6ee7b7' : '#fff', border: 'none', borderRadius: 8, padding: '11px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.3s' }}
+        >
+          {saved ? <><CheckCircle size={14} />Matchup Set!</> : <><Swords size={14} />Set Matchup</>}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Roster manager ───────────────────────────────────────────────────────────
+function CoachRoster({ st, upd }) {
+  const [selectedPlayer, setSelectedPlayer] = useState(null)
+  const [editPw,   setEditPw]   = useState('')
+  const [showPw,   setShowPw]   = useState({})
+  const [savingPw, setSavingPw] = useState(false)
+  const [msgDraft, setMsgDraft] = useState('')
+  const [msgSaved, setMsgSaved] = useState(false)
+
+  if (selectedPlayer) {
+    const p = st.players.find(x => x.id === selectedPlayer)
+    if (!p) { setSelectedPlayer(null); return null }
+    const pss = [...st.sessions.filter(s => s.playerId === p.id)].sort((a, b) => new Date(b.date) - new Date(a.date))
+
+    return (
+      <div>
+        <button onClick={() => setSelectedPlayer(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, marginBottom: 16 }}>
+          <ChevronLeft size={16} /> Back to Roster
+        </button>
+
+        {/* Player card with password editor */}
+        <div style={{ ...C.card, marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, fontWeight: 900, color: '#f1f5f9' }}>
+                {p.name}{p.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{p.jerseyNum}</span> : ''}
+              </div>
+              <LevelBadge li={getLevel(calcXP(getPSessions(p, st.sessions).flatMap(s => s.sets).length * 10, getPSessions(p, st.sessions).flatMap(s => s.sets).reduce((a, x) => a + x.hits, 0))).li} />
+            </div>
+          </div>
+
+          {/* Password */}
+          <div style={{ marginTop: 12 }}>
+            <div style={C.label}><KeyRound size={11} style={{ display: 'inline', marginRight: 4 }} />Player Password</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <input
+                  type={showPw[p.id] ? 'text' : 'password'}
+                  value={editPw}
+                  onChange={e => setEditPw(e.target.value)}
+                  placeholder={p.password ? 'Change password…' : 'Set a password…'}
+                  style={{ ...C.inp, marginBottom: 0, paddingRight: 36 }}
+                />
+                <button onClick={() => setShowPw(s => ({ ...s, [p.id]: !s[p.id] }))} style={{ position: 'absolute', right: 10, top: 10, background: 'transparent', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>
+                  {showPw[p.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <button
+                onClick={() => { upd({ players: st.players.map(x => x.id === p.id ? { ...x, password: editPw.trim() } : x) }); setSavingPw(true); setTimeout(() => setSavingPw(false), 1500) }}
+                style={{ background: '#1e3a5f', color: '#60a5fa', border: '1px solid #1e3a5f', borderRadius: 8, padding: '9px 14px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                {savingPw ? <><CheckCircle size={12} />Saved</> : <><Edit2 size={12} />Save</>}
+              </button>
+            </div>
+            {p.password && (
+              <div style={{ color: '#94a3b8', fontSize: 11, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Lock size={10} /> Current: {showPw[p.id] ? p.password : '••••••••'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Coach message composer */}
+        <div style={{ ...C.card, marginBottom: 12, borderColor: '#f59e0b33' }}>
+          <div style={C.label}><AlertCircle size={11} style={{ display: 'inline', marginRight: 4 }} />Message to Player</div>
+          {p.coachMsg && (
+            <div style={{ background: '#1a1200', border: '1px solid #f59e0b55', borderRadius: 8, padding: '8px 10px', marginBottom: 8, color: '#fde68a', fontSize: 13, fontFamily: 'Barlow' }}>
+              Pending: "{p.coachMsg}"
+            </div>
+          )}
+          <textarea
+            value={msgDraft}
+            onChange={e => { setMsgDraft(e.target.value); setMsgSaved(false) }}
+            placeholder="e.g. Great work this week — focus on Bar Down today!"
+            rows={3}
+            style={{ ...C.inp, resize: 'vertical', fontFamily: 'Barlow' }}
+          />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => { if (!msgDraft.trim()) return; upd({ players: st.players.map(x => x.id === p.id ? { ...x, coachMsg: msgDraft.trim() } : x) }); setMsgSaved(true); setMsgDraft('') }}
+              style={{ flex: 1, background: msgSaved ? '#064e3b' : '#f59e0b', color: msgSaved ? '#6ee7b7' : '#000', border: 'none', borderRadius: 8, padding: '10px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+            >
+              {msgSaved ? <><CheckCircle size={13} />Sent!</> : <>Send Message</>}
+            </button>
+            {p.coachMsg && (
+              <button
+                onClick={() => { upd({ players: st.players.map(x => x.id === p.id ? { ...x, coachMsg: '' } : x) }); setMsgSaved(false) }}
+                style={{ background: 'transparent', color: '#f87171', border: '1px solid #475569', borderRadius: 8, padding: '10px 14px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Session history */}
+        <div style={C.label}><History size={11} style={{ display: 'inline', marginRight: 4 }} />Session History ({pss.length})</div>
+        {pss.length === 0 ? (
+          <div style={{ color: '#94a3b8', textAlign: 'center', padding: 24, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14 }}>No sessions yet</div>
+        ) : pss.map(s => {
+          const shots = s.sets.length * 10
+          const hits  = s.sets.reduce((a, x) => a + x.hits, 0)
+          const acc   = shots > 0 ? hits / shots * 100 : 0
+          return (
+            <div key={s.id} style={{ background: '#0a0f1a', borderRadius: 10, padding: '12px 14px', marginBottom: 8, border: '1px solid #334155' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#94a3b8' }}>
+                    {new Date(s.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                  <div style={{ color: '#94a3b8', fontSize: 11 }}>
+                    {new Date(s.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, textAlign: 'center' }}>
+                  {[{ v: shots, l: 'shots', c: '#60a5fa' }, { v: hits, l: 'hits', c: '#34d399' }, { v: acc.toFixed(0) + '%', l: 'acc', c: '#fbbf24' }].map(({ v, l, c }) => (
+                    <div key={l}>
+                      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 18, fontWeight: 800, color: c, lineHeight: 1 }}>{v}</div>
+                      <div style={{ color: '#94a3b8', fontSize: 9 }}>{l}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Roster list
+  return (
+    <div>
+      {st.players.length === 0 ? (
+        <div style={{ color: '#94a3b8', textAlign: 'center', padding: 32, fontFamily: "'Barlow Condensed',sans-serif" }}>No players yet</div>
+      ) : [...st.players].map(p => {
+        const stats = playerStats(p, st.sessions)
+        const hasPw = !!p.password
+        return (
+          <div key={p.id} style={{ background: '#1e293b', borderRadius: 10, padding: '12px 14px', marginBottom: 8, border: '1px solid #334155' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 17, fontWeight: 800, color: '#f1f5f9' }}>
+                    {p.name}{p.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{p.jerseyNum}</span> : ''}
+                  </span>
+                  <LevelBadge li={stats.li} />
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#cbd5e1' }}>
+                    {stats.totalShots} shots · {stats.totalShots > 0 ? stats.acc.toFixed(0) : 0}%
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: hasPw ? '#34d399' : '#94a3b8', fontSize: 11, fontFamily: "'Barlow Condensed',sans-serif" }}>
+                    <Lock size={10} /> {hasPw ? 'Protected' : 'No password'}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <button
+                  style={{ background: '#1e3a5f', color: '#60a5fa', border: 'none', borderRadius: 6, padding: '6px 10px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
+                  onClick={() => { setSelectedPlayer(p.id); setEditPw(''); setMsgDraft(''); setMsgSaved(false) }}
+                >
+                  <History size={11} /> View
+                </button>
+                <button
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 4 }}
+                  onClick={() => { if (confirm(`Remove ${p.name}?`)) upd({ players: st.players.filter(x => x.id !== p.id), sessions: st.sessions.filter(s => s.playerId !== p.id) }) }}
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Main Coach Panel ─────────────────────────────────────────────────────────
+export default function CoachPortal({ st, upd }) {
+  const [cTab, setCTab] = useState('challenges')
+  const { isOutside, toggleOutsideMode } = useTheme()
+  const tabs = [
+    { id: 'challenges',  label: 'Challenges', Icon: Zap    },
+    { id: 'matchups',    label: 'Matchups',   Icon: Swords  },
+    { id: 'roster',      label: 'Roster',     Icon: Users   },
+    { id: 'leaderboard', label: 'Leaders',    Icon: Trophy  },
+  ]
+
+  return (
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#0a0f1a,#0a1628)', color: '#e2e8f0', fontFamily: 'Barlow,sans-serif' }}>
+      <div style={{ maxWidth: 520, margin: '0 auto', paddingBottom: 40 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 0' }}>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 24, color: '#f1f5f9' }}>COACH PANEL</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              style={{ background: '#1e3a5f', color: '#60a5fa', border: 'none', borderRadius: 8, padding: '7px 12px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+              onClick={() => upd({ view: 'addPlayer' })}
+            >
+              <Plus size={13} /> Add Player
+            </button>
+            <button
+              style={{ background: 'transparent', color: '#94a3b8', border: '1px solid #334155', borderRadius: 8, padding: '7px 12px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}
+              onClick={() => upd({ view: 'home' })}
+            >
+              <Lock size={13} /> Lock
+            </button>
+            <button
+              onClick={toggleOutsideMode}
+              title={isOutside ? 'Switch to Dark Mode' : 'Switch to Outside Mode'}
+              style={{
+                background: isOutside ? '#0f172a' : '#1e3a5f',
+                border: isOutside ? 'none' : '1px solid #3b82f633',
+                borderRadius: 8, cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                padding: '5px 7px', gap: 1,
+                color: isOutside ? '#ffffff' : '#60a5fa',
+              }}
+            >
+              {isOutside ? <Moon size={13} strokeWidth={2} /> : <Sun size={13} strokeWidth={2} />}
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 7, fontWeight: 800, letterSpacing: '0.05em', lineHeight: 1 }}>
+                {isOutside ? 'DARK' : 'OUTSIDE'}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Tab bar */}
+        <div style={{ display: 'flex', borderBottom: '1px solid #1e3a5f', margin: '14px 0 0' }}>
+          {tabs.map(t => {
+            const sel = cTab === t.id
+            return (
+              <button key={t.id} onClick={() => setCTab(t.id)} style={{ flex: 1, padding: '10px 4px 8px', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: `2px solid ${sel ? '#3b82f6' : 'transparent'}`, color: sel ? '#3b82f6' : '#94a3b8', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: sel ? 700 : 500, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                <t.Icon size={15} /> {t.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <div style={{ padding: 16 }}>
+          {cTab === 'challenges'  && <CoachChallenges  st={st} upd={upd} />}
+          {cTab === 'matchups'    && <CoachMatchups    st={st} upd={upd} />}
+          {cTab === 'roster'      && <CoachRoster       st={st} upd={upd} />}
+          {cTab === 'leaderboard' && <CoachLeaderboard  st={st} />}
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,482 @@
+import { useState, useEffect, useRef } from 'react'
+import { AlertCircle, Plus, Lock } from 'lucide-react'
+
+import { loadSt, saveSt, DEFAULT_STATE } from './utils/storage.js'
+import { playerStats, newId }            from './utils/stats.js'
+import { BADGES }                        from './constants/badges.js'
+import { useAudio }                      from './hooks/useAudio.js'
+import { useTheme }                      from './hooks/useTheme.js'
+
+import HomeScreen         from './components/screens/HomeScreen.jsx'
+import PlayerSelectScreen from './components/screens/PlayerSelectScreen.jsx'
+import ChallengesTab      from './components/screens/ChallengesTab.jsx'
+
+import Dashboard        from './components/Dashboard.jsx'
+import ShootTracker     from './components/ShootTracker.jsx'
+import Games            from './components/Games.jsx'
+import StreakHub        from './components/StreakHub.jsx'
+import TeamLeaderboards from './components/TeamLeaderboards.jsx'
+import GoalHeatmap      from './components/GoalHeatmap.jsx'
+import BadgeGrid        from './components/BadgeGrid.jsx'
+import RanksTab         from './components/RanksTab.jsx'
+import CoachPortal      from './components/CoachPortal.jsx'
+
+import TabBar        from './components/shared/TabBar.jsx'
+import PlayerHeader  from './components/shared/PlayerHeader.jsx'
+import GlobalStyles  from './components/shared/GlobalStyles.jsx'
+import Scaffold      from './components/shared/Scaffold.jsx'
+
+import BadgePopup    from './components/overlays/BadgePopup.jsx'
+import LevelUpPopup  from './components/overlays/LevelUpPopup.jsx'
+import CelebOverlay  from './components/overlays/CelebOverlay.jsx'
+import CoachMsgPopup from './components/overlays/CoachMsgPopup.jsx'
+
+import { C, APP_BG } from './styles.js'
+
+export default function App() {
+  const [st,          setSt]         = useState(null)
+  const [loading,     setLoading]    = useState(true)
+  const [tab,         setTab]        = useState('dashboard')
+  const [sesGoal,     setSesGoal]    = useState(10)
+  const [badgePreview,setBadgePreview] = useState(null)
+  const [levelPopup,  setLevelPopup] = useState(null)
+  const [celeb,       setCeleb]      = useState(null)
+  const [newBadgeIds, setNewBadgeIds] = useState({})
+  const [flashZone,   setFlashZone]  = useState(null)
+  const [flashType,   setFlashType]  = useState(null)
+  const [puckAnim,    setPuckAnim]   = useState(null)
+  const [pinInput,    setPinInput]   = useState('')
+  const [pinErr,      setPinErr]     = useState(false)
+  const [npName,      setNpName]     = useState('')
+  const [npNum,       setNpNum]      = useState('')
+  const [npPw,        setNpPw]       = useState('')
+
+  const badgeQRef = useRef([])
+  const play      = useAudio()
+  const { theme, toggleOutsideMode } = useTheme()
+
+  // ── Boot: Firestore → localStorage fallback ───────────────────────────────
+  useEffect(() => {
+    loadSt().then(saved => {
+      setSt(saved || { ...DEFAULT_STATE })
+      setLoading(false)
+    })
+  }, [])
+
+  // ── Persist: localStorage + Firestore on every state change ───────────────
+  useEffect(() => {
+    if (st) saveSt(st)
+  }, [st])
+
+  const upd = patch => setSt(prev => ({ ...prev, ...patch }))
+
+  // ── Loading splash ────────────────────────────────────────────────────────
+  if (loading || !st) {
+    return (
+      <div style={{ ...APP_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <GlobalStyles />
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, color: '#60a5fa', letterSpacing: '0.1em' }}>
+          LOADING…
+        </div>
+      </div>
+    )
+  }
+
+  const aPlayer = st.players.find(p => p.id === st.activePlayerId)
+  const aSess   = st.sessions.find(s => s.id === st.activeSessionId)
+
+  // ── Badge queue helpers ───────────────────────────────────────────────────
+  function popNextBadge() {
+    if (badgeQRef.current.length === 0) return
+    const next = badgeQRef.current.shift()
+    setBadgePreview({ badge: next })
+    play('badge')
+  }
+
+  function handleBadgeClose() {
+    setBadgePreview(null)
+    setTimeout(popNextBadge, 150)
+  }
+
+  // ── Session handlers ──────────────────────────────────────────────────────
+  function startSession() {
+    const sid = newId()
+    const s   = { id: sid, playerId: aPlayer.id, sets: [], date: new Date().toISOString() }
+    upd({ sessions: [...st.sessions, s], activeSessionId: sid })
+  }
+
+  function endSession() {
+    if (!aSess) return
+    const shots = aSess.sets.length * 10
+    const hits  = aSess.sets.reduce((a, s) => a + s.hits, 0)
+    play('confetti')
+    setCeleb({
+      emoji: '💪',
+      title: 'Session Done!',
+      subtitle: `${shots} shots · ${shots > 0 ? (hits / shots * 100).toFixed(0) : 0}% accuracy`,
+    })
+    upd({ activeSessionId: null })
+    setTab('dashboard')
+  }
+
+  function handleLogSet(zoneId, hits) {
+    if (!aSess || !aPlayer) return
+
+    const set         = { zone: zoneId, hits, ts: Date.now() }
+    const updSessions = st.sessions.map(s =>
+      s.id === aSess.id ? { ...s, sets: [...s.sets, set] } : s
+    )
+
+    // Sound + animations
+    const type = hits === 0 ? 'ice' : hits >= 8 ? 'fire' : 'hit'
+    play(type)
+    setPuckAnim({ hits, type, zone: zoneId, ts: Date.now() })
+    setFlashZone(zoneId)
+    setFlashType(type)
+    setTimeout(() => { setFlashZone(null); setFlashType(null) }, 900)
+    setTimeout(() => setPuckAnim(null), 1800)
+
+    // Level-up detection
+    const prevLi = playerStats(aPlayer, st.sessions).li
+    const newSt  = playerStats(aPlayer, updSessions)
+    if (newSt.li > prevLi) {
+      play('levelup')
+      setLevelPopup(newSt.level)
+    }
+
+    // Badge check
+    const already   = { ...(aPlayer.earnedBadges || {}) }
+    const newBadges = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
+
+    let updPlayers = st.players
+    if (newBadges.length) {
+      const now = Date.now()
+      newBadges.forEach(b => { already[b.id] = { ts: now } })
+      updPlayers = st.players.map(p =>
+        p.id === aPlayer.id ? { ...p, earnedBadges: already } : p
+      )
+      setNewBadgeIds(prev => {
+        const n = { ...prev }
+        newBadges.forEach(b => { n[b.id] = true })
+        return n
+      })
+      badgeQRef.current.push(...newBadges)
+      setBadgePreview(cur => {
+        if (cur) return cur
+        const next = badgeQRef.current.shift()
+        if (next) play('badge')
+        return next ? { badge: next } : null
+      })
+    }
+
+    upd({ sessions: updSessions, players: updPlayers })
+  }
+
+  function handleLogAll(inputs) {
+    // inputs: { [zoneId]: number } — one entry per zone the user filled in
+    if (!aSess || !aPlayer) return
+    const entries = Object.entries(inputs).filter(([, v]) => v !== '' && v !== undefined && v !== null)
+    if (!entries.length) return
+
+    const ts      = Date.now()
+    const newSets = entries.map(([zone, hits]) => ({ zone, hits: Number(hits), ts }))
+
+    const updSessions = st.sessions.map(s =>
+      s.id === aSess.id ? { ...s, sets: [...(s.sets || []), ...newSets] } : s
+    )
+
+    play('confetti')
+
+    // Level-up detection
+    const prevLi = playerStats(aPlayer, st.sessions).li
+    const newSt  = playerStats(aPlayer, updSessions)
+    if (newSt.li > prevLi) {
+      play('levelup')
+      setLevelPopup(newSt.level)
+    }
+
+    // Badge check
+    const already   = { ...(aPlayer.earnedBadges || {}) }
+    const newBadges = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
+
+    let updPlayers = st.players
+    if (newBadges.length) {
+      const now = Date.now()
+      newBadges.forEach(b => { already[b.id] = { ts: now } })
+      updPlayers = st.players.map(p =>
+        p.id === aPlayer.id ? { ...p, earnedBadges: already } : p
+      )
+      setNewBadgeIds(prev => {
+        const n = { ...prev }
+        newBadges.forEach(b => { n[b.id] = true })
+        return n
+      })
+      badgeQRef.current.push(...newBadges)
+      setBadgePreview(cur => {
+        if (cur) return cur
+        const next = badgeQRef.current.shift()
+        if (next) play('badge')
+        return next ? { badge: next } : null
+      })
+    }
+
+    upd({ sessions: updSessions, players: updPlayers })
+  }
+
+  // ── Routing ───────────────────────────────────────────────────────────────
+  if (st.view === 'home') {
+    return (
+      <>
+        <GlobalStyles />
+        <HomeScreen st={st} upd={upd} />
+      </>
+    )
+  }
+
+  if (st.view === 'playerSelect') {
+    return (
+      <>
+        <GlobalStyles />
+        <PlayerSelectScreen
+          players={st.players}
+          sessions={st.sessions}
+          onSelect={id => {
+            upd({ activePlayerId: id, activeSessionId: null, view: 'player' })
+            setTab('dashboard')
+          }}
+          onBack={() => upd({ view: 'home' })}
+        />
+      </>
+    )
+  }
+
+  if (st.view === 'coachPin') {
+    return (
+      <>
+        <GlobalStyles />
+        <Scaffold onBack={() => upd({ view: 'home' })} title="Coach Login">
+          <div style={C.card}>
+            <input
+              type="password"
+              inputMode="numeric"
+              value={pinInput}
+              maxLength={6}
+              onChange={e => { setPinInput(e.target.value); setPinErr(false) }}
+              placeholder="PIN"
+              style={{ ...C.inp, textAlign: 'center', fontSize: 26, letterSpacing: 10, marginBottom: 10 }}
+            />
+            {pinErr && (
+              <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <AlertCircle size={12} /> Incorrect PIN
+              </div>
+            )}
+            <button
+              style={C.btnP}
+              onClick={() => {
+                if (pinInput === '1969') { upd({ view: 'coach' }); setPinInput('') }
+                else setPinErr(true)
+              }}
+            >
+              <Lock size={15} /> Unlock
+            </button>
+          </div>
+        </Scaffold>
+      </>
+    )
+  }
+
+  if (st.view === 'coach') {
+    return (
+      <>
+        <GlobalStyles />
+        <CoachPortal st={st} upd={upd} />
+      </>
+    )
+  }
+
+  if (st.view === 'addPlayer') {
+    return (
+      <>
+        <GlobalStyles />
+        <Scaffold onBack={() => upd({ view: 'coach' })} title="Add Player">
+          <div style={C.card}>
+            <label style={C.label}>Player Name</label>
+            <input
+              value={npName}
+              onChange={e => setNpName(e.target.value)}
+              placeholder="e.g. Connor"
+              style={C.inp}
+            />
+            <label style={C.label}>Jersey # (optional)</label>
+            <input
+              value={npNum}
+              onChange={e => setNpNum(e.target.value)}
+              placeholder="e.g. 97"
+              style={C.inp}
+            />
+            <label style={C.label}>Password (optional — auto-generated if blank)</label>
+            <input
+              value={npPw}
+              onChange={e => setNpPw(e.target.value)}
+              placeholder="Leave blank for auto"
+              style={C.inp}
+            />
+            <button
+              style={C.btnP}
+              onClick={() => {
+                if (!npName.trim()) return
+                const base  = npName.trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 6) || 'player'
+                const autoPw = `${base}${Math.floor(100 + Math.random() * 900)}`
+                const p = {
+                  id: newId(),
+                  name: npName.trim(),
+                  jerseyNum: npNum.trim(),
+                  password: npPw.trim() || autoPw,
+                  earnedBadges: {},
+                  createdAt: Date.now(),
+                }
+                upd({ players: [...st.players, p], view: 'coach' })
+                setNpName(''); setNpNum(''); setNpPw('')
+              }}
+            >
+              <Plus size={16} /> Add to Roster
+            </button>
+          </div>
+        </Scaffold>
+      </>
+    )
+  }
+
+  // ── Player view ───────────────────────────────────────────────────────────
+  if (st.view === 'player' && aPlayer) {
+    const stats          = playerStats(aPlayer, st.sessions)
+    const earnedBadgeObj = aPlayer.earnedBadges || {}
+
+    return (
+      <div style={{ ...APP_BG, minHeight: '100vh', position: 'relative' }}>
+        <GlobalStyles />
+
+        {levelPopup && <LevelUpPopup level={levelPopup} onClose={() => setLevelPopup(null)} />}
+        {celeb      && <CelebOverlay data={celeb}       onClose={() => setCeleb(null)} />}
+        {aPlayer.coachMsg && (
+          <CoachMsgPopup
+            message={aPlayer.coachMsg}
+            onAck={() => upd({
+              players: st.players.map(p => p.id === aPlayer.id ? { ...p, coachMsg: '' } : p)
+            })}
+          />
+        )}
+        {badgePreview && (
+          <BadgePopup
+            badge={badgePreview.badge}
+            earned={!!earnedBadgeObj[badgePreview.badge.id]}
+            earnedDate={earnedBadgeObj[badgePreview.badge.id]?.ts}
+            onClose={handleBadgeClose}
+          />
+        )}
+
+        <PlayerHeader
+          player={aPlayer}
+          stats={stats}
+          onBack={() => upd({ view: 'playerSelect', activePlayerId: null, activeSessionId: null })}
+          theme={theme}
+          onThemeToggle={toggleOutsideMode}
+          onStreakClick={() => setTab('streak')}
+        />
+        <TabBar active={tab} onChange={setTab} hasSess={!!aSess} />
+
+        <div style={{ maxWidth: 520, margin: '0 auto' }}>
+          {tab === 'dashboard' && (
+            <Dashboard
+              player={aPlayer}
+              stats={stats}
+              sessions={st.sessions}
+              dailyChallenge={st.dailyChallenge}
+              weeklyChallenge={st.weeklyChallenge}
+              players={st.players}
+              newBadgeIds={newBadgeIds}
+              onBadgeClick={b => setBadgePreview({ badge: b })}
+              onStartSession={() => { startSession(); setTab('session') }}
+            />
+          )}
+          {tab === 'session' && (
+            <ShootTracker
+              player={aPlayer}
+              session={aSess}
+              sesGoal={sesGoal}
+              setSesGoal={setSesGoal}
+              onLogSet={handleLogSet}
+              onLogAll={handleLogAll}
+              onEndSession={endSession}
+              onStart={startSession}
+              dailyChallenge={st.dailyChallenge}
+              weeklyChallenge={st.weeklyChallenge}
+              flashZone={flashZone}
+              flashType={flashType}
+              puckAnim={puckAnim}
+            />
+          )}
+          {tab === 'games' && (
+            <Games
+              player={aPlayer}
+              sessions={st.sessions}
+              onSubmitGame={gameSession => upd({ sessions: [...st.sessions, gameSession] })}
+            />
+          )}
+          {tab === 'challenges' && (
+            <ChallengesTab
+              player={aPlayer}
+              sessions={st.sessions}
+              dailyChallenge={st.dailyChallenge}
+              weeklyChallenge={st.weeklyChallenge}
+              h2h={st.h2h}
+              players={st.players}
+            />
+          )}
+          {tab === 'streak' && (
+            <StreakHub
+              player={aPlayer}
+              stats={stats}
+              sessions={st.sessions}
+              players={st.players}
+              onPurchase={() => {}}
+              onBadgeClick={b => setBadgePreview({ badge: b })}
+            />
+          )}
+          {tab === 'board' && (
+            <TeamLeaderboards
+              player={aPlayer}
+              players={st.players}
+              sessions={st.sessions}
+              h2h={st.h2h}
+            />
+          )}
+          {tab === 'stats' && (
+            <GoalHeatmap
+              player={aPlayer}
+              stats={stats}
+              sessions={st.sessions}
+            />
+          )}
+          {tab === 'badges' && (
+            <BadgeGrid
+              player={aPlayer}
+              sessions={st.sessions}
+              newBadgeIds={newBadgeIds}
+              onBadgeClick={b => setBadgePreview({ badge: b })}
+            />
+          )}
+          {tab === 'ranks' && <RanksTab stats={stats} />}
+        </div>
+      </div>
+    )
+  }
+
+  // Fallback — shouldn't be reached but guards against bad view state
+  return (
+    <>
+      <GlobalStyles />
+      <HomeScreen st={st} upd={upd} />
+    </>
+  )
+}

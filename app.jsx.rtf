@@ -1,0 +1,922 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2868
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\margl1440\margr1440\vieww11520\viewh8400\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 import \{ useState, useEffect, useRef, useCallback \} from "react";\
+import \{\
+  Flame, Trophy, Star, Target, Clock, Shield, Leaf, Zap, Award,\
+  ChevronLeft, Lock, Users, BarChart2, Plus, Trash2, Shuffle,\
+  CheckCircle, X, TrendingUp, CalendarDays, Timer, Swords,\
+  LayoutDashboard, ListChecks, AlertCircle, Moon, Sunrise, Info,\
+  Eye, EyeOff, Edit2, History, KeyRound\
+\} from "lucide-react";\
+\
+// \uc0\u9472 \u9472 \u9472  LEVELS \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+const LEVELS = [\
+  \{ name:"Mite",         color:"#22c55e", bg:"linear-gradient(135deg,#052e16,#14532d)", glow:"#22c55e", icon:"\uc0\u55357 \u56355 ", xpNeeded:0    \},\
+  \{ name:"Bronze",       color:"#e3954f", bg:"linear-gradient(135deg,#3d1f0a,#6b3a1a)", glow:"#e3954f", icon:"\uc0\u55358 \u56649 ", xpNeeded:250  \},\
+  \{ name:"Silver",       color:"#d4d4d4", bg:"linear-gradient(135deg,#2a2a2a,#4a4a4a)", glow:"#d4d4d4", icon:"\uc0\u55358 \u56648 ", xpNeeded:450  \},\
+  \{ name:"Gold",         color:"#ffd700", bg:"linear-gradient(135deg,#2d2500,#5a4800)", glow:"#ffd700", icon:"\uc0\u55358 \u56647 ", xpNeeded:700  \},\
+  \{ name:"Platinum",     color:"#22d3ee", bg:"linear-gradient(135deg,#001f2a,#003a4d)", glow:"#22d3ee", icon:"\uc0\u55357 \u56480 ", xpNeeded:1100 \},\
+  \{ name:"Diamond",      color:"#a5f3fc", bg:"linear-gradient(135deg,#001f2a,#002d3d)", glow:"#a5f3fc", icon:"\uc0\u55357 \u56462 ", xpNeeded:1700 \},\
+  \{ name:"Onyx",         color:"#c084fc", bg:"linear-gradient(135deg,#1a0a2e,#2d1050)", glow:"#c084fc", icon:"\uc0\u11041 ", xpNeeded:2600 \},\
+  \{ name:"Semi Pro",     color:"#fb923c", bg:"linear-gradient(135deg,#1a0800,#3d1500)", glow:"#fb923c", icon:"\uc0\u55356 \u57298 ", xpNeeded:3800 \},\
+  \{ name:"Pro",          color:"#f472b6", bg:"linear-gradient(135deg,#1a001a,#3d0030)", glow:"#f472b6", icon:"\uc0\u55356 \u57285 ", xpNeeded:5500 \},\
+  \{ name:"Elite Sniper", color:"#f87171", bg:"linear-gradient(135deg,#1a0000,#3d0000)", glow:"#f87171", icon:"\uc0\u55356 \u57263 ", xpNeeded:8000 \},\
+];\
+\
+const ZONES = [\
+  \{ id:"top_left",    label:"Top Left",    short:"TL" \},\
+  \{ id:"top_right",   label:"Top Right",   short:"TR" \},\
+  \{ id:"bar_down",    label:"Bar Down",    short:"BD" \},\
+  \{ id:"left_post",   label:"Left Post",   short:"LP" \},\
+  \{ id:"right_post",  label:"Right Post",  short:"RP" \},\
+  \{ id:"low_glove",   label:"Low Glove",   short:"LG" \},\
+  \{ id:"low_blocker", label:"Low Blocker", short:"LB" \},\
+];\
+\
+// Net positions \'96 enlarged, repositioned\
+// Bar Down = wide rectangle under crossbar\
+// TL/TR in corners touching posts\
+// LG/LB touching posts, mid-height\
+const NET_POS = \{\
+  top_left:    \{ cx:56,   cy:64,  r:27 \},\
+  top_right:   \{ cx:344,  cy:64,  r:27 \},\
+  bar_down:    \{ rect:true, x:92, y:40, w:216, h:26 \},\
+  left_post:   \{ cx:30,   cy:122, r:20 \},\
+  right_post:  \{ cx:370,  cy:122, r:20 \},\
+  low_glove:   \{ cx:60,   cy:178, r:27 \},\
+  low_blocker: \{ cx:340,  cy:178, r:27 \},\
+\};\
+\
+const TIER = \{\
+  1:\{ ring:"#6b7280", glow:"#6b728055", bg:"linear-gradient(135deg,#1f2937,#374151)", icon:"#e5e7eb", label:"Common",    desc:"Entry-level achievements" \},\
+  2:\{ ring:"#3b82f6", glow:"#3b82f655", bg:"linear-gradient(135deg,#1e3a5f,#1e4976)", icon:"#93c5fd", label:"Rare",      desc:"Solid accomplishments" \},\
+  3:\{ ring:"#f59e0b", glow:"#f59e0b55", bg:"linear-gradient(135deg,#451a03,#78350f)", icon:"#fde68a", label:"Epic",      desc:"Impressive milestones" \},\
+  4:\{ ring:"#a855f7", glow:"#a855f755", bg:"linear-gradient(135deg,#2e1065,#4c1d95)", icon:"#e9d5ff", label:"Legendary", desc:"Elite-level achievements" \},\
+\};\
+\
+// \uc0\u9472 \u9472 \u9472  HEAT MAP: linear Statcast Blue (#0000FF, cold) \u8594  Red (#FF0000, hot) \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function heatColor(acc, hasData) \{\
+  if (!hasData || acc === null) return \{ fill:"rgba(30,41,59,0.7)", stroke:"rgba(71,85,105,0.95)", text:"#94a3b8" \};\
+  const t = Math.max(0, Math.min(1, acc / 100));\
+  const r = Math.round(255 * t);\
+  const b = Math.round(255 * (1 - t));\
+  const g = Math.round(34 * (1 - Math.abs(t - 0.5) * 2)); // faint mid lift for legibility\
+  return \{\
+    fill:`rgba($\{r\},$\{g\},$\{b\},0.9)`,\
+    stroke:`rgba($\{Math.min(255,r+55)\},$\{Math.min(255,g+70)\},$\{Math.min(255,b+55)\},1)`,\
+    text:"#fff"\
+  \};\
+\}\
+\
+// \uc0\u9472 \u9472 \u9472  BADGE HELPERS \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function getPSessions(player,sessions)\{return sessions.filter(s=>s.playerId===player.id);\}\
+function lifetimeShots(p,s)\{return getPSessions(p,s).reduce((a,x)=>a+x.sets.length*10,0);\}\
+function zoneHits(p,s,zones)\{return getPSessions(p,s).flatMap(x=>x.sets).filter(st=>zones.includes(st.zone)).reduce((a,st)=>a+st.hits,0);\}\
+function dayStreak(p,s)\{\
+  const days=[...new Set(getPSessions(p,s).map(x=>new Date(x.date).toDateString()))].sort((a,b)=>new Date(b)-new Date(a));\
+  if(!days.length)return 0;\
+  const today=new Date().toDateString(),yest=new Date(Date.now()-86400000).toDateString();\
+  if(days[0]!==today&&days[0]!==yest)return 0;\
+  let n=1;for(let i=1;i<days.length;i++)\{if((new Date(days[i-1])-new Date(days[i]))/86400000===1)n++;else break;\}return n;\
+\}\
+function maxShotsInDay(p,s)\{const m=\{\};getPSessions(p,s).forEach(x=>\{const d=new Date(x.date).toDateString();m[d]=(m[d]||0)+x.sets.length*10;\});return Math.max(0,...Object.values(m));\}\
+function maxSessionsInDay(p,s)\{const m=\{\};getPSessions(p,s).forEach(x=>\{const d=new Date(x.date).toDateString();m[d]=(m[d]||0)+1;\});return Math.max(0,...Object.values(m));\}\
+function sessionTimeCheck(p,s,after,before)\{return getPSessions(p,s).some(x=>\{const h=new Date(x.date).getHours();return after!==null?h>=after:h<before;\});\}\
+function chirpProof(p,s)\{for(const z of ZONES)\{const sets=getPSessions(p,s).flatMap(x=>x.sets.filter(st=>st.zone===z.id));if(sets.length>=2&&sets[0].hits===0&&sets[sets.length-1].hits/10>=0.4)return true;\}return false;\}\
+function hasCelery(p,s)\{return getPSessions(p,s).some(x=>x.sets.some(st=>st.hits===0));\}\
+function challengesCompleted(p,s)\{return getPSessions(p,s).reduce((a,x)=>a+(x.challengeComplete?1:0),0);\}\
+function perfectEveryZone(p,s)\{const sets=getPSessions(p,s).flatMap(x=>x.sets);return ZONES.every(z=>sets.some(st=>st.zone===z.id&&st.hits===10));\}\
+\
+const BADGES=[\
+  \{id:"s1",  name:"Spark",          desc:"1-day streak",          cat:"streak",    tier:1,Icon:Flame,      innerBg:"linear-gradient(135deg,#7f1d1d,#dc2626)",      innerIcon:"#fca5a5",check:(p,s)=>dayStreak(p,s)>=1\},\
+  \{id:"s2",  name:"On Fire",        desc:"2-day streak",          cat:"streak",    tier:1,Icon:Flame,      innerBg:"linear-gradient(135deg,#7f1d1d,#ef4444)",      innerIcon:"#fca5a5",check:(p,s)=>dayStreak(p,s)>=2\},\
+  \{id:"s3",  name:"Hat Trick",      desc:"3-day streak",          cat:"streak",    tier:2,Icon:Flame,      innerBg:"linear-gradient(135deg,#92400e,#f97316)",      innerIcon:"#fed7aa",check:(p,s)=>dayStreak(p,s)>=3\},\
+  \{id:"s4",  name:"Four Alarm",     desc:"4-day streak",          cat:"streak",    tier:2,Icon:Flame,      innerBg:"linear-gradient(135deg,#92400e,#fb923c)",      innerIcon:"#ffedd5",check:(p,s)=>dayStreak(p,s)>=4\},\
+  \{id:"s5",  name:"Hot Stick",      desc:"5-day streak",          cat:"streak",    tier:2,Icon:Flame,      innerBg:"linear-gradient(135deg,#b45309,#fbbf24)",      innerIcon:"#fef3c7",check:(p,s)=>dayStreak(p,s)>=5\},\
+  \{id:"s10", name:"Inferno",        desc:"10-day streak",         cat:"streak",    tier:3,Icon:Flame,      innerBg:"linear-gradient(135deg,#7c2d12,#ea580c)",      innerIcon:"#fdba74",check:(p,s)=>dayStreak(p,s)>=10\},\
+  \{id:"s21", name:"Three-Week War", desc:"21-day streak",         cat:"streak",    tier:4,Icon:Flame,      innerBg:"linear-gradient(135deg,#4c1d95,#7c3aed)",      innerIcon:"#ddd6fe",check:(p,s)=>dayStreak(p,s)>=21\},\
+  \{id:"bd5", name:"Ding!",          desc:"5 bar downs",           cat:"bardown",   tier:1,Icon:Target,     innerBg:"linear-gradient(135deg,#0c4a6e,#0284c7)",      innerIcon:"#bae6fd",check:(p,s)=>zoneHits(p,s,["bar_down"])>=5\},\
+  \{id:"bd10",name:"Crossbar Club",  desc:"10 bar downs",          cat:"bardown",   tier:2,Icon:Target,     innerBg:"linear-gradient(135deg,#1e3a8a,#2563eb)",      innerIcon:"#bfdbfe",check:(p,s)=>zoneHits(p,s,["bar_down"])>=10\},\
+  \{id:"bd20",name:"Off the Iron",   desc:"20 bar downs",          cat:"bardown",   tier:2,Icon:Target,     innerBg:"linear-gradient(135deg,#164e63,#0891b2)",      innerIcon:"#a5f3fc",check:(p,s)=>zoneHits(p,s,["bar_down"])>=20\},\
+  \{id:"bd30",name:"Bar God",        desc:"30 bar downs",          cat:"bardown",   tier:3,Icon:Target,     innerBg:"linear-gradient(135deg,#713f12,#d97706)",      innerIcon:"#fde68a",check:(p,s)=>zoneHits(p,s,["bar_down"])>=30\},\
+  \{id:"bd40",name:"Belfry Resident",desc:"40 bar downs",          cat:"bardown",   tier:4,Icon:Target,     innerBg:"linear-gradient(135deg,#581c87,#9333ea)",      innerIcon:"#e9d5ff",check:(p,s)=>zoneHits(p,s,["bar_down"])>=40\},\
+  \{id:"p50", name:"Post Up",        desc:"50 posts hit",          cat:"post",      tier:1,Icon:Award,      innerBg:"linear-gradient(135deg,#064e3b,#059669)",      innerIcon:"#a7f3d0",check:(p,s)=>zoneHits(p,s,["left_post","right_post"])>=50\},\
+  \{id:"p100",name:"Post Warrior",   desc:"100 posts hit",         cat:"post",      tier:2,Icon:Award,      innerBg:"linear-gradient(135deg,#065f46,#10b981)",      innerIcon:"#6ee7b7",check:(p,s)=>zoneHits(p,s,["left_post","right_post"])>=100\},\
+  \{id:"v100",name:"Century",        desc:"100 career shots",      cat:"volume",    tier:1,Icon:Zap,        innerBg:"linear-gradient(135deg,#1e3a5f,#2563eb)",      innerIcon:"#93c5fd",check:(p,s)=>lifetimeShots(p,s)>=100\},\
+  \{id:"v200",name:"Double Down",    desc:"200 career shots",      cat:"volume",    tier:1,Icon:Zap,        innerBg:"linear-gradient(135deg,#1e3a5f,#3b82f6)",      innerIcon:"#bfdbfe",check:(p,s)=>lifetimeShots(p,s)>=200\},\
+  \{id:"v300",name:"Triple Threat",  desc:"300 career shots",      cat:"volume",    tier:2,Icon:Zap,        innerBg:"linear-gradient(135deg,#0c4a6e,#0369a1)",      innerIcon:"#7dd3fc",check:(p,s)=>lifetimeShots(p,s)>=300\},\
+  \{id:"v400",name:"Four Hundred",   desc:"400 career shots",      cat:"volume",    tier:2,Icon:Zap,        innerBg:"linear-gradient(135deg,#134e4a,#0d9488)",      innerIcon:"#99f6e4",check:(p,s)=>lifetimeShots(p,s)>=400\},\
+  \{id:"v500",name:"Half a Grand",   desc:"500 career shots",      cat:"volume",    tier:2,Icon:Zap,        innerBg:"linear-gradient(135deg,#3b0764,#7e22ce)",      innerIcon:"#d8b4fe",check:(p,s)=>lifetimeShots(p,s)>=500\},\
+  \{id:"v1k", name:"Tarp Destroyer", desc:"1,000 career shots",    cat:"volume",    tier:3,Icon:Zap,        innerBg:"linear-gradient(135deg,#78350f,#f59e0b)",      innerIcon:"#fde68a",check:(p,s)=>lifetimeShots(p,s)>=1000\},\
+  \{id:"v5k", name:"Snipe Artist",   desc:"5,000 career shots",    cat:"volume",    tier:3,Icon:Zap,        innerBg:"linear-gradient(135deg,#7c2d12,#dc2626)",      innerIcon:"#fca5a5",check:(p,s)=>lifetimeShots(p,s)>=5000\},\
+  \{id:"v10k",name:"10,000 Hours",   desc:"10,000 career shots",   cat:"volume",    tier:4,Icon:Zap,        innerBg:"linear-gradient(135deg,#4c1d95,#6d28d9)",      innerIcon:"#c4b5fd",check:(p,s)=>lifetimeShots(p,s)>=10000\},\
+  \{id:"d100",name:"Barn Burner",    desc:"100 shots in one day",  cat:"volume",    tier:2,Icon:Flame,      innerBg:"linear-gradient(135deg,#7f1d1d,#b91c1c)",      innerIcon:"#fca5a5",check:(p,s)=>maxShotsInDay(p,s)>=100\},\
+  \{id:"d200",name:"Gym Rat",        desc:"200 shots in one day",  cat:"volume",    tier:3,Icon:Flame,      innerBg:"linear-gradient(135deg,#7c2d12,#c2410c)",      innerIcon:"#fed7aa",check:(p,s)=>maxShotsInDay(p,s)>=200\},\
+  \{id:"ds2", name:"Double Shift",   desc:"2 sessions in one day", cat:"skill",     tier:2,Icon:Timer,      innerBg:"linear-gradient(135deg,#1e3a5f,#1d4ed8)",      innerIcon:"#bfdbfe",check:(p,s)=>maxSessionsInDay(p,s)>=2\},\
+  \{id:"ds3", name:"Triple Shift",   desc:"3 sessions in one day", cat:"skill",     tier:3,Icon:Timer,      innerBg:"linear-gradient(135deg,#312e81,#4338ca)",      innerIcon:"#c7d2fe",check:(p,s)=>maxSessionsInDay(p,s)>=3\},\
+  \{id:"tm",  name:"Midnight Oil",   desc:"Session after 9 PM",    cat:"time",      tier:2,Icon:Moon,       innerBg:"linear-gradient(135deg,#0f172a,#1e1b4b)",      innerIcon:"#a5b4fc",check:(p,s)=>sessionTimeCheck(p,s,21,null)\},\
+  \{id:"te",  name:"Early Bird",     desc:"Session before 8 AM",   cat:"time",      tier:2,Icon:Sunrise,    innerBg:"linear-gradient(135deg,#7c2d12,#f97316)",      innerIcon:"#fed7aa",check:(p,s)=>sessionTimeCheck(p,s,null,8)\},\
+  \{id:"cp",  name:"Chirp-Proof",    desc:"0% \uc0\u8594  40%+ in one zone", cat:"skill",     tier:3,Icon:Shield,     innerBg:"linear-gradient(135deg,#064e3b,#15803d)",      innerIcon:"#bbf7d0",check:(p,s)=>chirpProof(p,s)\},\
+  \{id:"cel", name:"Celery",         desc:"First 0/10 set",        cat:"skill",     tier:1,Icon:Leaf,       innerBg:"linear-gradient(135deg,#14532d,#16a34a)",      innerIcon:"#bbf7d0",check:(p,s)=>hasCelery(p,s)\},\
+  \{id:"c1",  name:"Answered",       desc:"Complete 1 challenge",  cat:"challenge", tier:2,Icon:CheckCircle,innerBg:"linear-gradient(135deg,#0c4a6e,#0369a1)",      innerIcon:"#7dd3fc",check:(p,s)=>challengesCompleted(p,s)>=1\},\
+  \{id:"c5",  name:"Challenger",     desc:"Complete 5 challenges", cat:"challenge", tier:3,Icon:CheckCircle,innerBg:"linear-gradient(135deg,#713f12,#b45309)",      innerIcon:"#fde68a",check:(p,s)=>challengesCompleted(p,s)>=5\},\
+  \{id:"c10", name:"Challenge King", desc:"Complete 10 challenges",cat:"challenge", tier:4,Icon:CheckCircle,innerBg:"linear-gradient(135deg,#4c1d95,#7c3aed)",      innerIcon:"#ddd6fe",check:(p,s)=>challengesCompleted(p,s)>=10\},\
+  \{id:"sr",  name:"Super Rare",     desc:"10/10 in every zone",   cat:"skill",     tier:4,Icon:Star,       innerBg:"linear-gradient(135deg,#4c1d95,#9333ea)",      innerIcon:"#f5d0fe",check:(p,s)=>perfectEveryZone(p,s)\},\
+];\
+\
+const BADGE_CATS=[\
+  \{id:"streak",    label:"Streaks",    Icon:Flame\},\
+  \{id:"bardown",   label:"Bar Down",   Icon:Target\},\
+  \{id:"post",      label:"Posts",      Icon:Award\},\
+  \{id:"volume",    label:"Volume",     Icon:Zap\},\
+  \{id:"time",      label:"Time",       Icon:Clock\},\
+  \{id:"skill",     label:"Skill",      Icon:Shield\},\
+  \{id:"challenge", label:"Challenges", Icon:CheckCircle\},\
+];\
+\
+// \uc0\u9472 \u9472 \u9472  STATS \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function getWeekStart()\{const n=new Date(),d=n.getDay(),m=new Date(n.setDate(n.getDate()-d+(d===0?-6:1)));m.setHours(0,0,0,0);return m;\}\
+function calcXP(shots,hits)\{return Math.floor(shots/10)*5+Math.floor(hits/10)*3;\}\
+function getLevel(xp)\{let li=0;for(let i=0;i<LEVELS.length;i++)\{if(xp>=LEVELS[i].xpNeeded)li=i;\}return\{level:LEVELS[li],li\};\}\
+function playerStats(player,sessions)\{\
+  const pss=getPSessions(player,sessions),allSets=pss.flatMap(s=>s.sets);\
+  const totalShots=allSets.length*10,totalHits=allSets.reduce((a,s)=>a+s.hits,0);\
+  const acc=totalShots>0?totalHits/totalShots*100:0,streak=dayStreak(player,sessions);\
+  const xp=calcXP(totalShots,totalHits),\{level,li\}=getLevel(xp),nextLevel=LEVELS[li+1]||null;\
+  const weekStart=getWeekStart(),weekSets=pss.filter(s=>new Date(s.date)>=weekStart).flatMap(s=>s.sets);\
+  const weekShots=weekSets.length*10,weekHits=weekSets.reduce((a,s)=>a+s.hits,0),weekAcc=weekShots>0?weekHits/weekShots*100:0;\
+  const zoneStats=\{\};\
+  for(const z of ZONES)\{const zs=allSets.filter(s=>s.zone===z.id),zh=zs.reduce((a,s)=>a+s.hits,0),zsh=zs.length*10;zoneStats[z.id]=\{hits:zh,shots:zsh,acc:zsh>0?zh/zsh*100:0,sets:zs.length\};\}\
+  return\{totalShots,totalHits,acc,streak,xp,level,li,nextLevel,weekShots,weekHits,weekAcc,zoneStats\};\
+\}\
+function newId()\{return Math.random().toString(36).slice(2,9);\}\
+\
+// \uc0\u9472 \u9472 \u9472  AUDIO \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function useAudio()\{\
+  const ctxRef=useRef(null);\
+  const getCtx=()=>\{if(!ctxRef.current)ctxRef.current=new(window.AudioContext||window.webkitAudioContext)();return ctxRef.current;\};\
+  return useCallback((type)=>\{\
+    try\{\
+      const ac=getCtx();\
+      const note=(freq,start,dur,shape="sine",vol=0.22)=>\{const o=ac.createOscillator(),g=ac.createGain();o.type=shape;o.frequency.value=freq;g.gain.setValueAtTime(vol,ac.currentTime+start);g.gain.exponentialRampToValueAtTime(0.001,ac.currentTime+start+dur);o.connect(g);g.connect(ac.destination);o.start(ac.currentTime+start);o.stop(ac.currentTime+start+dur+0.05);\};\
+      if(type==="hit")\{note(660,0,0.1);note(880,0.05,0.15);\}\
+      if(type==="fire")\{[0,.04,.08].forEach(t=>note(80+Math.random()*80,t,0.2,"sawtooth",0.15));\}\
+      if(type==="ice")\{note(1800,0,0.1,"triangle",0.12);note(2400,0.05,0.2,"triangle",0.1);note(3000,0.1,0.25,"triangle",0.08);\}\
+      if(type==="badge")\{[523,659,784,1047,1319].forEach((f,i)=>note(f,i*0.12,0.25));\}\
+      if(type==="levelup")\{[392,494,587,740,880,1047].forEach((f,i)=>note(f,i*0.1,0.3));note(1319,0.65,0.5);\}\
+      if(type==="confetti")\{[523,659,784,1047].forEach((f,i)=>note(f,i*0.08,0.2));\}\
+    \}catch(e)\{\}\
+  \},[]);\
+\}\
+\
+// \uc0\u9472 \u9472 \u9472  STORAGE \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+const SK="puck_v5";\
+const DS=\{players:[],sessions:[],view:"home",activePlayerId:null,activeSessionId:null,dailyChallenge:null,weeklyChallenge:null,h2h:null,h2hHistory:[]\};\
+async function loadSt()\{try\{const r=await window.storage.get(SK);return r?JSON.parse(r.value):null;\}catch\{return null;\}\}\
+async function saveSt(s)\{try\{await window.storage.set(SK,JSON.stringify(s));\}catch\{\}\}\
+\
+// \uc0\u9472 \u9472 \u9472  PARTICLES \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function Particles(\{type\})\{\
+  const items=type==="fire"?["\uc0\u55357 \u56613 ","\u9889 ","\u55357 \u56485 "]:type==="levelup"?["\u11088 ","\u10024 ","\u55356 \u57298 ","\u55356 \u57119 "]:["\u55356 \u57225 ","\u10024 ","\u55356 \u57298 ","\u11088 "];\
+  return(<div style=\{\{position:"fixed",inset:0,pointerEvents:"none",zIndex:998,overflow:"hidden"\}\}><style>\{`@keyframes ptUp\{to\{top:-10%;opacity:0\}\}`\}</style>\{Array.from(\{length:22\}).map((_,i)=>(<div key=\{i\} style=\{\{position:"absolute",left:`$\{Math.random()*100\}%`,top:"108%",fontSize:14+Math.random()*14,animation:`ptUp $\{0.9+Math.random()\}s $\{Math.random()*0.4\}s ease-out forwards`\}\}>\{items[i%items.length]\}</div>))\}</div>);\
+\}\
+\
+// \uc0\u9472 \u9472 \u9472  OVERLAYS \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function BadgePopup(\{badge,earned,earnedDate,onClose\})\{\
+  const tc=TIER[badge.tier],IconC=badge.Icon;\
+  const inner=earned?badge.innerBg:"linear-gradient(135deg,#1e293b,#334155)";\
+  const iconColor=earned?badge.innerIcon:"#9ca3af";\
+  return(\
+    <div style=\{\{position:"fixed",inset:0,background:"rgba(0,0,0,0.93)",zIndex:1000,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"\}\} onClick=\{e=>\{if(e.target===e.currentTarget)onClose();\}\}>\
+      \{earned&&<Particles type="confetti"/>\}\
+      <div style=\{\{background:"#0f172a",border:`2px solid $\{earned?tc.ring:"#334155"\}`,borderRadius:20,padding:"36px 28px",maxWidth:320,width:"90%",textAlign:"center",boxShadow:earned?`0 0 60px $\{tc.glow\}`:"none",zIndex:1,position:"relative"\}\}>\
+        <button onClick=\{onClose\} style=\{\{position:"absolute",top:12,right:12,background:"transparent",border:"none",cursor:"pointer",color:"#6b7280",display:"flex"\}\}><X size=\{18\}/></button>\
+        <div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,letterSpacing:"0.15em",color:tc.ring,marginBottom:14\}\}>\{tc.label.toUpperCase()\} \{earned?"BADGE UNLOCKED":"BADGE"\}</div>\
+        <div style=\{\{display:"flex",justifyContent:"center",marginBottom:18\}\}>\
+          <div style=\{\{width:96,height:96,borderRadius:"50%",background:inner,border:`3px solid $\{earned?tc.ring:"#334155"\}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:earned?`0 0 24px $\{tc.glow\}`:"",position:"relative"\}\}>\
+            \{earned&&<div style=\{\{position:"absolute",inset:0,borderRadius:"50%",background:"radial-gradient(circle at 30% 25%,rgba(255,255,255,0.18),transparent 60%)"\}\}/>\}\
+            <IconC size=\{36\} color=\{iconColor\} strokeWidth=\{1.5\}/>\
+          </div>\
+        </div>\
+        <div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:26,fontWeight:900,color:"#f1f5f9",marginBottom:6\}\}>\{badge.name\}</div>\
+        <div style=\{\{color:"#94a3b8",fontSize:14,marginBottom:14\}\}>\{badge.desc\}</div>\
+        \{earned&&<div style=\{\{color:tc.ring,fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,marginBottom:6\}\}>+50 XP BONUS</div>\}\
+        \{earned&&earnedDate&&<div style=\{\{color:"#6b7280",fontSize:11,marginBottom:18\}\}>Earned \{new Date(earnedDate).toLocaleDateString("en-US",\{month:"long",day:"numeric",year:"numeric"\})\}</div>\}\
+        \{!earned&&<div style=\{\{color:"#6b7280",fontSize:12,marginBottom:18,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.05em"\}\}>NOT YET EARNED</div>\}\
+        <button onClick=\{onClose\} style=\{\{background:earned?tc.ring:"#334155",color:earned?"#000":"#e2e8f0",border:"none",borderRadius:10,padding:"11px 28px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:15,cursor:"pointer",width:"100%"\}\}>\{earned?"Awesome!":"Got it"\}</button>\
+      </div>\
+    </div>\
+  );\
+\}\
+\
+function LevelUpPopup(\{level,onClose\})\{return(<div style=\{\{position:"fixed",inset:0,background:"rgba(0,0,0,0.93)",zIndex:1000,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"\}\}><Particles type="levelup"/><div style=\{\{background:level.bg,border:`2px solid $\{level.color\}`,borderRadius:20,padding:"40px 28px",maxWidth:310,width:"90%",textAlign:"center",boxShadow:`0 0 80px $\{level.glow\}55`,zIndex:1\}\}><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:"0.15em",color:level.color,marginBottom:12\}\}>LEVEL UP!</div><div style=\{\{fontSize:60,marginBottom:14\}\}>\{level.icon\}</div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:40,fontWeight:900,color:level.color,letterSpacing:"0.05em",marginBottom:6\}\}>\{level.name\}</div><div style=\{\{color:"#94a3b8",fontSize:14,marginBottom:24\}\}>You've reached a new rank!</div><button onClick=\{onClose\} style=\{\{background:level.color,color:"#000",border:"none",borderRadius:10,padding:"12px 28px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:15,cursor:"pointer",width:"100%"\}\}>Let's Go!</button></div></div>);\}\
+function CelebOverlay(\{data,onClose\})\{return(<div style=\{\{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center"\}\}><Particles type="confetti"/><div style=\{\{background:"#1e293b",border:"1px solid #334155",borderRadius:20,padding:"32px 24px",maxWidth:300,width:"88%",textAlign:"center",zIndex:1\}\}><div style=\{\{fontSize:60,marginBottom:10\}\}>\{data.emoji\}</div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,color:"#f1f5f9",marginBottom:6\}\}>\{data.title\}</div><div style=\{\{color:"#94a3b8",fontSize:13,marginBottom:18\}\}>\{data.subtitle\}</div><button onClick=\{onClose\} style=\{\{background:"#3b82f6",color:"#fff",border:"none",borderRadius:10,padding:"11px 24px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:15,cursor:"pointer"\}\}>Nice!</button></div></div>);\}\
+\
+function TierKeyPopup(\{onClose\})\{\
+  return(\
+    <div style=\{\{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"\}\} onClick=\{e=>\{if(e.target===e.currentTarget)onClose();\}\}>\
+      <div style=\{\{background:"#0f172a",border:"1px solid #1e3a5f",borderRadius:16,padding:"28px 24px",maxWidth:300,width:"90%",zIndex:1\}\}>\
+        <div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20\}\}>\
+          <div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:700,color:"#f1f5f9",letterSpacing:"0.08em"\}\}>BADGE TIERS</div>\
+          <button onClick=\{onClose\} style=\{\{background:"transparent",border:"none",cursor:"pointer",color:"#6b7280",display:"flex"\}\}><X size=\{16\}/></button>\
+        </div>\
+        \{Object.entries(TIER).map(([k,tc])=>(\
+          <div key=\{k\} style=\{\{display:"flex",alignItems:"center",gap:14,marginBottom:14\}\}>\
+            <div style=\{\{width:40,height:40,borderRadius:"50%",background:`linear-gradient(135deg,#1e293b,#334155)`,border:`3px solid $\{tc.ring\}`,boxShadow:`0 0 10px $\{tc.glow\}`,flexShrink:0\}\}/>\
+            <div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,color:tc.ring\}\}>\{tc.label\}</div><div style=\{\{fontSize:12,color:"#94a3b8"\}\}>\{tc.desc\}</div></div>\
+          </div>\
+        ))\}\
+      </div>\
+    </div>\
+  );\
+\}\
+\
+// \uc0\u9472 \u9472 \u9472  COACH MESSAGE (blocking) \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function CoachMsgPopup(\{message,onAck\})\{\
+  return(\
+    <div style=\{\{position:"fixed",inset:0,background:"rgba(0,0,0,0.94)",zIndex:1100,display:"flex",alignItems:"center",justifyContent:"center"\}\}>\
+      <div style=\{\{background:"#0f172a",border:"2px solid #f59e0b",borderRadius:18,padding:"30px 24px",maxWidth:340,width:"90%",textAlign:"center",boxShadow:"0 0 50px rgba(245,158,11,0.4)"\}\}>\
+        <div style=\{\{display:"flex",alignItems:"center",justifyContent:"center",gap:6,color:"#fbbf24",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,letterSpacing:"0.15em",marginBottom:16\}\}><AlertCircle size=\{16\}/>MESSAGE FROM COACH</div>\
+        <div style=\{\{color:"#f1f5f9",fontSize:17,lineHeight:1.5,marginBottom:24,fontFamily:"Barlow",fontWeight:500,whiteSpace:"pre-wrap"\}\}>\{message\}</div>\
+        <button onClick=\{onAck\} style=\{\{width:"100%",background:"#f59e0b",color:"#000",border:"none",borderRadius:10,padding:"12px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:16,cursor:"pointer"\}\}>Got it, Coach!</button>\
+      </div>\
+    </div>\
+  );\
+\}\
+\
+// \uc0\u9472 \u9472 \u9472  NET SVG (enlarged zones, bar down as rect, repositioned) \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function NetSVG(\{flashZone,flashType,heatData\})\{\
+  const getColors=(zoneId)=>\{\
+    const isFlash=flashZone===zoneId;\
+    if(isFlash) return flashType==="fire"?\{fill:"rgba(249,115,22,0.95)",stroke:"#fed7aa",text:"#fff"\}:flashType==="ice"?\{fill:"rgba(37,99,235,0.95)",stroke:"#93c5fd",text:"#fff"\}:\{fill:"rgba(34,197,94,0.95)",stroke:"#86efac",text:"#fff"\};\
+    const d=heatData&&heatData[zoneId];\
+    return heatColor(d&&d.shots>0?d.acc:null,!!(d&&d.shots>0));\
+  \};\
+  return(\
+    <svg viewBox="0 0 400 270" style=\{\{width:"100%",height:"100%"\}\} xmlns="http://www.w3.org/2000/svg">\
+      \{/* Net mesh */\}\
+      \{Array.from(\{length:9\}).map((_,i)=><line key=\{"h"+i\} x1="38" y1=\{52+i*19\} x2="362" y2=\{52+i*19\} stroke="#1e3a5f" strokeWidth="0.8"/>)\}\
+      \{Array.from(\{length:17\}).map((_,i)=><line key=\{"v"+i\} x1=\{40+i*20\} y1="48" x2=\{40+i*20\} y2="224" stroke="#1e3a5f" strokeWidth="0.8"/>)\}\
+      \{/* Frame */\}\
+      <rect x="24" y="34" width="352" height="11" rx="5.5" fill="#e2e8f0"/>\
+      <rect x="24" y="34" width="11" height="198" rx="5" fill="#e2e8f0"/>\
+      <rect x="365" y="34" width="11" height="198" rx="5" fill="#e2e8f0"/>\
+      <line x1="24" y1="232" x2="376" y2="232" stroke="#e2e8f0" strokeWidth="4"/>\
+      <ellipse cx="200" cy="252" rx="88" ry="16" fill="none" stroke="#3b82f6" strokeWidth="1.5" opacity="0.4"/>\
+\
+      \{/* Bar Down \'96 wide rectangle under crossbar */\}\
+      \{(()=>\{\
+        const \{x,y,w,h\}=NET_POS.bar_down;\
+        const d=heatData&&heatData.bar_down;\
+        const hasData=d&&d.shots>0;\
+        const \{fill,stroke,text\}=getColors("bar_down");\
+        return(\
+          <g key="bar_down">\
+            <rect x=\{x\} y=\{y\} width=\{w\} height=\{h\} rx="6" fill=\{fill\} stroke=\{stroke\} strokeWidth="1.5"/>\
+            <text x=\{x+w/2\} y=\{y+h/2-3\} textAnchor="middle" fill=\{text\} fontSize="9" fontWeight="700" fontFamily="Barlow Condensed" style=\{\{userSelect:"none"\}\}>BAR DOWN</text>\
+            \{hasData&&<text x=\{x+w/2\} y=\{y+h/2+9\} textAnchor="middle" fill=\{text\} fontSize="11" fontWeight="800" fontFamily="Barlow Condensed" style=\{\{userSelect:"none"\}\}>\{d.acc.toFixed(0)\}%</text>\}\
+          </g>\
+        );\
+      \})()\}\
+\
+      \{/* Circle zones */\}\
+      \{ZONES.filter(z=>z.id!=="bar_down").map(z=>\{\
+        const pos=NET_POS[z.id];\
+        const \{fill,stroke,text\}=getColors(z.id);\
+        const d=heatData&&heatData[z.id];\
+        const hasData=d&&d.shots>0;\
+        return(\
+          <g key=\{z.id\}>\
+            <circle cx=\{pos.cx\} cy=\{pos.cy\} r=\{pos.r\} fill=\{fill\} stroke=\{stroke\} strokeWidth="1.5"/>\
+            \{/* Subtle inner highlight */\}\
+            <circle cx=\{pos.cx-pos.r*0.25\} cy=\{pos.cy-pos.r*0.25\} r=\{pos.r*0.35\} fill="rgba(255,255,255,0.1)"/>\
+            <text x=\{pos.cx\} y=\{pos.cy-(hasData?6:3)\} textAnchor="middle" fill=\{text\} fontSize="9" fontWeight="700" fontFamily="Barlow Condensed" style=\{\{userSelect:"none"\}\}>\{z.short\}</text>\
+            \{hasData&&<text x=\{pos.cx\} y=\{pos.cy+10\} textAnchor="middle" fill=\{text\} fontSize="12" fontWeight="800" fontFamily="Barlow Condensed" style=\{\{userSelect:"none"\}\}>\{d.acc.toFixed(0)\}%</text>\}\
+          </g>\
+        );\
+      \})\}\
+    </svg>\
+  );\
+\}\
+\
+// \uc0\u9472 \u9472 \u9472  HEAT MAP LEGEND \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function HeatLegend()\{\
+  const stops=[[0,"#0000ff"],[50,"#800080"],[100,"#ff0000"]];\
+  const gradId="heatGrad";\
+  return(\
+    <div style=\{\{display:"flex",flexDirection:"column",gap:4,marginTop:10\}\}>\
+      <svg width="100%" height="16">\
+        <defs>\
+          <linearGradient id=\{gradId\} x1="0" x2="1" y1="0" y2="0">\
+            \{stops.map(([offset,color])=><stop key=\{offset\} offset=\{`$\{offset\}%`\} stopColor=\{color\}/>)\}\
+          </linearGradient>\
+        </defs>\
+        <rect x="0" y="0" width="100%" height="14" rx="7" fill=\{`url(#$\{gradId\})`\}/>\
+      </svg>\
+      <div style=\{\{display:"flex",justifyContent:"space-between"\}\}>\
+        \{["0%","25%","50%","75%","100%"].map(l=><span key=\{l\} style=\{\{color:"#94a3b8",fontSize:10\}\}>\{l\}</span>)\}\
+      </div>\
+    </div>\
+  );\
+\}\
+\
+// \uc0\u9472 \u9472 \u9472  SHARED \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function GFONT()\{return <style>\{`@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap');*\{box-sizing:border-box;margin:0;padding:0\}button:hover\{opacity:0.85\}button:active\{transform:scale(0.97)\}input:focus,select:focus,textarea:focus\{outline:none;border-color:#3b82f6!important\}::placeholder\{color:#64748b\}select\{-webkit-appearance:none\}::-webkit-scrollbar\{width:4px\}::-webkit-scrollbar-thumb\{background:#1e3a5f;border-radius:2px\}`\}</style>;\}\
+const C=\{\
+  card:\{background:"#1e293b",borderRadius:12,padding:16,border:"1px solid #334155",marginBottom:12\},\
+  label:\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,letterSpacing:"0.12em",color:"#cbd5e1",textTransform:"uppercase",marginBottom:7,display:"block"\},\
+  inp:\{width:"100%",background:"#0f172a",border:"1px solid #475569",borderRadius:8,color:"#f1f5f9",padding:"10px 13px",fontSize:14,fontFamily:"Barlow",marginBottom:10,display:"block"\},\
+  btnP:\{width:"100%",background:"#3b82f6",color:"#fff",border:"none",borderRadius:10,padding:"12px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:16,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:10\},\
+  btnS:\{width:"100%",background:"#1e293b",color:"#e2e8f0",border:"1px solid #475569",borderRadius:10,padding:"11px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,fontSize:15,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginBottom:10\},\
+\};\
+\
+function LevelBadge(\{li\})\{const l=LEVELS[li]||LEVELS[0];return(<span style=\{\{display:"inline-flex",alignItems:"center",gap:4,background:l.bg,border:`1px solid $\{l.color\}55`,borderRadius:6,padding:"2px 7px"\}\}><span style=\{\{fontSize:13\}\}>\{l.icon\}</span><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,color:l.color,fontSize:11,letterSpacing:"0.05em"\}\}>\{l.name\}</span></span>);\}\
+\
+function XPBar(\{li,xp,compact,showLabel\})\{\
+  const cur=LEVELS[li],next=LEVELS[li+1];\
+  const prevXp=cur.xpNeeded,nextXp=next?next.xpNeeded:xp;\
+  const earned=xp-prevXp,needed=nextXp-prevXp,pct=next?Math.min(100,(earned/needed)*100):100;\
+  return(\
+    <div style=\{\{width:"100%"\}\}>\
+      \{!compact&&<div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3\}\}>\
+        <span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:"#94a3b8"\}\}>\{earned\} / \{needed\} XP to \{next?next.name:"Max"\}</span>\
+        <span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:"#6b7280"\}\}>\{xp\} total</span>\
+      </div>\}\
+      <div style=\{\{height:compact?4:6,background:"#0f172a",borderRadius:3,overflow:"hidden",border:"1px solid #1e3a5f"\}\}>\
+        <div style=\{\{height:"100%",width:`$\{pct\}%`,background:`linear-gradient(90deg,$\{LEVELS[li].color\},$\{LEVELS[Math.min(li+1,LEVELS.length-1)].color\})`,borderRadius:3,transition:"width 0.6s"\}\}/>\
+      </div>\
+      \{showLabel&&<div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:"#94a3b8",marginTop:3\}\}>\{earned\}/\{needed\} XP to \{next?next.name:"Max"\}</div>\}\
+    </div>\
+  );\
+\}\
+\
+function StatCard(\{label,value,color="#3b82f6"\})\{return(<div style=\{\{background:"#1e293b",borderRadius:10,padding:"10px 8px",textAlign:"center",border:"1px solid #334155"\}\}><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,color,lineHeight:1\}\}>\{value\}</div><div style=\{\{color:"#94a3b8",fontSize:10,marginTop:3\}\}>\{label\}</div></div>);\}\
+\
+function BadgeCircle(\{badge,earned,earnedDate,isNew,size=80,onClick\})\{\
+  const tc=TIER[badge.tier],IconC=badge.Icon;\
+  const inner=earned?badge.innerBg:"linear-gradient(135deg,#0f172a,#1e293b)";\
+  const iconColor=earned?badge.innerIcon:"#374151";\
+  return(\
+    <div onClick=\{()=>onClick&&onClick(badge)\} style=\{\{display:"flex",flexDirection:"column",alignItems:"center",gap:4,cursor:"pointer",position:"relative"\}\}>\
+      \{isNew&&<div style=\{\{position:"absolute",top:-7,right:-3,background:"#f59e0b",color:"#000",fontSize:8,fontWeight:700,borderRadius:6,padding:"2px 5px",fontFamily:"monospace",zIndex:2,boxShadow:"0 0 8px #f59e0b"\}\}>NEW!</div>\}\
+      <div style=\{\{width:size,height:size,borderRadius:"50%",background:inner,border:`3px solid $\{earned?tc.ring:"#1f2937"\}`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:earned?`0 0 16px $\{tc.glow\}, inset 0 1px 0 rgba(255,255,255,0.15)`:"none",transition:"all 0.3s",position:"relative",opacity:earned?1:0.45\}\}>\
+        \{earned&&<div style=\{\{position:"absolute",inset:0,borderRadius:"50%",background:"radial-gradient(circle at 30% 25%,rgba(255,255,255,0.18),transparent 60%)"\}\}/>\}\
+        <IconC size=\{size*0.38\} color=\{iconColor\} strokeWidth=\{1.5\}/>\
+      </div>\
+      <div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,fontWeight:700,color:earned?tc.ring:"#4b5563",textAlign:"center",lineHeight:1.2,maxWidth:size+8\}\}>\{badge.name\}</div>\
+      \{earned&&earnedDate&&<div style=\{\{fontSize:9,color:"#6b7280",textAlign:"center"\}\}>\{new Date(earnedDate).toLocaleDateString("en-US",\{month:"short",day:"numeric"\})\}</div>\}\
+    </div>\
+  );\
+\}\
+\
+function ZoneSetRow(\{zone,prevHits,prevShots,onLog\})\{\
+  const [sel,setSel]=useState("");\
+  return(<div style=\{\{background:"#0f172a",borderRadius:8,padding:"8px 10px",border:"1px solid #334155"\}\}><div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5\}\}><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",color:"#e2e8f0",fontSize:13,fontWeight:700\}\}>\{zone.label\}</span><div style=\{\{display:"flex",gap:6,alignItems:"center"\}\}>\{sel!==""&&<span style=\{\{color:"#334155",fontSize:10,fontFamily:"'Barlow Condensed',sans-serif"\}\}>+\{parseInt(sel)>=5?8:5\}xp</span>\}\{prevShots>0&&<span style=\{\{fontSize:10,color:"#6b7280"\}\}>\{prevHits\}/\{prevShots\}</span>\}</div></div><div style=\{\{display:"flex",gap:5\}\}><select value=\{sel\} onChange=\{e=>setSel(e.target.value)\} style=\{\{flex:1,background:"#1e293b",border:"1px solid #334155",borderRadius:6,color:sel?"#e2e8f0":"#6b7280",padding:"6px",fontSize:13,fontFamily:"'Barlow Condensed',sans-serif",cursor:"pointer"\}\}><option value="">\'97 /10 \'97</option>\{[0,1,2,3,4,5,6,7,8,9,10].map(n=><option key=\{n\} value=\{n\}>\{n\}/10 \{n===0?"\uc0\u10052 \u65039 ":n>=5?"\u55357 \u56613 ":""\}</option>)\}</select><button onClick=\{()=>\{if(!sel)return;onLog(parseInt(sel));setSel("");\}\} disabled=\{!sel\} style=\{\{background:sel?"#3b82f6":"#1e293b",color:sel?"#fff":"#6b7280",border:"none",borderRadius:6,padding:"6px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,cursor:sel?"pointer":"default"\}\}>LOG</button></div></div>);\
+\}\
+\
+// \uc0\u9472 \u9472 \u9472  TABS \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+const PLAYER_TABS=[\
+  \{id:"dashboard",  Icon:LayoutDashboard,label:"Dash"\},\
+  \{id:"session",    Icon:Target,         label:"Shoot"\},\
+  \{id:"challenges", Icon:ListChecks,     label:"Challenges"\},\
+  \{id:"board",      Icon:Trophy,         label:"Board"\},\
+  \{id:"stats",      Icon:BarChart2,      label:"My Stats"\},\
+  \{id:"badges",     Icon:Award,          label:"Badges"\},\
+  \{id:"ranks",      Icon:Star,           label:"Ranks"\},\
+];\
+function TabBar(\{active,onChange,hasSess\})\{return(<div style=\{\{display:"flex",background:"#0a0f1a",borderBottom:"1px solid #1e3a5f",position:"sticky",top:0,zIndex:50,overflowX:"auto"\}\}>\{PLAYER_TABS.map(t=>\{const sel=active===t.id,dot=t.id==="session"&&hasSess&&!sel;return(<button key=\{t.id\} onClick=\{()=>onChange(t.id)\} style=\{\{flex:"0 0 auto",minWidth:52,padding:"9px 8px 7px",background:"transparent",border:"none",cursor:"pointer",borderBottom:`2px solid $\{sel?"#3b82f6":"transparent"\}`,color:sel?"#3b82f6":"#6b7280",position:"relative",transition:"color 0.15s"\}\}><div style=\{\{display:"flex",justifyContent:"center"\}\}><t.Icon size=\{15\} strokeWidth=\{sel?2:1.5\}/></div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,marginTop:2,fontWeight:sel?700:500,letterSpacing:"0.03em"\}\}>\{t.label\}</div>\{dot&&<div style=\{\{position:"absolute",top:5,right:5,width:5,height:5,borderRadius:"50%",background:"#f59e0b"\}\}/>\}</button>);\})\}</div>);\}\
+\
+function PlayerHeader(\{player,stats,onBack\})\{\
+  const cur=LEVELS[stats.li],next=LEVELS[stats.li+1];\
+  const prevXp=cur.xpNeeded,nextXp=next?next.xpNeeded:stats.xp;\
+  const earned=stats.xp-prevXp,needed=nextXp-prevXp;\
+  return(\
+    <div style=\{\{padding:"10px 14px",background:"rgba(10,15,26,0.97)",borderBottom:"1px solid #1e3a5f",display:"flex",alignItems:"center",gap:10\}\}>\
+      <button style=\{\{background:"transparent",border:"none",color:"#6b7280",cursor:"pointer",padding:2,display:"flex"\}\} onClick=\{onBack\}><ChevronLeft size=\{22\}/></button>\
+      <div style=\{\{flex:1,minWidth:0\}\}>\
+        <div style=\{\{display:"flex",alignItems:"center",gap:8,marginBottom:3,flexWrap:"wrap"\}\}>\
+          <span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:19,color:"#f1f5f9",lineHeight:1\}\}>\{player.name\}\{player.jerseyNum?<span style=\{\{color:"#60a5fa"\}\}> #\{player.jerseyNum\}</span>:""\}</span>\
+          <LevelBadge li=\{stats.li\}/>\
+          <span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:"#94a3b8",marginLeft:2\}\}>\{earned\}/\{needed\} XP to \{next?next.name:"Max"\}</span>\
+        </div>\
+        <XPBar li=\{stats.li\} xp=\{stats.xp\} compact/>\
+      </div>\
+      \{stats.streak>0&&<div style=\{\{display:"flex",alignItems:"center",gap:3,background:"#1a0800",border:"1px solid #f97316",borderRadius:8,padding:"4px 8px"\}\}><Flame size=\{13\} color="#f97316"/><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,color:"#f97316"\}\}>\{stats.streak\}d</span></div>\}\
+    </div>\
+  );\
+\}\
+\
+function Scaffold(\{children,onBack,title\})\{return(<div style=\{\{minHeight:"100vh",background:"linear-gradient(160deg,#0a0f1a,#0a1628)",color:"#e2e8f0",fontFamily:"Barlow,sans-serif"\}\}><GFONT/><div style=\{\{maxWidth:480,margin:"0 auto",padding:"20px 16px"\}\}><button style=\{\{background:"transparent",border:"none",color:"#6b7280",cursor:"pointer",display:"flex",alignItems:"center",gap:4,marginBottom:14,fontFamily:"'Barlow Condensed',sans-serif",fontSize:14\}\} onClick=\{onBack\}><ChevronLeft size=\{17\}/>Back</button>\{title&&<div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:26,marginBottom:18,color:"#f1f5f9"\}\}>\{title\}</div>\}\{children\}</div></div>);\}\
+\
+// \uc0\u9472 \u9472 \u9472  PLAYER SELECT (with password) \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function PlayerSelectScreen(\{players,sessions,onSelect,onBack\})\{\
+  const [selectedPlayer,setSelectedPlayer]=useState(null);\
+  const [pw,setPw]=useState("");\
+  const [err,setErr]=useState(false);\
+  const [show,setShow]=useState(false);\
+\
+  if(selectedPlayer)\{\
+    return(\
+      <Scaffold onBack=\{()=>\{setSelectedPlayer(null);setPw("");setErr(false);\}\} title="">\
+        <div style=\{\{textAlign:"center",marginBottom:20\}\}>\
+          <div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:28,fontWeight:900,color:"#f1f5f9"\}\}>\{selectedPlayer.name\}</div>\
+          \{selectedPlayer.jerseyNum&&<div style=\{\{color:"#60a5fa",fontFamily:"'Barlow Condensed',sans-serif",fontSize:16\}\}>#\{selectedPlayer.jerseyNum\}</div>\}\
+          <LevelBadge li=\{getLevel(calcXP(getPSessions(selectedPlayer,sessions).flatMap(s=>s.sets).length*10,getPSessions(selectedPlayer,sessions).flatMap(s=>s.sets).reduce((a,x)=>a+x.hits,0))).li\}/>\
+        </div>\
+        \{selectedPlayer.password?(\
+          <div style=\{C.card\}>\
+            <label style=\{C.label\}>Enter your password</label>\
+            <div style=\{\{position:"relative",marginBottom:10\}\}>\
+              <input type=\{show?"text":"password"\} value=\{pw\} onChange=\{e=>\{setPw(e.target.value);setErr(false);\}\} placeholder="Password" style=\{\{...C.inp,marginBottom:0,paddingRight:40\}\}/>\
+              <button onClick=\{()=>setShow(s=>!s)\} style=\{\{position:"absolute",right:10,top:10,background:"transparent",border:"none",cursor:"pointer",color:"#6b7280"\}\}>\{show?<EyeOff size=\{16\}/>:<Eye size=\{16\}/>\}</button>\
+            </div>\
+            \{err&&<div style=\{\{color:"#ef4444",fontSize:12,marginBottom:8,display:"flex",alignItems:"center",gap:4\}\}><AlertCircle size=\{12\}/>Wrong password</div>\}\
+            <button style=\{C.btnP\} onClick=\{()=>\{if(pw===selectedPlayer.password)onSelect(selectedPlayer.id);else setErr(true);\}\}><Lock size=\{15\}/>Enter</button>\
+          </div>\
+        ):(\
+          <div style=\{C.card\}>\
+            <div style=\{\{color:"#94a3b8",fontSize:14,marginBottom:14,textAlign:"center"\}\}>No password set for this profile</div>\
+            <button style=\{C.btnP\} onClick=\{()=>onSelect(selectedPlayer.id)\}><CheckCircle size=\{15\}/>Continue</button>\
+          </div>\
+        )\}\
+      </Scaffold>\
+    );\
+  \}\
+\
+  return(\
+    <Scaffold onBack=\{onBack\} title="Who's Playing?">\
+      \{players.length===0?<div style=\{\{textAlign:"center",color:"#6b7280",padding:32,fontFamily:"'Barlow Condensed',sans-serif",fontSize:16\}\}>No players yet \'97 ask your coach!</div>:\
+        players.map(p=>\{\
+          const pss=sessions.filter(s=>s.playerId===p.id);\
+          const allSets=pss.flatMap(s=>s.sets),shots=allSets.length*10,hits=allSets.reduce((a,x)=>a+x.hits,0);\
+          const xp=calcXP(shots,hits),\{li\}=getLevel(xp),str=dayStreak(p,sessions);\
+          const ws=getWeekStart(),weekShots=pss.filter(s=>new Date(s.date)>=ws).flatMap(s=>s.sets).length*10;\
+          return(\
+            <button key=\{p.id\} style=\{\{...C.card,width:"100%",textAlign:"left",cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",padding:14\}\} onClick=\{()=>setSelectedPlayer(p)\}>\
+              <div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:800,color:"#f1f5f9",marginBottom:4\}\}>\{p.name\}\{p.jerseyNum?<span style=\{\{color:"#60a5fa"\}\}> #\{p.jerseyNum\}</span>:""\}</div><LevelBadge li=\{li\}/></div>\
+              <div style=\{\{textAlign:"right"\}\}>\{str>0&&<div style=\{\{display:"flex",alignItems:"center",gap:3,color:"#f97316",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,justifyContent:"flex-end"\}\}><Flame size=\{12\}/>\{str\}d</div>\}<div style=\{\{color:"#60a5fa",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13\}\}>\{weekShots\} this wk</div></div>\
+            </button>\
+          );\
+        \})\
+      \}\
+    </Scaffold>\
+  );\
+\}\
+\
+// \uc0\u9472 \u9472 \u9472  MAIN APP \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+export default function App()\{\
+  const [st,setSt]=useState(null);\
+  const [loading,setLoading]=useState(true);\
+  const [tab,setTab]=useState("dashboard");\
+  const [sesGoal,setSesGoal]=useState(10);\
+  const [badgeQueue,setBadgeQueue]=useState([]);\
+  const [badgePreview,setBadgePreview]=useState(null);\
+  const [levelPopup,setLevelPopup]=useState(null);\
+  const [celeb,setCeleb]=useState(null);\
+  const [newBadgeIds,setNewBadgeIds]=useState(\{\});\
+  const [flashZone,setFlashZone]=useState(null);\
+  const [flashType,setFlashType]=useState(null);\
+  const [puckAnim,setPuckAnim]=useState(null);\
+  const [pinInput,setPinInput]=useState("");\
+  const [pinErr,setPinErr]=useState(false);\
+  const [npName,setNpName]=useState("");\
+  const [npNum,setNpNum]=useState("");\
+  const [npPw,setNpPw]=useState("");\
+  const play=useAudio();\
+\
+  useEffect(()=>\{loadSt().then(s=>\{setSt(s||\{...DS\});setLoading(false);\});\},[]);\
+  useEffect(()=>\{if(st)saveSt(st);\},[st]);\
+\
+  if(loading||!st)return(<div style=\{\{minHeight:"100vh",background:"#0a0f1a",display:"flex",alignItems:"center",justifyContent:"center",color:"#e2e8f0",fontFamily:"'Barlow Condensed',sans-serif",fontSize:22\}\}>Loading\'85</div>);\
+\
+  const upd=patch=>setSt(prev=>(\{...prev,...patch\}));\
+  const aPlayer=st.players.find(p=>p.id===st.activePlayerId);\
+  const aSess=st.sessions.find(s=>s.id===st.activeSessionId);\
+\
+  function checkNewBadges(playerId,updSessions)\{const player=st.players.find(p=>p.id===playerId);if(!player)return[];const already=player.earnedBadges||\{\};return BADGES.filter(b=>!already[b.id]&&b.check(player,updSessions));\}\
+  function awardBadges(newlyEarned,playerId,updSessions)\{\
+    if(!newlyEarned.length)return;\
+    const now=Date.now(),existing=st.players.find(p=>p.id===playerId)?.earnedBadges||\{\},updated=\{...existing\};\
+    newlyEarned.forEach(b=>\{updated[b.id]=\{ts:now\};\});\
+    upd(\{players:st.players.map(p=>p.id===playerId?\{...p,earnedBadges:updated\}:p),sessions:updSessions||st.sessions\});\
+    setNewBadgeIds(prev=>\{const n=\{...prev\};newlyEarned.forEach(b=>\{n[b.id]=now;\});return n;\});\
+    play("badge");setBadgeQueue(newlyEarned);\
+  \}\
+  function checkLevelUp(prevXP,newXP)\{const\{li:pli\}=getLevel(prevXP),\{li:nli,level:nl\}=getLevel(newXP);if(nli>pli)\{play("levelup");setTimeout(()=>setLevelPopup(nl),600);\}\}\
+  function handleLogSet(zoneId,hits)\{\
+    if(!aSess)return;\
+    const set=\{zone:zoneId,hits,ts:Date.now()\};\
+    const updSessions=st.sessions.map(s=>s.id===aSess.id?\{...s,sets:[...s.sets,set]\}:s);\
+    const prevStats=playerStats(aPlayer,st.sessions);\
+    upd(\{sessions:updSessions\});\
+    const newStats=playerStats(aPlayer,updSessions);\
+    checkLevelUp(prevStats.xp,newStats.xp);\
+    const earned=checkNewBadges(aPlayer.id,updSessions);\
+    if(earned.length)awardBadges(earned,aPlayer.id,updSessions);\
+    const type=hits===0?"ice":hits>=5?"fire":"hit";\
+    play(type);setFlashZone(zoneId);setFlashType(type);setPuckAnim(\{zone:zoneId,hits,type\});\
+    setTimeout(()=>\{setFlashZone(null);setFlashType(null);setPuckAnim(null);\},1400);\
+  \}\
+  function startSession()\{const sid=newId(),s=\{id:sid,playerId:aPlayer.id,sets:[],date:new Date().toISOString()\};upd(\{sessions:[...st.sessions,s],activeSessionId:sid\});\}\
+  function endSession()\{if(!aSess)return;const shots=aSess.sets.length*10,hits=aSess.sets.reduce((a,s)=>a+s.hits,0);play("confetti");setCeleb(\{emoji:"\uc0\u55357 \u56490 ",title:"Session Done!",subtitle:`$\{shots\} shots \'b7 $\{shots>0?(hits/shots*100).toFixed(0):0\}% accuracy`\});upd(\{activeSessionId:null\});setTab("dashboard");\}\
+\
+  const topBadge=badgeQueue.length>0?badgeQueue[0]:null;\
+  const earnedBadgeObj=aPlayer?.earnedBadges||\{\};\
+\
+  if(st.view==="home")\{\
+    const ws=getWeekStart();\
+    const topPlayer=[...st.players].map(p=>(\{...p,wS:st.sessions.filter(s=>s.playerId===p.id&&new Date(s.date)>=ws).flatMap(s=>s.sets).length*10\})).sort((a,b)=>b.wS-a.wS)[0];\
+    return(\
+      <div style=\{\{minHeight:"100vh",background:"linear-gradient(160deg,#0a0f1a,#0a1628)",color:"#e2e8f0",fontFamily:"Barlow,sans-serif"\}\}><GFONT/>\
+        <div style=\{\{maxWidth:480,margin:"0 auto",padding:"40px 16px"\}\}>\
+          <div style=\{\{textAlign:"center",marginBottom:32\}\}><Target size=\{48\} color="#3b82f6" style=\{\{marginBottom:10\}\}/><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:42,letterSpacing:"0.05em",lineHeight:1,color:"#f1f5f9"\}\}>PUCK TRACKER</div><div style=\{\{color:"#3b82f6",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,letterSpacing:"0.2em",marginTop:6\}\}>12U TEAM EDITION</div></div>\
+          \{topPlayer?.wS>0&&(<div style=\{\{...C.card,background:"rgba(30,58,95,0.4)",textAlign:"center",marginBottom:16\}\}><div style=\{\{display:"flex",alignItems:"center",justifyContent:"center",gap:5,color:"#60a5fa",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,letterSpacing:"0.15em",marginBottom:4\}\}><Trophy size=\{12\}/>GRINDER OF THE WEEK</div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:24,fontWeight:900,color:"#f1f5f9"\}\}>\{topPlayer.name\}\{topPlayer.jerseyNum?` #$\{topPlayer.jerseyNum\}`:""\}</div><div style=\{\{color:"#94a3b8",fontSize:13\}\}>\{topPlayer.wS\} pucks this week</div></div>)\}\
+          \{(st.dailyChallenge||st.weeklyChallenge)&&(<div style=\{\{...C.card,borderColor:"#f59e0b44",marginBottom:16\}\}><div style=\{\{display:"flex",alignItems:"center",gap:5,color:"#f59e0b",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,letterSpacing:"0.15em",marginBottom:8\}\}><Zap size=\{12\}/>ACTIVE CHALLENGES</div>\{st.dailyChallenge&&<div style=\{\{color:"#e2e8f0",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14\}\}>Daily: \{ZONES.find(z=>z.id===st.dailyChallenge.zone)?.label\} \'97 \{st.dailyChallenge.target\} hits</div>\}\{st.weeklyChallenge&&<div style=\{\{color:"#e2e8f0",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,marginTop:4\}\}>Weekly: \{ZONES.find(z=>z.id===st.weeklyChallenge.zone)?.label\} \'97 \{st.weeklyChallenge.target\} hits</div>\}</div>)\}\
+          <button style=\{C.btnP\} onClick=\{()=>upd(\{view:"playerSelect"\})\}><Users size=\{17\}/>I'm a Player</button>\
+          <button style=\{C.btnS\} onClick=\{()=>upd(\{view:"coachPin"\})\}><Lock size=\{15\}/>Coach Mode</button>\
+        </div>\
+      </div>\
+    );\
+  \}\
+\
+  if(st.view==="coachPin")return(<Scaffold onBack=\{()=>upd(\{view:"home"\})\} title="Coach Login"><div style=\{C.card\}><input type="password" inputMode="numeric" value=\{pinInput\} maxLength=\{6\} onChange=\{e=>\{setPinInput(e.target.value);setPinErr(false);\}\} placeholder="PIN" style=\{\{...C.inp,textAlign:"center",fontSize:26,letterSpacing:10,marginBottom:10\}\}/>\{pinErr&&<div style=\{\{color:"#ef4444",fontSize:12,marginBottom:8,display:"flex",alignItems:"center",gap:4\}\}><AlertCircle size=\{12\}/>Incorrect PIN</div>\}<button style=\{C.btnP\} onClick=\{()=>\{if(pinInput==="1969")\{upd(\{view:"coach"\});setPinInput("");\}else setPinErr(true);\}\}><Lock size=\{15\}/>Unlock</button></div></Scaffold>);\
+\
+  if(st.view==="addPlayer")return(\
+    <Scaffold onBack=\{()=>upd(\{view:"coach"\})\} title="Add Player">\
+      <div style=\{C.card\}>\
+        <label style=\{C.label\}>Name</label>\
+        <input autoFocus type="text" value=\{npName\} onChange=\{e=>setNpName(e.target.value)\} placeholder="Player name" style=\{C.inp\}/>\
+        <label style=\{C.label\}>Jersey #</label>\
+        <input type="number" value=\{npNum\} onChange=\{e=>setNpNum(e.target.value)\} placeholder="e.g. 97" style=\{C.inp\}/>\
+        <label style=\{C.label\}>Player Password (optional)</label>\
+        <input type="text" value=\{npPw\} onChange=\{e=>setNpPw(e.target.value)\} placeholder="e.g. pucks97" style=\{\{...C.inp,marginBottom:14\}\}/>\
+        <button style=\{C.btnP\} onClick=\{()=>\{if(!npName.trim())return;const autoPw=`$\{npName.trim().toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,6)||"player"\}$\{Math.floor(100+Math.random()*900)\}`;const p=\{id:newId(),name:npName.trim(),jerseyNum:npNum.trim(),password:npPw.trim()||autoPw,earnedBadges:\{\},createdAt:Date.now()\};upd(\{players:[...st.players,p],view:"coach"\});setNpName("");setNpNum("");setNpPw("");\}\}><Plus size=\{16\}/>Add to Roster</button>\
+        <div style=\{\{color:"#94a3b8",fontSize:12,textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif"\}\}>Leave password blank to auto-generate one.</div>\
+      </div>\
+    </Scaffold>\
+  );\
+\
+  if(st.view==="playerSelect")return(<PlayerSelectScreen players=\{st.players\} sessions=\{st.sessions\} onSelect=\{(id)=>\{upd(\{activePlayerId:id,activeSessionId:null,view:"player"\});setTab("dashboard");\}\} onBack=\{()=>upd(\{view:"home"\})\}/>);\
+\
+  if(st.view==="coach")return <CoachPanel st=\{st\} upd=\{upd\}/>;\
+\
+  if(st.view==="player"&&aPlayer)\{\
+    const stats=playerStats(aPlayer,st.sessions);\
+    return(\
+      <div style=\{\{minHeight:"100vh",background:"linear-gradient(160deg,#0a0f1a,#0a1628)",color:"#e2e8f0",fontFamily:"Barlow,sans-serif"\}\}><GFONT/>\
+        \{aPlayer.coachMsg&&<CoachMsgPopup message=\{aPlayer.coachMsg\} onAck=\{()=>upd(\{players:st.players.map(p=>p.id===aPlayer.id?\{...p,coachMsg:""\}:p)\})\}/>\}\
+        \{topBadge&&<BadgePopup badge=\{topBadge\} earned earnedDate=\{earnedBadgeObj[topBadge.id]?.ts||Date.now()\} onClose=\{()=>setBadgeQueue(prev=>prev.slice(1))\}/>\}\
+        \{!topBadge&&badgePreview&&<BadgePopup badge=\{badgePreview.badge\} earned=\{!!earnedBadgeObj[badgePreview.badge.id]\} earnedDate=\{earnedBadgeObj[badgePreview.badge.id]?.ts\} onClose=\{()=>setBadgePreview(null)\}/>\}\
+        \{levelPopup&&!topBadge&&<LevelUpPopup level=\{levelPopup\} onClose=\{()=>setLevelPopup(null)\}/>\}\
+        \{celeb&&!topBadge&&<CelebOverlay data=\{celeb\} onClose=\{()=>setCeleb(null)\}/>\}\
+        <PlayerHeader player=\{aPlayer\} stats=\{stats\} onBack=\{()=>upd(\{view:"playerSelect",activePlayerId:null,activeSessionId:null\})\}/>\
+        <TabBar active=\{tab\} onChange=\{setTab\} hasSess=\{!!st.activeSessionId\}/>\
+        <div style=\{\{maxWidth:520,margin:"0 auto"\}\}>\
+          \{tab==="dashboard"  &&<DashTab player=\{aPlayer\} stats=\{stats\} sessions=\{st.sessions\} dailyChallenge=\{st.dailyChallenge\} weeklyChallenge=\{st.weeklyChallenge\} players=\{st.players\} onStartSession=\{()=>\{startSession();setTab("session");\}\} newBadgeIds=\{newBadgeIds\} onBadgeClick=\{b=>setBadgePreview(\{badge:b\})\}/>\}\
+          \{tab==="session"    &&<SessionTab player=\{aPlayer\} session=\{aSess\} sesGoal=\{sesGoal\} setSesGoal=\{setSesGoal\} onLogSet=\{handleLogSet\} onEndSession=\{endSession\} onStart=\{startSession\} dailyChallenge=\{st.dailyChallenge\} weeklyChallenge=\{st.weeklyChallenge\} flashZone=\{flashZone\} flashType=\{flashType\} puckAnim=\{puckAnim\}/>\}\
+          \{tab==="challenges" &&<ChallengesTab player=\{aPlayer\} sessions=\{st.sessions\} dailyChallenge=\{st.dailyChallenge\} weeklyChallenge=\{st.weeklyChallenge\} h2h=\{st.h2h\} players=\{st.players\}/>\}\
+          \{tab==="board"      &&<BoardTab player=\{aPlayer\} players=\{st.players\} sessions=\{st.sessions\} h2h=\{st.h2h\}/>\}\
+          \{tab==="stats"      &&<StatsTab player=\{aPlayer\} stats=\{stats\} sessions=\{st.sessions\}/>\}\
+          \{tab==="badges"     &&<BadgesTab player=\{aPlayer\} sessions=\{st.sessions\} newBadgeIds=\{newBadgeIds\} onBadgeClick=\{b=>setBadgePreview(\{badge:b\})\}/>\}\
+          \{tab==="ranks"      &&<RanksTab stats=\{stats\}/>\}\
+        </div>\
+      </div>\
+    );\
+  \}\
+  return null;\
+\}\
+\
+// \uc0\u9472 \u9472 \u9472  COACH PANEL \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function CoachPanel(\{st,upd\})\{\
+  const [cTab,setCTab]=useState("challenges");\
+  const tabs=[\{id:"challenges",label:"Challenges",Icon:Zap\},\{id:"matchups",label:"Matchups",Icon:Swords\},\{id:"roster",label:"Roster",Icon:Users\}];\
+  return(\
+    <div style=\{\{minHeight:"100vh",background:"linear-gradient(160deg,#0a0f1a,#0a1628)",color:"#e2e8f0",fontFamily:"Barlow,sans-serif"\}\}><GFONT/>\
+      <div style=\{\{maxWidth:520,margin:"0 auto",paddingBottom:40\}\}>\
+        <div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 16px 0"\}\}>\
+          <div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:24,color:"#f1f5f9"\}\}>COACH PANEL</div>\
+          <div style=\{\{display:"flex",gap:8\}\}>\
+            <button style=\{\{background:"#1e3a5f",color:"#60a5fa",border:"none",borderRadius:8,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:4\}\} onClick=\{()=>upd(\{view:"addPlayer"\})\}><Plus size=\{13\}/>Add Player</button>\
+            <button style=\{\{background:"transparent",color:"#6b7280",border:"1px solid #334155",borderRadius:8,padding:"7px 12px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:4\}\} onClick=\{()=>upd(\{view:"home"\})\}><Lock size=\{13\}/>Lock</button>\
+          </div>\
+        </div>\
+        <div style=\{\{display:"flex",borderBottom:"1px solid #1e3a5f",margin:"14px 0 0"\}\}>\
+          \{tabs.map(t=>\{const sel=cTab===t.id;return(<button key=\{t.id\} onClick=\{()=>setCTab(t.id)\} style=\{\{flex:1,padding:"10px 4px 8px",background:"transparent",border:"none",cursor:"pointer",borderBottom:`2px solid $\{sel?"#3b82f6":"transparent"\}`,color:sel?"#3b82f6":"#6b7280",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:sel?700:500,display:"flex",flexDirection:"column",alignItems:"center",gap:3\}\}><t.Icon size=\{15\}/>\{t.label\}</button>);\})\}\
+        </div>\
+        <div style=\{\{padding:16\}\}>\
+          \{cTab==="challenges"&&<CoachChallenges st=\{st\} upd=\{upd\}/>\}\
+          \{cTab==="matchups"  &&<CoachMatchups st=\{st\} upd=\{upd\}/>\}\
+          \{cTab==="roster"    &&<CoachRoster st=\{st\} upd=\{upd\}/>\}\
+        </div>\
+      </div>\
+    </div>\
+  );\
+\}\
+\
+function CoachChallenges(\{st,upd\})\{\
+  const [dZone,setDZone]=useState(st.dailyChallenge?.zone||"");\
+  const [dTarget,setDTarget]=useState(st.dailyChallenge?.target||"");\
+  const [wZone,setWZone]=useState(st.weeklyChallenge?.zone||"");\
+  const [wTarget,setWTarget]=useState(st.weeklyChallenge?.target||"");\
+  const [dSaved,setDSaved]=useState(!!st.dailyChallenge);\
+  const [wSaved,setWSaved]=useState(!!st.weeklyChallenge);\
+  return(\
+    <div>\
+      \{(st.dailyChallenge||st.weeklyChallenge)&&(<div style=\{\{background:"#0a0f1a",borderRadius:10,padding:14,border:"1px solid #334155",marginBottom:14\}\}><div style=\{C.label\}>Active Challenges</div>\{st.dailyChallenge&&(<div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:st.weeklyChallenge?"1px solid #1e3a5f":"none"\}\}><div style=\{\{display:"flex",alignItems:"center",gap:5\}\}><Zap size=\{12\} color="#f59e0b"/><span style=\{\{color:"#e2e8f0",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13\}\}>Daily: \{ZONES.find(z=>z.id===st.dailyChallenge.zone)?.label\} \'97 \{st.dailyChallenge.target\} hits</span></div><button style=\{\{background:"transparent",border:"none",cursor:"pointer",color:"#ef4444",padding:2\}\} onClick=\{()=>\{upd(\{dailyChallenge:null\});setDSaved(false);\}\}><X size=\{14\}/></button></div>)\}\{st.weeklyChallenge&&(<div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0"\}\}><div style=\{\{display:"flex",alignItems:"center",gap:5\}\}><CalendarDays size=\{12\} color="#60a5fa"/><span style=\{\{color:"#e2e8f0",fontFamily:"'Barlow Condensed',sans-serif",fontSize:13\}\}>Weekly: \{ZONES.find(z=>z.id===st.weeklyChallenge.zone)?.label\} \'97 \{st.weeklyChallenge.target\} hits</span></div><button style=\{\{background:"transparent",border:"none",cursor:"pointer",color:"#ef4444",padding:2\}\} onClick=\{()=>\{upd(\{weeklyChallenge:null\});setWSaved(false);\}\}><X size=\{14\}/></button></div>)\}</div>)\}\
+      <div style=\{C.card\}><div style=\{\{display:"flex",alignItems:"center",gap:5,marginBottom:12\}\}><Zap size=\{13\} color="#f59e0b"/><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,color:"#f59e0b",letterSpacing:"0.08em"\}\}>DAILY CHALLENGE</span></div><label style=\{C.label\}>Zone</label><select value=\{dZone\} onChange=\{e=>\{setDZone(e.target.value);setDSaved(false);\}\} style=\{C.inp\}><option value="">Select zone\'85</option>\{ZONES.map(z=><option key=\{z.id\} value=\{z.id\}>\{z.label\}</option>)\}</select><label style=\{C.label\}>Target hits</label><input type="number" min="1" max="200" value=\{dTarget\} onChange=\{e=>\{setDTarget(e.target.value);setDSaved(false);\}\} placeholder="e.g. 10" style=\{C.inp\}/><button onClick=\{()=>\{if(!dZone||!dTarget)return;upd(\{dailyChallenge:\{zone:dZone,target:dTarget,date:Date.now()\}\});setDSaved(true);\}\} style=\{\{width:"100%",background:dSaved?"#064e3b":"#f59e0b",color:dSaved?"#6ee7b7":"#000",border:"none",borderRadius:8,padding:"11px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,transition:"all 0.3s"\}\}>\{dSaved?<><CheckCircle size=\{14\}/>Published!</>:<><Zap size=\{14\}/>Publish Daily</>\}</button></div>\
+      <div style=\{C.card\}><div style=\{\{display:"flex",alignItems:"center",gap:5,marginBottom:12\}\}><CalendarDays size=\{13\} color="#60a5fa"/><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,color:"#60a5fa",letterSpacing:"0.08em"\}\}>WEEKLY CHALLENGE</span></div><label style=\{C.label\}>Zone</label><select value=\{wZone\} onChange=\{e=>\{setWZone(e.target.value);setWSaved(false);\}\} style=\{C.inp\}><option value="">Select zone\'85</option>\{ZONES.map(z=><option key=\{z.id\} value=\{z.id\}>\{z.label\}</option>)\}</select><label style=\{C.label\}>Target hits</label><input type="number" min="1" max="500" value=\{wTarget\} onChange=\{e=>\{setWTarget(e.target.value);setWSaved(false);\}\} placeholder="e.g. 50" style=\{C.inp\}/><button onClick=\{()=>\{if(!wZone||!wTarget)return;upd(\{weeklyChallenge:\{zone:wZone,target:wTarget,date:Date.now()\}\});setWSaved(true);\}\} style=\{\{width:"100%",background:wSaved?"#1e3a5f":"#1d4ed8",color:wSaved?"#93c5fd":"#fff",border:"none",borderRadius:8,padding:"11px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,transition:"all 0.3s"\}\}>\{wSaved?<><CheckCircle size=\{14\}/>Published!</>:<><CalendarDays size=\{14\}/>Publish Weekly</>\}</button></div>\
+    </div>\
+  );\
+\}\
+\
+function CoachMatchups(\{st,upd\})\{\
+  const [p1,setP1]=useState(st.h2h?.p1||"");\
+  const [p2,setP2]=useState(st.h2h?.p2||"");\
+  const [saved,setSaved]=useState(!!st.h2h);\
+  const ws=getWeekStart();\
+  const randomize=()=>\{if(st.players.length<2)return;const s=[...st.players].sort(()=>Math.random()-0.5);setP1(s[0].id);setP2(s[1].id);setSaved(false);\};\
+  const cur=st.h2h?.p1&&st.h2h?.p2?\{p1:st.players.find(p=>p.id===st.h2h.p1),p2:st.players.find(p=>p.id===st.h2h.p2),s1:st.sessions.filter(s=>s.playerId===st.h2h.p1&&new Date(s.date)>=ws).flatMap(s=>s.sets).length*10,s2:st.sessions.filter(s=>s.playerId===st.h2h.p2&&new Date(s.date)>=ws).flatMap(s=>s.sets).length*10\}:null;\
+  return(\
+    <div>\
+      \{cur?.p1&&cur?.p2&&(<div style=\{\{background:"#0a0f1a",borderRadius:10,padding:14,border:"1px solid #334155",marginBottom:14\}\}><div style=\{C.label\}>Current Matchup</div><div style=\{\{display:"flex",justifyContent:"space-around",alignItems:"center"\}\}>\{[\{p:cur.p1,s:cur.s1\},\{p:cur.p2,s:cur.s2\}].map((x,i)=>(<div key=\{i\} style=\{\{textAlign:"center"\}\}><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:16,fontWeight:800,color:x.s>(i===0?cur.s2:cur.s1)?"#f59e0b":"#e2e8f0"\}\}>\{x.p?.name\}</div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:34,fontWeight:900,color:"#3b82f6"\}\}>\{x.s\}</div></div>))\}</div></div>)\}\
+      <div style=\{C.card\}>\
+        <div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12\}\}><div style=\{\{display:"flex",alignItems:"center",gap:5\}\}><Swords size=\{13\} color="#ef4444"/><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,fontWeight:700,color:"#ef4444",letterSpacing:"0.08em"\}\}>SET MATCHUP</span></div><button onClick=\{randomize\} style=\{\{background:"#1e3a5f",color:"#60a5fa",border:"none",borderRadius:6,padding:"5px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:4\}\}><Shuffle size=\{11\}/>Random</button></div>\
+        \{[["Player 1",p1,setP1],["Player 2",p2,setP2]].map(([lbl,val,setter])=>(<div key=\{lbl\}><label style=\{C.label\}>\{lbl\}</label><select value=\{val\} onChange=\{e=>\{setter(e.target.value);setSaved(false);\}\} style=\{C.inp\}><option value="">Select player\'85</option>\{st.players.map(p=><option key=\{p.id\} value=\{p.id\}>\{p.name\}\{p.jerseyNum?` #$\{p.jerseyNum\}`:""\}</option>)\}</select></div>))\}\
+        <button onClick=\{()=>\{if(!p1||!p2||p1===p2)return;upd(\{h2h:\{p1,p2,set:Date.now()\}\});setSaved(true);\}\} style=\{\{width:"100%",background:saved?"#064e3b":"#ef4444",color:saved?"#6ee7b7":"#fff",border:"none",borderRadius:8,padding:"11px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,transition:"all 0.3s"\}\}>\{saved?<><CheckCircle size=\{14\}/>Matchup Set!</>:<><Swords size=\{14\}/>Set Matchup</>\}</button>\
+      </div>\
+    </div>\
+  );\
+\}\
+\
+function CoachRoster(\{st,upd\})\{\
+  const [selectedPlayer,setSelectedPlayer]=useState(null);\
+  const [editPw,setEditPw]=useState("");\
+  const [showPw,setShowPw]=useState(\{\});\
+  const [savingPw,setSavingPw]=useState(false);\
+  const [msgDraft,setMsgDraft]=useState("");\
+  const [msgSaved,setMsgSaved]=useState(false);\
+\
+  if(selectedPlayer)\{\
+    const p=st.players.find(x=>x.id===selectedPlayer);\
+    if(!p)\{setSelectedPlayer(null);return null;\}\
+    const pss=[...st.sessions.filter(s=>s.playerId===p.id)].sort((a,b)=>new Date(b.date)-new Date(a.date));\
+    return(\
+      <div>\
+        <button onClick=\{()=>setSelectedPlayer(null)\} style=\{\{background:"transparent",border:"none",cursor:"pointer",color:"#60a5fa",display:"flex",alignItems:"center",gap:4,fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,marginBottom:16\}\}><ChevronLeft size=\{16\}/>Back to Roster</button>\
+        <div style=\{\{...C.card,marginBottom:12\}\}>\
+          <div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10\}\}>\
+            <div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:900,color:"#f1f5f9"\}\}>\{p.name\}\{p.jerseyNum?<span style=\{\{color:"#60a5fa"\}\}> #\{p.jerseyNum\}</span>:""\}</div><LevelBadge li=\{getLevel(calcXP(getPSessions(p,st.sessions).flatMap(s=>s.sets).length*10,getPSessions(p,st.sessions).flatMap(s=>s.sets).reduce((a,x)=>a+x.hits,0))).li\}/></div>\
+          </div>\
+          \{/* Password editor */\}\
+          <div style=\{\{marginTop:12\}\}>\
+            <div style=\{C.label\}><KeyRound size=\{11\} style=\{\{display:"inline",marginRight:4\}\}/>Player Password</div>\
+            <div style=\{\{display:"flex",gap:8,alignItems:"center"\}\}>\
+              <div style=\{\{position:"relative",flex:1\}\}>\
+                <input type=\{showPw[p.id]?"text":"password"\} value=\{editPw\} onChange=\{e=>setEditPw(e.target.value)\} placeholder=\{p.password?"Change password\'85":"Set a password\'85"\} style=\{\{...C.inp,marginBottom:0,paddingRight:36\}\}/>\
+                <button onClick=\{()=>setShowPw(s=>(\{...s,[p.id]:!s[p.id]\}))\} style=\{\{position:"absolute",right:10,top:10,background:"transparent",border:"none",cursor:"pointer",color:"#6b7280"\}\}>\{showPw[p.id]?<EyeOff size=\{14\}/>:<Eye size=\{14\}/>\}</button>\
+              </div>\
+              <button onClick=\{()=>\{upd(\{players:st.players.map(x=>x.id===p.id?\{...x,password:editPw.trim()\}:x)\});setSavingPw(true);setTimeout(()=>setSavingPw(false),1500);\}\} style=\{\{background:"#1e3a5f",color:"#60a5fa",border:"1px solid #1e3a5f",borderRadius:8,padding:"9px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,cursor:"pointer",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:4\}\}>\{savingPw?<><CheckCircle size=\{12\}/>Saved</>:<><Edit2 size=\{12\}/>Save</>\}</button>\
+            </div>\
+            \{p.password&&<div style=\{\{color:"#6b7280",fontSize:11,marginTop:4,display:"flex",alignItems:"center",gap:4\}\}><Lock size=\{10\}/>Current: \{showPw[p.id]?p.password:"\'95\'95\'95\'95\'95\'95\'95\'95"\}</div>\}\
+          </div>\
+        </div>\
+\
+        \{/* Coach message composer */\}\
+        <div style=\{\{...C.card,marginBottom:12,borderColor:"#f59e0b33"\}\}>\
+          <div style=\{C.label\}><AlertCircle size=\{11\} style=\{\{display:"inline",marginRight:4\}\}/>Message to Player</div>\
+          \{p.coachMsg&&<div style=\{\{background:"#1a1200",border:"1px solid #f59e0b55",borderRadius:8,padding:"8px 10px",marginBottom:8,color:"#fde68a",fontSize:13,fontFamily:"Barlow"\}\}>Pending (pops up on their next login): "\{p.coachMsg\}"</div>\}\
+          <textarea value=\{msgDraft\} onChange=\{e=>\{setMsgDraft(e.target.value);setMsgSaved(false);\}\} placeholder="e.g. Great work this week \'97 focus on Bar Down today!" rows=\{3\} style=\{\{...C.inp,resize:"vertical",fontFamily:"Barlow"\}\}/>\
+          <div style=\{\{display:"flex",gap:8\}\}>\
+            <button onClick=\{()=>\{if(!msgDraft.trim())return;upd(\{players:st.players.map(x=>x.id===p.id?\{...x,coachMsg:msgDraft.trim()\}:x)\});setMsgSaved(true);setMsgDraft("");\}\} style=\{\{flex:1,background:msgSaved?"#064e3b":"#f59e0b",color:msgSaved?"#6ee7b7":"#000",border:"none",borderRadius:8,padding:"10px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6\}\}>\{msgSaved?<><CheckCircle size=\{13\}/>Sent!</>:<>Send Message</>\}</button>\
+            \{p.coachMsg&&<button onClick=\{()=>\{upd(\{players:st.players.map(x=>x.id===p.id?\{...x,coachMsg:""\}:x)\});setMsgSaved(false);\}\} style=\{\{background:"transparent",color:"#f87171",border:"1px solid #475569",borderRadius:8,padding:"10px 14px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,fontSize:13,cursor:"pointer"\}\}>Clear</button>\}\
+          </div>\
+        </div>\
+\
+        \{/* Session history */\}\
+        <div style=\{C.label\}><History size=\{11\} style=\{\{display:"inline",marginRight:4\}\}/>Session History (\{pss.length\})</div>\
+        \{pss.length===0?<div style=\{\{color:"#6b7280",textAlign:"center",padding:24,fontFamily:"'Barlow Condensed',sans-serif",fontSize:14\}\}>No sessions yet</div>:\
+          pss.map((s,i)=>\{\
+            const shots=s.sets.length*10,hits=s.sets.reduce((a,x)=>a+x.hits,0),acc=shots>0?hits/shots*100:0;\
+            return(\
+              <div key=\{s.id\} style=\{\{background:"#0a0f1a",borderRadius:10,padding:"12px 14px",marginBottom:8,border:"1px solid #334155"\}\}>\
+                <div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"flex-start"\}\}>\
+                  <div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:"#94a3b8"\}\}>\{new Date(s.date).toLocaleDateString("en-US",\{weekday:"short",month:"short",day:"numeric",year:"numeric"\})\}</div><div style=\{\{color:"#6b7280",fontSize:11\}\}>\{new Date(s.date).toLocaleTimeString("en-US",\{hour:"numeric",minute:"2-digit"\})\}</div></div>\
+                  <div style=\{\{display:"flex",gap:10,textAlign:"center"\}\}>\
+                    <div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:800,color:"#60a5fa",lineHeight:1\}\}>\{shots\}</div><div style=\{\{color:"#6b7280",fontSize:9\}\}>shots</div></div>\
+                    <div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:800,color:"#34d399",lineHeight:1\}\}>\{hits\}</div><div style=\{\{color:"#6b7280",fontSize:9\}\}>hits</div></div>\
+                    <div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,fontWeight:800,color:"#fbbf24",lineHeight:1\}\}>\{acc.toFixed(0)\}%</div><div style=\{\{color:"#6b7280",fontSize:9\}\}>acc</div></div>\
+                  </div>\
+                </div>\
+              </div>\
+            );\
+          \})\
+        \}\
+      </div>\
+    );\
+  \}\
+\
+  return(\
+    <div>\
+      \{st.players.length===0?<div style=\{\{color:"#6b7280",textAlign:"center",padding:32,fontFamily:"'Barlow Condensed',sans-serif"\}\}>No players yet</div>:\
+        [...st.players].map(p=>\{\
+          const stats=playerStats(p,st.sessions);\
+          const hasPw=!!p.password;\
+          return(\
+            <div key=\{p.id\} style=\{\{background:"#1e293b",borderRadius:10,padding:"12px 14px",marginBottom:8,border:"1px solid #334155"\}\}>\
+              <div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center"\}\}>\
+                <div>\
+                  <div style=\{\{display:"flex",alignItems:"center",gap:7,marginBottom:3\}\}>\
+                    <span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:17,fontWeight:800,color:"#f1f5f9"\}\}>\{p.name\}\{p.jerseyNum?<span style=\{\{color:"#60a5fa"\}\}> #\{p.jerseyNum\}</span>:""\}</span>\
+                    <LevelBadge li=\{stats.li\}/>\
+                  </div>\
+                  <div style=\{\{display:"flex",gap:8,alignItems:"center"\}\}>\
+                    <div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,color:"#94a3b8"\}\}>\{stats.totalShots\} shots \'b7 \{stats.totalShots>0?stats.acc.toFixed(0):0\}%</div>\
+                    <div style=\{\{display:"flex",alignItems:"center",gap:3,color:hasPw?"#34d399":"#6b7280",fontSize:11,fontFamily:"'Barlow Condensed',sans-serif"\}\}><Lock size=\{10\}/>\{hasPw?"Protected":"No password"\}</div>\
+                  </div>\
+                </div>\
+                <div style=\{\{display:"flex",gap:6,alignItems:"center"\}\}>\
+                  <button style=\{\{background:"#1e3a5f",color:"#60a5fa",border:"none",borderRadius:6,padding:"6px 10px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:3\}\} onClick=\{()=>\{setSelectedPlayer(p.id);setEditPw("");setMsgDraft("");setMsgSaved(false);\}\}>\
+                    <History size=\{11\}/>View\
+                  </button>\
+                  <button style=\{\{background:"transparent",border:"none",cursor:"pointer",color:"#ef4444",padding:4\}\} onClick=\{()=>\{if(confirm(`Remove $\{p.name\}?`))upd(\{players:st.players.filter(x=>x.id!==p.id),sessions:st.sessions.filter(s=>s.playerId!==p.id)\});\}\}><Trash2 size=\{15\}/></button>\
+                </div>\
+              </div>\
+            </div>\
+          );\
+        \})\
+      \}\
+    </div>\
+  );\
+\}\
+\
+// \uc0\u9472 \u9472 \u9472  PLAYER TAB COMPONENTS \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \u9472 \
+function DashTab(\{player,stats,sessions,dailyChallenge,weeklyChallenge,players,onStartSession,newBadgeIds,onBadgeClick\})\{\
+  const ws=getWeekStart();\
+  const weekRank=[...players].map(p=>(\{id:p.id,wS:sessions.filter(s=>s.playerId===p.id&&new Date(s.date)>=ws).flatMap(s=>s.sets).length*10\})).sort((a,b)=>b.wS-a.wS).findIndex(p=>p.id===player.id)+1;\
+  const earnedBadges=BADGES.filter(b=>player.earnedBadges?.[b.id]);\
+  const recent=sessions.filter(s=>s.playerId===player.id).slice(-5).reverse();\
+  return(\
+    <div style=\{\{padding:"14px 16px 80px"\}\}>\
+      <div style=\{\{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12\}\}>\
+        <StatCard label="Career" value=\{stats.totalShots\} color="#60a5fa"/>\
+        <StatCard label="Accuracy" value=\{stats.totalShots>0?stats.acc.toFixed(0)+"%":"\'97"\} color="#34d399"/>\
+        <StatCard label="Week Rank" value=\{weekRank>0?`#$\{weekRank\}`:"\'97"\} color="#fbbf24"/>\
+      </div>\
+      <div style=\{C.card\}><div style=\{C.label\}>This Week</div><div style=\{\{display:"flex",justifyContent:"space-between"\}\}>\{[\{l:"Pucks",v:stats.weekShots,c:"#60a5fa"\},\{l:"Accuracy",v:stats.weekShots>0?stats.weekAcc.toFixed(0)+"%":"\'97",c:"#34d399"\},\{l:"Streak",v:stats.streak>0?`\uc0\u55357 \u56613 $\{stats.streak\}d`:"\'97",c:"#fb923c"\}].map(s=>(<div key=\{s.l\} style=\{\{textAlign:"center"\}\}><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:26,fontWeight:900,color:s.c,lineHeight:1\}\}>\{s.v\}</div><div style=\{\{color:"#94a3b8",fontSize:11,marginTop:2\}\}>\{s.l\}</div></div>))\}</div></div>\
+      \{earnedBadges.length>0&&(<div style=\{C.card\}><div style=\{C.label\}>Recent Badges (\{earnedBadges.length\}/\{BADGES.length\})</div><div style=\{\{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"\}\}>\{earnedBadges.sort((a,b)=>(player.earnedBadges[b.id]?.ts||0)-(player.earnedBadges[a.id]?.ts||0)).slice(0,4).map(b=>(<BadgeCircle key=\{b.id\} badge=\{b\} earned size=\{64\} isNew=\{!!newBadgeIds[b.id]\} earnedDate=\{player.earnedBadges[b.id]?.ts\} onClick=\{onBadgeClick\}/>))\}</div></div>)\}\
+      \{recent.length>0&&(<div style=\{C.card\}><div style=\{C.label\}>Recent Sessions</div>\{recent.map((s,i)=>\{const sh=s.sets.length*10,hi=s.sets.reduce((a,x)=>a+x.hits,0);return(<div key=\{s.id\} style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:i<recent.length-1?"1px solid #1e3a5f":"none"\}\}><span style=\{\{color:"#94a3b8",fontSize:13\}\}>\{new Date(s.date).toLocaleDateString()\}</span><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:700,color:"#e2e8f0"\}\}>\{sh\} shots</span><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,color:"#34d399"\}\}>\{sh>0?(hi/sh*100).toFixed(0):0\}%</span></div>);\})\}</div>)\}\
+      <button style=\{C.btnP\} onClick=\{onStartSession\}><Target size=\{16\}/>Start New Session</button>\
+    </div>\
+  );\
+\}\
+\
+function SessionTab(\{player,session,sesGoal,setSesGoal,onLogSet,onEndSession,onStart,dailyChallenge,weeklyChallenge,flashZone,flashType,puckAnim\})\{\
+  if(!session)return(\
+    <div style=\{\{padding:"28px 16px",textAlign:"center"\}\}>\
+      <Target size=\{38\} color="#3b82f6" style=\{\{marginBottom:10\}\}/>\
+      <div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,marginBottom:18,color:"#f1f5f9"\}\}>Start a Session</div>\
+      <div style=\{\{...C.card,textAlign:"left",marginBottom:18\}\}>\
+        <div style=\{C.label\}>Session Goal (sets of 10)</div>\
+        <div style=\{\{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:10\}\}>\{[5,10,15,20].map(n=>(<button key=\{n\} onClick=\{()=>setSesGoal(n)\} style=\{\{background:sesGoal===n?"#1e3a5f":"#0a0f1a",color:sesGoal===n?"#60a5fa":"#6b7280",border:`1px solid $\{sesGoal===n?"#3b82f6":"#334155"\}`,borderRadius:8,padding:"9px 4px",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,cursor:"pointer",textAlign:"center"\}\}>\{n\}<br/><span style=\{\{fontSize:10,fontWeight:400,color:"#374151"\}\}>\{n*10\} shots</span></button>))\}</div>\
+        <div style=\{\{color:"#4b5563",fontSize:11,textAlign:"center",fontFamily:"'Barlow Condensed',sans-serif"\}\}>+5 XP per set \'b7 +3 XP per 10 hits</div>\
+      </div>\
+      <button style=\{C.btnP\} onClick=\{onStart\}><Target size=\{16\}/>Let's Go!</button>\
+    </div>\
+  );\
+  const sLeft=Math.max(0,sesGoal-session.sets.length),sHits=session.sets.reduce((a,s)=>a+s.hits,0),sShots=session.sets.length*10,sAcc=sShots>0?(sHits/sShots*100).toFixed(0):"\'97";\
+  return(\
+    <div style=\{\{padding:"12px 16px 80px",position:"relative"\}\}>\
+      \{puckAnim&&(<div style=\{\{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",zIndex:500,pointerEvents:"none",textAlign:"center",background:"rgba(10,15,26,0.93)",borderRadius:12,padding:"10px 20px",border:"1px solid #334155"\}\}><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:42,fontWeight:900,color:puckAnim.type==="ice"?"#60a5fa":puckAnim.type==="fire"?"#f97316":"#22c55e"\}\}>\{puckAnim.hits\}/10</div><div style=\{\{display:"flex",gap:3,justifyContent:"center",flexWrap:"wrap",maxWidth:180\}\}>\{Array.from(\{length:puckAnim.hits\}).map((_,i)=><span key=\{i\} style=\{\{fontSize:16\}\}>\uc0\u55356 \u57298 </span>)\}</div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,color:puckAnim.type==="ice"?"#60a5fa":puckAnim.type==="fire"?"#f97316":"#22c55e"\}\}>\{puckAnim.type==="fire"?"ON FIRE \u55357 \u56613 ":puckAnim.type==="ice"?"FROZEN \u10052 \u65039 ":"NICE \u9989 "\}</div></div>)\}\
+      <div style=\{\{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:10\}\}><StatCard label="Sets Left" value=\{sLeft\} color="#fbbf24"/><StatCard label="Shots" value=\{sShots\} color="#60a5fa"/><StatCard label="Hits" value=\{sHits\} color="#34d399"/><StatCard label="Acc" value=\{sShots>0?sAcc+"%":"\'97"\} color="#c084fc"/></div>\
+      <div style=\{\{marginBottom:10\}\}><div style=\{\{display:"flex",justifyContent:"space-between",marginBottom:3\}\}><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:"0.1em",color:"#94a3b8",textTransform:"uppercase"\}\}>Progress</span><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:"#6b7280"\}\}>\{session.sets.length\}/\{sesGoal\}</span></div><div style=\{\{height:5,background:"#0a0f1a",borderRadius:3,overflow:"hidden",border:"1px solid #1e3a5f"\}\}><div style=\{\{height:"100%",width:`$\{Math.min(100,session.sets.length/sesGoal*100)\}%`,background:"linear-gradient(90deg,#3b82f6,#22c55e)",borderRadius:3,transition:"width 0.4s"\}\}/></div></div>\
+      <div style=\{\{position:"relative",width:"100%",paddingBottom:"68%",marginBottom:10\}\}><div style=\{\{position:"absolute",inset:0,background:"rgba(10,15,26,0.85)",borderRadius:12,border:"1px solid #1e3a5f",overflow:"hidden"\}\}><NetSVG flashZone=\{flashZone\} flashType=\{flashType\}/></div></div>\
+      <div style=\{C.card\}><div style=\{\{...C.label,display:"flex",justifyContent:"space-between"\}\}><span>Log a Set of 10</span><span style=\{\{color:"#1e3a5f"\}\}>+5 XP/set</span></div><div style=\{\{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8\}\}>\{ZONES.map(z=>\{const pr=session.sets.filter(s=>s.zone===z.id);return <ZoneSetRow key=\{z.id\} zone=\{z\} prevHits=\{pr.reduce((a,s)=>a+s.hits,0)\} prevShots=\{pr.length*10\} onLog=\{h=>onLogSet(z.id,h)\}/>;\})\}</div></div>\
+      \{[dailyChallenge&&\{ch:dailyChallenge,label:"Daily",xp:50\},weeklyChallenge&&\{ch:weeklyChallenge,label:"Weekly",xp:100\}].filter(Boolean).map((\{ch,label,xp\})=>\{const hits=session.sets.filter(s=>s.zone===ch.zone).reduce((a,s)=>a+s.hits,0),target=parseInt(ch.target)||5;return(<div key=\{label\} style=\{\{...C.card,borderColor:"#f59e0b44"\}\}><div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5\}\}><div style=\{\{display:"flex",alignItems:"center",gap:4\}\}><Zap size=\{11\} color="#f59e0b"/><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:"#f59e0b",fontWeight:700\}\}>\{label\}: \{ZONES.find(z=>z.id===ch.zone)?.label\}</span></div><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:hits>=target?"#34d399":"#f59e0b"\}\}>\{hits\}/\{target\}\{hits>=target?" \uc0\u9989 ":""\}</span></div><div style=\{\{height:4,background:"#0a0f1a",borderRadius:2,overflow:"hidden"\}\}><div style=\{\{height:"100%",width:`$\{Math.min(100,hits/target*100)\}%`,background:hits>=target?"#22c55e":"#f59e0b",borderRadius:2,transition:"width 0.4s"\}\}/></div></div>);\})\}\
+      \{session.sets.length>0&&(<div style=\{C.card\}><div style=\{C.label\}>Recent Sets</div>\{[...session.sets].reverse().slice(0,4).map((s,i)=>\{const z=ZONES.find(x=>x.id===s.zone);return(<div key=\{i\} style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:i<3?"1px solid #1e3a5f":"none"\}\}><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",color:"#e2e8f0",fontSize:13\}\}>\{z?.label\}</span><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:700,color:s.hits===0?"#60a5fa":s.hits>=5?"#f97316":"#22c55e"\}\}>\{s.hits\}/10 <span style=\{\{fontSize:10,color:"#6b7280"\}\}>\{(s.hits/10*100).toFixed(0)\}%</span></span></div>);\})\}></div>)\}\
+      <button style=\{\{...C.btnS,borderColor:"#22c55e",color:"#22c55e"\}\} onClick=\{onEndSession\}><CheckCircle size=\{15\}/>End Session</button>\
+    </div>\
+  );\
+\}\
+\
+function ChallengesTab(\{player,sessions,dailyChallenge,weeklyChallenge,h2h,players\})\{\
+  const ws=getWeekStart(),today=new Date().toDateString();\
+  const todaySets=sessions.filter(s=>s.playerId===player.id&&new Date(s.date).toDateString()===today).flatMap(s=>s.sets);\
+  const weekSets=sessions.filter(s=>s.playerId===player.id&&new Date(s.date)>=ws).flatMap(s=>s.sets);\
+  const isInH2H=h2h&&(h2h.p1===player.id||h2h.p2===player.id);\
+  const opp=isInH2H?players.find(p=>p.id===(h2h.p1===player.id?h2h.p2:h2h.p1)):null;\
+  const myShots=isInH2H?sessions.filter(s=>s.playerId===player.id&&new Date(s.date)>=ws).flatMap(s=>s.sets).length*10:0;\
+  const oppShots=opp?sessions.filter(s=>s.playerId===opp.id&&new Date(s.date)>=ws).flatMap(s=>s.sets).length*10:0;\
+  const chs=[dailyChallenge&&\{ch:dailyChallenge,label:"Daily Challenge",sets:todaySets,xp:50,Icon:Zap,color:"#f59e0b"\},weeklyChallenge&&\{ch:weeklyChallenge,label:"Weekly Challenge",sets:weekSets,xp:100,Icon:CalendarDays,color:"#60a5fa"\}].filter(Boolean);\
+  return(\
+    <div style=\{\{padding:"14px 16px 80px"\}\}>\
+      <div style=\{C.label\}>Active Challenges</div>\
+      \{chs.length===0&&!isInH2H&&<div style=\{\{...C.card,textAlign:"center",color:"#6b7280",fontFamily:"'Barlow Condensed',sans-serif",fontSize:14\}\}>No active challenges \'97 check with your coach!</div>\}\
+      \{chs.map((\{ch,label,sets,xp,Icon,color\})=>\{const hits=sets.filter(s=>s.zone===ch.zone).reduce((a,s)=>a+s.hits,0),target=parseInt(ch.target)||5,done=hits>=target;return(<div key=\{label\} style=\{\{...C.card,borderColor:`$\{color\}44`\}\}><div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10\}\}><div style=\{\{display:"flex",alignItems:"center",gap:5\}\}><Icon size=\{14\} color=\{color\}/><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color,letterSpacing:"0.08em"\}\}>\{label.toUpperCase()\}</span></div><div style=\{\{display:"flex",alignItems:"center",gap:5\}\}><span style=\{\{color:"#4b5563",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11\}\}>+\{xp\} XP</span>\{done&&<CheckCircle size=\{15\} color="#34d399"/>\}</div></div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:20,fontWeight:900,color:"#f1f5f9",marginBottom:8\}\}>\{ZONES.find(z=>z.id===ch.zone)?.label\}: \{hits\}/\{target\}</div><div style=\{\{height:7,background:"#0a0f1a",borderRadius:4,overflow:"hidden"\}\}><div style=\{\{height:"100%",width:`$\{Math.min(100,hits/target*100)\}%`,background:done?"#22c55e":color,borderRadius:4,transition:"width 0.5s"\}\}/></div>\{done&&<div style=\{\{marginTop:8,color:"#34d399",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,display:"flex",alignItems:"center",gap:4\}\}><CheckCircle size=\{12\}/>Complete! +\{xp\} XP</div>\}</div>);\})\}\
+      \{isInH2H&&opp&&(<div style=\{\{...C.card,borderColor:"#ef444444"\}\}><div style=\{\{display:"flex",alignItems:"center",gap:5,marginBottom:12\}\}><Swords size=\{14\} color="#ef4444"/><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:12,fontWeight:700,color:"#ef4444",letterSpacing:"0.08em"\}\}>HEAD-TO-HEAD THIS WEEK</span></div><div style=\{\{display:"flex",justifyContent:"space-around",alignItems:"center",marginBottom:10\}\}><div style=\{\{textAlign:"center"\}\}><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:800,color:myShots>oppShots?"#fbbf24":"#e2e8f0"\}\}>\{player.name\} (you)</div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:38,fontWeight:900,color:"#60a5fa",lineHeight:1\}\}>\{myShots\}</div></div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:18,color:"#475569"\}\}>VS</div><div style=\{\{textAlign:"center"\}\}><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:800,color:oppShots>myShots?"#fbbf24":"#e2e8f0"\}\}>\{opp.name\}</div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:38,fontWeight:900,color:"#60a5fa",lineHeight:1\}\}>\{oppShots\}</div></div></div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:myShots>oppShots?"#34d399":myShots<oppShots?"#ef4444":"#fbbf24",fontWeight:700,textAlign:"center",display:"flex",alignItems:"center",justifyContent:"center",gap:4\}\}>\{myShots>oppShots?<><TrendingUp size=\{13\}/>You're leading!</>:myShots<oppShots?<><AlertCircle size=\{13\}/>Time to put in work!</>:<>All tied up!</>\}</div><div style=\{\{color:"#4b5563",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,textAlign:"center",marginTop:4\}\}>+50 XP for winning</div></div>)\}\
+    </div>\
+  );\
+\}\
+\
+function BoardTab(\{player,players,sessions,h2h\})\{\
+  const [period,setPeriod]=useState("week");\
+  const ws=getWeekStart(),today=new Date().toDateString(),medals=["\uc0\u55358 \u56647 ","\u55358 \u56648 ","\u55358 \u56649 "];\
+  const ranked=[...players].map(p=>\{const pss=sessions.filter(s=>s.playerId===p.id);const sets=period==="today"?pss.filter(s=>new Date(s.date).toDateString()===today).flatMap(s=>s.sets):period==="week"?pss.filter(s=>new Date(s.date)>=ws).flatMap(s=>s.sets):pss.flatMap(s=>s.sets);const shots=sets.length*10,hits=sets.reduce((a,s)=>a+s.hits,0),stats=playerStats(p,sessions);return\{...p,shots,acc:shots>0?hits/shots*100:0,streak:stats.streak,li:stats.li\};\}).sort((a,b)=>b.shots-a.shots);\
+  const hw=ranked[0],sn=[...ranked].sort((a,b)=>b.acc-a.acc)[0];\
+  return(\
+    <div style=\{\{padding:"14px 16px 80px"\}\}>\
+      <div style=\{\{display:"flex",gap:6,marginBottom:14\}\}>\{["today","week","alltime"].map(v=>(<button key=\{v\} onClick=\{()=>setPeriod(v)\} style=\{\{flex:1,background:period===v?"#1e3a5f":"#0a0f1a",color:period===v?"#60a5fa":"#6b7280",border:`1px solid $\{period===v?"#1e3a5f":"#334155"\}`,borderRadius:8,padding:"8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,fontWeight:700,cursor:"pointer"\}\}>\{v==="today"?"Today":v==="week"?"This Week":"All Time"\}</button>))\}</div>\
+      \{hw?.shots>0&&sn?.acc>0&&(<div style=\{\{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14\}\}>\{[\{p:hw,label:"GRINDER",sub:`$\{hw.shots\} pucks`,color:"#60a5fa",Icon:TrendingUp\},\{p:sn,label:"SNIPER",sub:`$\{sn.acc.toFixed(0)\}% acc`,color:"#fbbf24",Icon:Target\}].map((\{p,label,sub,color,Icon\})=>p&&(<div key=\{label\} style=\{\{background:"#1e293b",borderRadius:10,padding:12,border:`1px solid $\{color\}44`,textAlign:"center"\}\}><Icon size=\{16\} color=\{color\} style=\{\{marginBottom:3\}\}/><div style=\{\{color,fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:"0.1em",marginBottom:3\}\}>\{label\}</div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:17,fontWeight:800,color:"#f1f5f9"\}\}>\{p.name\}</div><div style=\{\{color:"#94a3b8",fontSize:11\}\}>\{sub\}</div></div>))\}</div>)\}\
+      \{ranked.map((p,i)=>\{const isMe=p.id===player.id;return(<div key=\{p.id\} style=\{\{background:isMe?"rgba(59,130,246,0.1)":"#1e293b",borderRadius:10,padding:"12px 14px",marginBottom:8,border:"1px solid #334155",borderLeft:`3px solid $\{i===0?"#f59e0b":i===1?"#94a3b8":i===2?"#b45309":"#334155"\}`,display:"flex",alignItems:"center",gap:10\}\}><div style=\{\{fontSize:17,minWidth:24,textAlign:"center"\}\}>\{medals[i]||<span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",color:"#6b7280",fontSize:13\}\}>#\{i+1\}</span>\}</div><div style=\{\{flex:1\}\}><div style=\{\{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"\}\}><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:17,fontWeight:800,color:isMe?"#60a5fa":"#f1f5f9"\}\}>\{p.name\}\{p.jerseyNum?` #$\{p.jerseyNum\}`:""\}\{isMe?" \uc0\u55357 \u56392 ":""\}</span><LevelBadge li=\{p.li\}/></div>\{p.streak>0&&<div style=\{\{display:"flex",alignItems:"center",gap:2,color:"#f97316",fontSize:11,fontFamily:"'Barlow Condensed',sans-serif"\}\}><Flame size=\{10\}/>\{p.streak\}d streak</div>\}</div><div style=\{\{textAlign:"center",minWidth:40\}\}><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:22,fontWeight:900,color:"#60a5fa",lineHeight:1\}\}>\{p.shots\}</div><div style=\{\{color:"#6b7280",fontSize:9\}\}>shots</div></div><div style=\{\{textAlign:"center",minWidth:44,background:"#0a0f1a",borderRadius:8,padding:"4px 7px"\}\}><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:800,color:"#34d399"\}\}>\{p.acc.toFixed(0)\}%</div><div style=\{\{color:"#6b7280",fontSize:9\}\}>acc</div></div></div>);\})\}\
+    </div>\
+  );\
+\}\
+\
+function StatsTab(\{player,stats,sessions\})\{\
+  const pss=sessions.filter(s=>s.playerId===player.id);\
+  const hist=pss.map(s=>\{const sh=s.sets.length*10,hi=s.sets.reduce((a,x)=>a+x.hits,0);return\{d:new Date(s.date).toLocaleDateString("en-US",\{month:"short",day:"numeric"\}),sh\};\}).slice(-10);\
+  const maxSh=Math.max(...hist.map(d=>d.sh),10);\
+  const best=ZONES.reduce((b,z)=>stats.zoneStats[z.id]?.shots>0&&(!b||stats.zoneStats[z.id].acc>stats.zoneStats[b.id].acc)?z:b,null);\
+  const weak=ZONES.reduce((w,z)=>stats.zoneStats[z.id]?.shots>0&&(!w||stats.zoneStats[z.id].acc<stats.zoneStats[w.id].acc)?z:w,null);\
+  return(\
+    <div style=\{\{padding:"14px 16px 80px"\}\}>\
+      <div style=\{C.card\}><div style=\{C.label\}>Career Totals</div><div style=\{\{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12\}\}><StatCard label="Shots" value=\{stats.totalShots\} color="#60a5fa"/><StatCard label="Hits" value=\{stats.totalHits\} color="#34d399"/><StatCard label="Accuracy" value=\{stats.totalShots>0?stats.acc.toFixed(1)+"%":"\'97"\} color="#fbbf24"/></div><XPBar li=\{stats.li\} xp=\{stats.xp\}/></div>\
+      <div style=\{C.card\}>\
+        <div style=\{C.label\}>Zone Heat Map</div>\
+        <div style=\{\{position:"relative",width:"100%",paddingBottom:"70%",marginBottom:12\}\}><div style=\{\{position:"absolute",inset:0,background:"rgba(10,15,26,0.7)",borderRadius:10,border:"1px solid #1e3a5f",overflow:"hidden"\}\}><NetSVG heatData=\{stats.zoneStats\}/></div></div>\
+        <HeatLegend/>\
+      </div>\
+      <div style=\{C.card\}><div style=\{C.label\}>Zone Breakdown</div>\{ZONES.map(z=>\{const d=stats.zoneStats[z.id];if(!d||d.shots===0)return(<div key=\{z.id\} style=\{\{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid #0f172a"\}\}><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",color:"#6b7280",fontSize:13\}\}>\{z.label\}</span><span style=\{\{color:"#374151",fontSize:12\}\}>No data</span></div>);const t=d.acc/100,\{fill\}=heatColor(d.acc,true);return(<div key=\{z.id\} style=\{\{padding:"6px 0",borderBottom:"1px solid #0f172a"\}\}><div style=\{\{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3\}\}><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",color:"#e2e8f0",fontSize:13,fontWeight:700\}\}>\{z.label\}</span><span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:15,fontWeight:800,color:"#f1f5f9"\}\}>\{d.acc.toFixed(0)\}%</span></div><div style=\{\{height:6,background:"#0a0f1a",borderRadius:3,overflow:"hidden"\}\}><div style=\{\{height:"100%",width:`$\{d.acc\}%`,background:fill,borderRadius:3\}\}/></div><div style=\{\{color:"#6b7280",fontSize:10,marginTop:2\}\}>\{d.hits\}/\{d.shots\} hits \'b7 \{d.sets\} sets</div></div>);\})\}</div>\
+      \{(best||weak)&&(<div style=\{\{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12\}\}>\{best&&<div style=\{\{background:"#1e293b",borderRadius:10,padding:12,border:"1px solid #22c55e44",textAlign:"center"\}\}><Star size=\{16\} color="#34d399" style=\{\{marginBottom:3\}\}/><div style=\{\{color:"#34d399",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:"0.1em",margin:"3px 0"\}\}>BEST ZONE</div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:800,color:"#f1f5f9"\}\}>\{best.label\}</div><div style=\{\{color:"#94a3b8",fontSize:11\}\}>\{stats.zoneStats[best.id]?.acc.toFixed(0)\}%</div></div>\}\{weak&&<div style=\{\{background:"#1e293b",borderRadius:10,padding:12,border:"1px solid #ef444444",textAlign:"center"\}\}><TrendingUp size=\{16\} color="#ef4444" style=\{\{marginBottom:3\}\}/><div style=\{\{color:"#ef4444",fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,letterSpacing:"0.1em",margin:"3px 0"\}\}>WORK ON</div><div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,fontWeight:800,color:"#f1f5f9"\}\}>\{weak.label\}</div><div style=\{\{color:"#94a3b8",fontSize:11\}\}>\{stats.zoneStats[weak.id]?.acc.toFixed(0)\}%</div></div>\}</div>)\}\
+      \{hist.length>1&&(<div style=\{C.card\}><div style=\{C.label\}>Shot History</div><div style=\{\{display:"flex",alignItems:"flex-end",gap:4,height:72,marginBottom:4\}\}>\{hist.map((d,i)=>(<div key=\{i\} style=\{\{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",height:"100%"\}\}><div style=\{\{fontSize:8,color:"#6b7280",marginBottom:2\}\}>\{d.sh\}</div><div style=\{\{width:"100%",height:`$\{Math.max(4,d.sh/maxSh*64)\}px`,background:"#3b82f6",borderRadius:"2px 2px 0 0",opacity:0.7\}\}/></div>))\}</div><div style=\{\{display:"flex",gap:4\}\}>\{hist.map((d,i)=><div key=\{i\} style=\{\{flex:1,textAlign:"center",color:"#4b5563",fontSize:8,overflow:"hidden"\}\}>\{d.d\}</div>)\}</div></div>)\}\
+    </div>\
+  );\
+\}\
+\
+function BadgesTab(\{player,sessions,newBadgeIds,onBadgeClick\})\{\
+  const [showTierKey,setShowTierKey]=useState(false);\
+  const earned=Object.keys(player.earnedBadges||\{\});\
+  return(\
+    <div style=\{\{padding:"14px 16px 80px"\}\}>\
+      \{showTierKey&&<TierKeyPopup onClose=\{()=>setShowTierKey(false)\}/>\}\
+      <div style=\{\{background:"#1e293b",borderRadius:10,padding:"10px 14px",border:"1px solid #334155",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"\}\}>\
+        <span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:"#94a3b8"\}\}>Earned <span style=\{\{color:"#f1f5f9",fontWeight:700\}\}>\{earned.length\}</span> of <span style=\{\{color:"#f1f5f9",fontWeight:700\}\}>\{BADGES.length\}</span></span>\
+        <button onClick=\{()=>setShowTierKey(true)\} style=\{\{background:"transparent",border:"1px solid #334155",borderRadius:6,cursor:"pointer",color:"#94a3b8",display:"flex",alignItems:"center",gap:4,padding:"4px 8px",fontFamily:"'Barlow Condensed',sans-serif",fontSize:11\}\}>\
+          <div style=\{\{display:"flex",gap:3\}\}>\{Object.values(TIER).map(tc=><div key=\{tc.label\} title=\{tc.label\} style=\{\{width:9,height:9,borderRadius:"50%",background:tc.ring,boxShadow:`0 0 4px $\{tc.glow\}`\}\}/>)\}</div>\
+          <Info size=\{11\}/>\
+        </button>\
+      </div>\
+      \{BADGE_CATS.map(cat=>\{\
+        const catBadges=BADGES.filter(b=>b.cat===cat.id);if(!catBadges.length)return null;\
+        return(<div key=\{cat.id\} style=\{C.card\}><div style=\{\{display:"flex",alignItems:"center",gap:5,marginBottom:14\}\}><cat.Icon size=\{13\} color="#94a3b8"/><span style=\{C.label\}>\{cat.label\}</span></div><div style=\{\{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,justifyItems:"center"\}\}>\{catBadges.map(b=>\{const e=player.earnedBadges?.[b.id];return <BadgeCircle key=\{b.id\} badge=\{b\} earned=\{!!e\} earnedDate=\{e?.ts\} isNew=\{!!newBadgeIds[b.id]\} size=\{60\} onClick=\{onBadgeClick\}/>;\})\}</div></div>);\
+      \})\}\
+    </div>\
+  );\
+\}\
+\
+function RanksTab(\{stats\})\{\
+  const \{xp,li\}=stats;\
+  return(\
+    <div style=\{\{padding:"14px 16px 80px"\}\}>\
+      <div style=\{C.label\}>All Ranks \'97 \{xp\} XP Total</div>\
+      \{LEVELS.map((l,i)=>\{\
+        const isCur=i===li,isUnlocked=xp>=l.xpNeeded,next=LEVELS[i+1];\
+        const prevXp=l.xpNeeded,nextXp=next?next.xpNeeded:null;\
+        const earnedInTier=isUnlocked&&nextXp?Math.min(xp-prevXp,nextXp-prevXp):isUnlocked?1:Math.max(0,xp-prevXp);\
+        const neededInTier=nextXp?nextXp-prevXp:1;\
+        const pct=nextXp?Math.min(100,(earnedInTier/neededInTier)*100):isUnlocked?100:0;\
+        return(\
+          <div key=\{l.name\} style=\{\{background:isCur?"rgba(59,130,246,0.08)":"#1e293b",borderRadius:12,padding:"14px 16px",marginBottom:10,border:`1px solid $\{isCur?l.color+"66":"#334155"\}`,boxShadow:isCur?`0 0 16px $\{l.glow\}22`:"none",opacity:isUnlocked?1:0.55\}\}>\
+            <div style=\{\{display:"flex",alignItems:"center",gap:12,marginBottom:(isCur||(!isUnlocked&&i===li+1))&&nextXp?8:0\}\}>\
+              <div style=\{\{width:44,height:44,borderRadius:"50%",background:isUnlocked?l.bg:"linear-gradient(135deg,#1e293b,#334155)",border:`2px solid $\{isUnlocked?l.color:"#334155"\}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,boxShadow:isUnlocked?`0 0 10px $\{l.glow\}55`:"none",flexShrink:0\}\}>\{l.icon\}</div>\
+              <div style=\{\{flex:1\}\}>\
+                <div style=\{\{display:"flex",alignItems:"center",gap:8,marginBottom:2\}\}>\
+                  <span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:18,color:isUnlocked?l.color:"#6b7280"\}\}>\{l.name\}</span>\
+                  \{isCur&&<span style=\{\{background:l.color,color:"#000",fontFamily:"'Barlow Condensed',sans-serif",fontSize:9,fontWeight:700,borderRadius:4,padding:"2px 6px"\}\}>CURRENT</span>\}\
+                  \{isUnlocked&&!isCur&&<CheckCircle size=\{13\} color="#34d399"/>\}\
+                </div>\
+                <div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:11,color:"#6b7280"\}\}>\{l.xpNeeded.toLocaleString()\} XP\{nextXp?` \uc0\u8594  $\{nextXp.toLocaleString()\} XP`:""\}</div>\
+              </div>\
+              \{!isUnlocked&&<div style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:13,color:"#6b7280",textAlign:"right"\}\}>\{(l.xpNeeded-xp).toLocaleString()\}<br/><span style=\{\{fontSize:10\}\}>XP away</span></div>\}\
+            </div>\
+            \{(isCur||(!isUnlocked&&i===li+1))&&nextXp&&(\
+              <div>\
+                <div style=\{\{display:"flex",justifyContent:"space-between",marginBottom:3\}\}>\
+                  <span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:"#94a3b8"\}\}>\{isCur?`$\{earnedInTier\} / $\{neededInTier\} XP`:`$\{Math.max(0,l.xpNeeded-xp)\} XP to unlock`\}</span>\
+                  <span style=\{\{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:"#6b7280"\}\}>\{pct.toFixed(0)\}%</span>\
+                </div>\
+                <div style=\{\{height:6,background:"#0a0f1a",borderRadius:3,overflow:"hidden",border:"1px solid #1e3a5f"\}\}>\
+                  <div style=\{\{height:"100%",width:`$\{pct\}%`,background:`linear-gradient(90deg,$\{l.color\},$\{LEVELS[Math.min(i+1,LEVELS.length-1)].color\})`,borderRadius:3,transition:"width 0.6s"\}\}/>\
+                </div>\
+              </div>\
+            )\}\
+          </div>\
+        );\
+      \})\}\
+    </div>\
+  );\
+\}}

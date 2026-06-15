@@ -1,0 +1,206 @@
+/**
+ * Centralized Web Audio synthesizer — singleton, class-based.
+ * All sound logic lives here; useAudio.js is a thin React adapter.
+ */
+class AudioEngine {
+  constructor() {
+    this.ctx      = null
+    this.isMuted  = false
+  }
+
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
+  init() {
+    if (!this.ctx) {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)()
+    }
+  }
+
+  setMute(state) { this.isMuted = state }
+  get muted()    { return this.isMuted  }
+
+  // ── Internal helpers ───────────────────────────────────────────────────────
+  _note(freq, delay, dur, shape = 'sine', vol = 0.22) {
+    const { ctx: ac } = this
+    const T = ac.currentTime
+    const o = ac.createOscillator()
+    const g = ac.createGain()
+    o.type = shape
+    o.frequency.value = freq
+    g.gain.setValueAtTime(vol, T + delay)
+    g.gain.exponentialRampToValueAtTime(0.001, T + delay + dur)
+    o.connect(g); g.connect(ac.destination)
+    o.start(T + delay); o.stop(T + delay + dur + 0.05)
+  }
+
+  _noise(delay, dur, fStart, fEnd, vol = 0.28) {
+    const { ctx: ac } = this
+    const T   = ac.currentTime
+    const len = Math.ceil(ac.sampleRate * (dur + 0.05))
+    const buf = ac.createBuffer(1, len, ac.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1
+    const src  = ac.createBufferSource()
+    src.buffer = buf
+    const filt = ac.createBiquadFilter()
+    filt.type  = 'bandpass'
+    filt.frequency.setValueAtTime(fStart, T + delay)
+    filt.frequency.exponentialRampToValueAtTime(fEnd, T + delay + dur * 0.65)
+    filt.Q.value = 1.4
+    const g = ac.createGain()
+    g.gain.setValueAtTime(vol, T + delay)
+    g.gain.exponentialRampToValueAtTime(0.001, T + delay + dur)
+    src.connect(filt); filt.connect(g); g.connect(ac.destination)
+    src.start(T + delay); src.stop(T + delay + dur + 0.05)
+  }
+
+  // ── Named sound methods ────────────────────────────────────────────────────
+
+  /** D5 → A5 ascending sweep — general success / standard hit */
+  playSuccess() {
+    if (this.isMuted) return
+    this.init()
+    const osc  = this.ctx.createOscillator()
+    const gain = this.ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(587.33, this.ctx.currentTime)          // D5
+    osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.15) // A5
+    gain.gain.setValueAtTime(0.1, this.ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3)
+    osc.connect(gain); gain.connect(this.ctx.destination)
+    osc.start(); osc.stop(this.ctx.currentTime + 0.3)
+  }
+
+  /** Sawtooth 180 Hz → 90 Hz womp — zero-hit miss */
+  playCelery() {
+    if (this.isMuted) return
+    this.init()
+    // Sproing wobble up then down
+    const os = this.ctx.createOscillator(); const gs = this.ctx.createGain()
+    os.type = 'sine'
+    os.frequency.setValueAtTime(260, this.ctx.currentTime)
+    os.frequency.exponentialRampToValueAtTime(900, this.ctx.currentTime + 0.07)
+    os.frequency.exponentialRampToValueAtTime(180, this.ctx.currentTime + 0.22)
+    gs.gain.setValueAtTime(0.26, this.ctx.currentTime)
+    gs.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25)
+    os.connect(gs); gs.connect(this.ctx.destination)
+    os.start(); os.stop(this.ctx.currentTime + 0.28)
+    // Womp 1 — sawtooth descent
+    const osc  = this.ctx.createOscillator()
+    const gain = this.ctx.createGain()
+    osc.type = 'sawtooth'
+    osc.frequency.setValueAtTime(180, this.ctx.currentTime + 0.33)
+    osc.frequency.linearRampToValueAtTime(90, this.ctx.currentTime + 0.73)
+    gain.gain.setValueAtTime(0.15, this.ctx.currentTime + 0.33)
+    gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.73)
+    osc.connect(gain); gain.connect(this.ctx.destination)
+    osc.start(this.ctx.currentTime + 0.33)
+    osc.stop(this.ctx.currentTime + 0.74)
+    // Womp 2 — deeper, slower descent
+    const ow2 = this.ctx.createOscillator(); const gw2 = this.ctx.createGain()
+    ow2.type = 'sawtooth'
+    ow2.frequency.setValueAtTime(310, this.ctx.currentTime + 0.78)
+    ow2.frequency.exponentialRampToValueAtTime(68, this.ctx.currentTime + 1.24)
+    gw2.gain.setValueAtTime(0.25, this.ctx.currentTime + 0.78)
+    gw2.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.27)
+    ow2.connect(gw2); gw2.connect(this.ctx.destination)
+    ow2.start(this.ctx.currentTime + 0.78); ow2.stop(this.ctx.currentTime + 1.30)
+  }
+
+  /** Quick low-to-high whoosh — UI tab navigation */
+  playNav() {
+    this.init()
+    const { ctx: ac } = this; const T = ac.currentTime
+    const o = ac.createOscillator(); const g = ac.createGain()
+    o.type = 'sine'
+    o.frequency.setValueAtTime(160, T)
+    o.frequency.exponentialRampToValueAtTime(940, T + 0.10)
+    g.gain.setValueAtTime(0.10, T); g.gain.exponentialRampToValueAtTime(0.001, T + 0.12)
+    o.connect(g); g.connect(ac.destination); o.start(T); o.stop(T + 0.14)
+    this._noise(0, 0.08, 1200, 4000, 0.06)
+  }
+
+  /** Crisp bell chime — standard zone hit */
+  playHit() {
+    this.init()
+    ;[[1319, 'sine', 0.26, 0.55], [2637, 'triangle', 0.13, 0.38], [3956, 'triangle', 0.06, 0.28]]
+      .forEach(([freq, shape, vol, dur]) => this._note(freq, 0, dur, shape, vol))
+  }
+
+  /** Crackling noise burst + sub kick — 5+ hits */
+  playFire() {
+    this.init()
+    const { ctx: ac } = this; const T = ac.currentTime
+    this._noise(0,    0.22, 600,  4000, 0.38)
+    this._noise(0.01, 0.10, 2500, 9000, 0.18)
+    const o = ac.createOscillator(); const g = ac.createGain()
+    o.type = 'sawtooth'
+    o.frequency.setValueAtTime(130, T); o.frequency.exponentialRampToValueAtTime(38, T + 0.2)
+    g.gain.setValueAtTime(0.32, T); g.gain.exponentialRampToValueAtTime(0.001, T + 0.22)
+    o.connect(g); g.connect(ac.destination); o.start(T); o.stop(T + 0.24)
+    this._note(1047, 0.04, 0.22, 'sine', 0.12)
+    this._note(1319, 0.12, 0.18, 'sine', 0.09)
+  }
+
+  /** Sliding metallic descent — 0-hit freeze */
+  playIce() {
+    this.init()
+    const { ctx: ac } = this; const T = ac.currentTime
+    const o = ac.createOscillator(); const g = ac.createGain()
+    o.type = 'triangle'
+    o.frequency.setValueAtTime(680, T); o.frequency.exponentialRampToValueAtTime(82, T + 0.72)
+    g.gain.setValueAtTime(0.22, T); g.gain.setValueAtTime(0.20, T + 0.25)
+    g.gain.exponentialRampToValueAtTime(0.001, T + 0.78)
+    o.connect(g); g.connect(ac.destination); o.start(T); o.stop(T + 0.80)
+    const o2 = ac.createOscillator(); const g2 = ac.createGain()
+    o2.type = 'sawtooth'
+    o2.frequency.setValueAtTime(1400, T); o2.frequency.exponentialRampToValueAtTime(220, T + 0.56)
+    g2.gain.setValueAtTime(0.07, T); g2.gain.exponentialRampToValueAtTime(0.001, T + 0.56)
+    o2.connect(g2); g2.connect(ac.destination); o2.start(T); o2.stop(T + 0.58)
+    this._noise(0, 0.18, 5000, 500, 0.09)
+  }
+
+  /** Snappy ascending arpeggio — badge unlock */
+  playBadge() {
+    this.init()
+    ;[523, 659, 784, 1047, 1319].forEach((f, i) => this._note(f, i * 0.10, 0.26, 'sine', 0.17))
+  }
+
+  /** Heroic C4→C6 fanfare — level up */
+  playLevelUp() {
+    this.init()
+    const melody = [262, 330, 392, 523, 659, 784, 1047]
+    melody.forEach((freq, i) => {
+      this._note(freq, i * 0.10, 0.38, 'sine', 0.22)
+      this._note(freq * 2, i * 0.10, 0.24, 'triangle', 0.09)
+    })
+    ;[523, 659, 784, 1047].forEach((f, k) => this._note(f, 0.76, 0.60, 'sine', [0.20, 0.17, 0.13, 0.10][k]))
+    this._note(2093, 0.80, 0.45, 'triangle', 0.07)
+    this._noise(0.76, 0.35, 2000, 8000, 0.04)
+  }
+
+  /** Celebration sparkle */
+  playConfetti() {
+    this.init()
+    ;[523, 659, 784, 1047].forEach((f, i) => this._note(f, i * 0.07, 0.22, 'sine', 0.16))
+  }
+
+  // ── Universal dispatcher (maps legacy type strings) ────────────────────────
+  play(type) {
+    if (this.isMuted) return
+    try {
+      switch (type) {
+        case 'nav':      return this.playNav()
+        case 'hit':      return this.playHit()
+        case 'success':  return this.playSuccess()
+        case 'fire':     return this.playFire()
+        case 'ice':      return this.playIce()
+        case 'badge':    return this.playBadge()
+        case 'levelup':  return this.playLevelUp()
+        case 'confetti': return this.playConfetti()
+        case 'celery':   return this.playCelery()
+      }
+    } catch {}
+  }
+}
+
+export const audioEngine = new AudioEngine()
