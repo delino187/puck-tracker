@@ -5,6 +5,7 @@ import { BADGES } from '../constants/badges.js'
 import { STREAK_BADGES } from '../constants/streakBadges.js'
 import { getWeekStart } from '../utils/stats.js'
 import { challengeLabel } from '../utils/challengeEngine.js'
+import { useAppStore } from '../store/useAppStore.js'
 import { C } from '../styles.js'
 import StatCard    from './shared/StatCard.jsx'
 import XPBar       from './shared/XPBar.jsx'
@@ -79,6 +80,9 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
   const ws      = getWeekStart()
   const cur     = LEVELS[stats.li]
   const next    = LEVELS[stats.li + 1]
+
+  const techniquePucks = useAppStore(s => s.techniqueByPlayer[player.id]?.totalPucks || 0)
+  const careerTotal    = (stats.totalShots ?? 0) + techniquePucks
 
   const weekRank = [...players]
     .map(p => ({
@@ -202,7 +206,7 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
 
       {/* ── Top 3-stat strip ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-2 mb-3">
-        <StatCard label="Career"    value={stats.totalShots}                                         color="#60a5fa" />
+        <StatCard label="Career"    value={careerTotal}                                              color="#60a5fa" />
         <StatCard label="Accuracy"  value={stats.totalShots > 0 ? stats.acc.toFixed(0) + '%' : '—'} color="#34d399" />
         <StatCard label="Week Rank" value={weekRank > 0 ? `#${weekRank}` : '—'}                     color="#fbbf24" />
       </div>

@@ -1,5 +1,6 @@
 import { ChevronLeft, Flame, Sun, Moon } from 'lucide-react'
 import { LEVELS } from '../../constants/levels.js'
+import { useAppStore } from '../../store/useAppStore.js'
 import XPBar from './XPBar.jsx'
 
 export default function PlayerHeader({ player, stats, onBack, theme, onThemeToggle, onStreakClick }) {
@@ -8,6 +9,11 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
   const earned = stats.xp - cur.xpNeeded
   const needed = (next ? next.xpNeeded : stats.xp) - cur.xpNeeded
   const isDark = theme === 'dark'
+
+  // Technique shots live in Zustand, not in sessions — subscribe directly so
+  // the counter updates the instant a +10/+25/+50 button is tapped.
+  const techniquePucks = useAppStore(s => s.techniqueByPlayer[player.id]?.totalPucks || 0)
+  const totalPucks     = (stats.totalShots ?? 0) + techniquePucks
 
   return (
     <div style={{
@@ -57,7 +63,7 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
         {/* Total pucks — primary anchor stat */}
         <div style={{ textAlign: 'center', flexShrink: 0 }}>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 18, color: 'var(--text-1)', lineHeight: 1 }}>
-            {(stats.totalShots ?? 0).toLocaleString()}
+            {totalPucks.toLocaleString()}
           </div>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', color: 'var(--text-muted)', textTransform: 'uppercase', lineHeight: 1, marginTop: 3 }}>
             TOTAL PUCKS

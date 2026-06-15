@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { ChevronLeft, Zap } from 'lucide-react'
+import confetti from 'canvas-confetti'
 import { C } from '../styles.js'
 import { useAppStore } from '../store/useAppStore.js'
+import { audioEngine } from '../services/audioEngine.js'
 
 const QUICK_ADDS = [10, 25, 50]
 
@@ -15,6 +17,19 @@ export default function TechniqueTracker({ player, onBack }) {
   const careerXP          = techEntry?.bonusXP    || 0
 
   function addShots(n) {
+    // Crisp audio — audioEngine.init() runs inside the tap handler so mobile allows it
+    audioEngine.play('hit')
+
+    // Quick burst — scales slightly with amount, caps so rapid taps don't overwhelm
+    confetti({
+      particleCount: n <= 10 ? 22 : n <= 25 ? 30 : 40,
+      spread: 52,
+      origin: { y: 0.62 },
+      ticks: 65,
+      scalar: 0.72,
+      colors: ['#34d399', '#10b981', '#6ee7b7', '#a7f3d0', '#ffffff'],
+    })
+
     logTechniqueShots(player.id, n)
     setSessionPucks(p => p + n)
     setLastAdd(n)
