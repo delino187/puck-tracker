@@ -5,11 +5,13 @@ import { C } from '../styles.js'
 import { useAppStore } from '../store/useAppStore.js'
 import { audioEngine } from '../services/audioEngine.js'
 
-const QUICK_ADDS = [10, 25, 50]
+const QUICK_ADDS    = [10, 25, 50]
+const SESSION_LIMIT = 100
 
 export default function TechniqueTracker({ player, onBack }) {
   const [sessionPucks, setSessionPucks] = useState(0)
   const [lastAdd,      setLastAdd]      = useState(null)
+  const [honorMsg,     setHonorMsg]     = useState(false)
 
   const logTechniqueShots = useAppStore(state => state.logTechniqueShots)
   const techEntry         = useAppStore(state => state.techniqueByPlayer[player.id])
@@ -17,10 +19,13 @@ export default function TechniqueTracker({ player, onBack }) {
   const careerXP          = techEntry?.bonusXP    || 0
 
   function addShots(n) {
-    // Crisp audio — audioEngine.init() runs inside the tap handler so mobile allows it
-    audioEngine.play('hit')
+    if (sessionPucks + n > SESSION_LIMIT) {
+      setHonorMsg(true)
+      setTimeout(() => setHonorMsg(false), 3500)
+      return
+    }
 
-    // Quick burst — scales slightly with amount, caps so rapid taps don't overwhelm
+    audioEngine.play('hit')
     confetti({
       particleCount: n <= 10 ? 22 : n <= 25 ? 30 : 40,
       spread: 52,
@@ -85,14 +90,25 @@ export default function TechniqueTracker({ player, onBack }) {
           </div>
         )}
         {/* Flash badge when a batch is added */}
-        {lastAdd && (
+        {lastAdd && !honorMsg && (
           <div style={{
             marginTop: 8,
             fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, fontWeight: 900,
             color: '#10b981', letterSpacing: '0.06em',
-            animation: 'none',
           }}>
             +{lastAdd} ✓
+          </div>
+        )}
+        {/* Honor-system nudge when they try to log over the session limit */}
+        {honorMsg && (
+          <div style={{
+            marginTop: 12, padding: '10px 14px',
+            background: '#1c1400', border: '1px solid #f59e0b55',
+            borderRadius: 10,
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13,
+            color: '#fbbf24', lineHeight: 1.45, letterSpacing: '0.03em',
+          }}>
+            🏒 This app uses the honor system. Shoot some more pucks and then log them after!
           </div>
         )}
       </div>
