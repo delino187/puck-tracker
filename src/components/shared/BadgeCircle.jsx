@@ -8,7 +8,7 @@ export default function BadgeCircle({ badge, earned, earnedDate, isNew, size = 8
 
   return (
     <div
-      onClick={() => onClick && onClick(badge)}
+      onClick={() => onClick && onClick(badge, earned)}
       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}
     >
       {/* Positioned wrapper — anchors NEW chip and lock indicator to the circle */}

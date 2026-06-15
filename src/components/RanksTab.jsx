@@ -1,24 +1,45 @@
+import { useState, useEffect } from 'react'
 import { CheckCircle } from 'lucide-react'
 import { LEVELS } from '../constants/levels.js'
 
 export default function RanksTab({ stats, openDetail, onDetailClose }) {
   const { xp, li } = stats
+  const [selectedLevel, setSelectedLevel] = useState(null)
 
-  // Current-rank progress math — used by both the list and the detail popup
-  const cur          = LEVELS[li]
-  const next         = LEVELS[li + 1] ?? null
-  const earnedInTier = next
-    ? Math.min(xp - cur.xpNeeded, next.xpNeeded - cur.xpNeeded)
-    : 1
-  const neededInTier = next ? next.xpNeeded - cur.xpNeeded : 1
-  const pct          = next ? Math.min(100, (earnedInTier / neededInTier) * 100) : 100
-  const xpToNext     = next ? next.xpNeeded - xp : 0
+  // If Dashboard rank hero tapped, auto-open current rank detail
+  useEffect(() => {
+    if (openDetail) setSelectedLevel(LEVELS[li])
+  }, [openDetail, li])
+
+  function closeModal() {
+    setSelectedLevel(null)
+    onDetailClose?.()
+  }
+
+  // Compute modal stats for the selected level
+  const modal = selectedLevel ? (() => {
+    const sIdx      = LEVELS.indexOf(selectedLevel)
+    const sNext     = LEVELS[sIdx + 1] ?? null
+    const isUnlocked = xp >= selectedLevel.xpNeeded
+    const isCurrent  = sIdx === li
+    const rawEarned  = xp - selectedLevel.xpNeeded
+    const sEarned    = isUnlocked && sNext
+      ? Math.min(rawEarned, sNext.xpNeeded - selectedLevel.xpNeeded)
+      : isUnlocked ? 1 : 0
+    const sNeeded  = sNext ? sNext.xpNeeded - selectedLevel.xpNeeded : 1
+    const sPct     = sNext
+      ? Math.min(100, (Math.max(0, sEarned) / sNeeded) * 100)
+      : isUnlocked ? 100 : 0
+    const xpToUnlock = !isUnlocked ? selectedLevel.xpNeeded - xp : 0
+    const xpToNext   = isCurrent && sNext ? Math.max(0, sNext.xpNeeded - xp) : 0
+    return { sIdx, sNext, isUnlocked, isCurrent, sEarned, sNeeded, sPct, xpToUnlock, xpToNext }
+  })() : null
 
   return (
     <div style={{ padding: '14px 16px 80px' }}>
 
-      {/* ── Rank Detail Popup ──────────────────────────────────────────────── */}
-      {openDetail && (
+      {/* ── Rank Detail Modal ──────────────────────────────────────────────── */}
+      {selectedLevel && modal && (
         <div style={{
           position: 'fixed', inset: 0,
           background: 'rgba(0,0,0,0.96)',
@@ -29,8 +50,8 @@ export default function RanksTab({ stats, openDetail, onDetailClose }) {
         }}>
           <style>{`
             @keyframes rankGlow {
-              0%, 100% { box-shadow: 0 0 40px 10px ${cur.glow}66, 0 0 80px 20px ${cur.glow}33; }
-              50%       { box-shadow: 0 0 70px 22px ${cur.glow}99, 0 0 140px 44px ${cur.glow}55; }
+              0%,100% { box-shadow: 0 0 40px 10px ${selectedLevel.glow}66, 0 0 80px 20px ${selectedLevel.glow}33; }
+              50%      { box-shadow: 0 0 70px 22px ${selectedLevel.glow}99, 0 0 140px 44px ${selectedLevel.glow}55; }
             }
           `}</style>
 
@@ -39,98 +60,117 @@ export default function RanksTab({ stats, openDetail, onDetailClose }) {
             fontFamily: "'Bangers',sans-serif",
             fontSize: 'clamp(24px,7vw,38px)',
             letterSpacing: '0.06em',
-            color: cur.color,
-            textShadow: `0 0 30px ${cur.glow}88`,
-            marginBottom: 28,
+            color: selectedLevel.color,
+            textShadow: `0 0 30px ${selectedLevel.glow}88`,
+            marginBottom: 24,
             textAlign: 'center',
             lineHeight: 1.1,
           }}>
-            {cur.name.toUpperCase()} RANK PROGRESS
+            {selectedLevel.name.toUpperCase()} RANK
+            {modal.isCurrent ? ' PROGRESS' : modal.isUnlocked ? ' — COMPLETED' : ' — LOCKED'}
           </div>
 
-          {/* Giant glowing badge */}
+          {/* Giant badge */}
           <div style={{
             width: 160, height: 160, borderRadius: '50%',
-            background: cur.bg,
-            border: `5px solid ${cur.color}`,
+            background: modal.isUnlocked ? selectedLevel.bg : 'linear-gradient(135deg,#1e293b,#334155)',
+            border: `5px solid ${modal.isUnlocked ? selectedLevel.color : '#334155'}`,
             overflow: 'hidden', flexShrink: 0,
-            animation: 'rankGlow 2.2s ease-in-out infinite',
-            marginBottom: 32,
+            filter: modal.isUnlocked ? 'none' : 'grayscale(1) brightness(0.35)',
+            animation: modal.isUnlocked ? 'rankGlow 2.2s ease-in-out infinite' : 'none',
+            marginBottom: 28,
           }}>
             <img
-              src={cur.img}
-              alt={cur.name}
+              src={selectedLevel.img}
+              alt={selectedLevel.name}
               className="rounded-full object-cover"
               style={{ width: '100%', height: '100%', transform: 'scale(1.1)' }}
             />
           </div>
 
-          {/* XP progress bar */}
-          <div style={{ width: '100%', maxWidth: 320, marginBottom: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: 'var(--text-muted)', letterSpacing: '0.08em' }}>
-                {earnedInTier.toLocaleString()} / {neededInTier.toLocaleString()} XP
-              </span>
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: cur.color, letterSpacing: '0.06em' }}>
-                {pct.toFixed(0)}%
-              </span>
-            </div>
-            <div style={{ height: 20, background: '#0a0f1a', borderRadius: 10, overflow: 'hidden', border: `2px solid ${cur.color}44` }}>
+          {/* Contextual body */}
+          {modal.isCurrent && modal.sNext && (
+            <>
+              {/* Progress bar */}
+              <div style={{ width: '100%', maxWidth: 320, marginBottom: 18 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
+                    {modal.sEarned.toLocaleString()} / {modal.sNeeded.toLocaleString()} XP
+                  </span>
+                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: selectedLevel.color }}>
+                    {modal.sPct.toFixed(0)}%
+                  </span>
+                </div>
+                <div style={{ height: 20, background: '#0a0f1a', borderRadius: 10, overflow: 'hidden', border: `2px solid ${selectedLevel.color}44` }}>
+                  <div style={{
+                    height: '100%', width: `${modal.sPct}%`,
+                    background: `linear-gradient(90deg,${selectedLevel.color},${modal.sNext.color})`,
+                    borderRadius: 10,
+                    transition: 'width 0.8s cubic-bezier(0.22,1,0.36,1)',
+                    boxShadow: `0 0 12px ${selectedLevel.glow}`,
+                  }} />
+                </div>
+              </div>
               <div style={{
-                height: '100%',
-                width: `${pct}%`,
-                background: next
-                  ? `linear-gradient(90deg,${cur.color},${next.color})`
-                  : cur.color,
-                borderRadius: 10,
-                transition: 'width 0.8s cubic-bezier(0.22,1,0.36,1)',
-                boxShadow: `0 0 12px ${cur.glow}`,
-              }} />
-            </div>
-          </div>
+                fontFamily: "'Bangers',sans-serif",
+                fontSize: 'clamp(20px,5.5vw,30px)',
+                color: '#f1f5f9',
+                textAlign: 'center',
+                letterSpacing: '0.04em',
+                marginBottom: 36,
+                lineHeight: 1.2,
+              }}>
+                {modal.xpToNext.toLocaleString()} XP TO GO UNTIL {modal.sNext.name.toUpperCase()}!
+              </div>
+            </>
+          )}
 
-          {/* XP callout */}
-          {next ? (
-            <div style={{
-              fontFamily: "'Bangers',sans-serif",
-              fontSize: 'clamp(22px,6vw,32px)',
-              color: '#f1f5f9',
-              textAlign: 'center',
-              letterSpacing: '0.04em',
-              marginBottom: 40,
-              lineHeight: 1.2,
-              textShadow: '0 2px 12px rgba(0,0,0,0.6)',
-            }}>
-              {xpToNext.toLocaleString()} XP TO GO UNTIL {next.name.toUpperCase()}!
-            </div>
-          ) : (
-            <div style={{
-              fontFamily: "'Bangers',sans-serif",
-              fontSize: 28,
-              color: cur.color,
-              textAlign: 'center',
-              letterSpacing: '0.06em',
-              marginBottom: 40,
-              textShadow: `0 0 20px ${cur.glow}`,
-            }}>
+          {modal.isCurrent && !modal.sNext && (
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 28, color: selectedLevel.color, textAlign: 'center', letterSpacing: '0.06em', marginBottom: 36, textShadow: `0 0 20px ${selectedLevel.glow}` }}>
               MAX RANK ACHIEVED! 🏆
             </div>
           )}
 
-          {/* Close button */}
+          {!modal.isCurrent && modal.isUnlocked && (
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, color: '#34d399', textAlign: 'center', letterSpacing: '0.05em', marginBottom: 36 }}>
+              RANK COMPLETED ✓
+            </div>
+          )}
+
+          {!modal.isUnlocked && (
+            <>
+              <div style={{ width: '100%', maxWidth: 320, marginBottom: 18 }}>
+                <div style={{ height: 14, background: '#0a0f1a', borderRadius: 7, overflow: 'hidden', border: '2px solid #1e3a5f' }}>
+                  <div style={{ height: '100%', width: '0%', background: '#334155', borderRadius: 7 }} />
+                </div>
+              </div>
+              <div style={{
+                fontFamily: "'Bangers',sans-serif",
+                fontSize: 'clamp(20px,5.5vw,28px)',
+                color: '#94a3b8',
+                textAlign: 'center',
+                letterSpacing: '0.04em',
+                marginBottom: 36,
+                lineHeight: 1.2,
+              }}>
+                {modal.xpToUnlock.toLocaleString()} XP NEEDED TO UNLOCK
+              </div>
+            </>
+          )}
+
           <button
-            onClick={onDetailClose}
+            onClick={closeModal}
             style={{
-              background: cur.color,
-              color: '#000',
-              border: 'none',
+              background: modal.isUnlocked ? selectedLevel.color : '#1e293b',
+              color: modal.isUnlocked ? '#000' : '#e2e8f0',
+              border: modal.isUnlocked ? 'none' : '1px solid #334155',
               borderRadius: 14,
               padding: '15px 44px',
               fontFamily: "'Bangers',sans-serif",
               fontSize: 24,
               letterSpacing: '0.10em',
               cursor: 'pointer',
-              boxShadow: `0 0 30px ${cur.glow}66, 0 4px 20px rgba(0,0,0,0.5)`,
+              boxShadow: modal.isUnlocked ? `0 0 30px ${selectedLevel.glow}66, 0 4px 20px rgba(0,0,0,0.5)` : 'none',
             }}
           >
             BACK TO GAME
@@ -150,24 +190,27 @@ export default function RanksTab({ stats, openDetail, onDetailClose }) {
         const isCur      = i === li
         const isUnlocked = xp >= l.xpNeeded
         const nextL      = LEVELS[i + 1]
-        const prevXp     = l.xpNeeded
-        const nextXp     = nextL ? nextL.xpNeeded : null
+        const nextXp     = nextL?.xpNeeded ?? null
         const tierEarned = isUnlocked && nextXp
-          ? Math.min(xp - prevXp, nextXp - prevXp)
-          : isUnlocked ? 1 : Math.max(0, xp - prevXp)
-        const tierNeeded = nextXp ? nextXp - prevXp : 1
+          ? Math.min(xp - l.xpNeeded, nextXp - l.xpNeeded)
+          : isUnlocked ? 1 : Math.max(0, xp - l.xpNeeded)
+        const tierNeeded = nextXp ? nextXp - l.xpNeeded : 1
         const tierPct    = nextXp ? Math.min(100, (tierEarned / tierNeeded) * 100) : isUnlocked ? 100 : 0
 
         return (
-          <div key={l.name} style={{
-            background:  isCur ? 'rgba(59,130,246,0.08)' : 'var(--card-bg)',
-            borderRadius: 12, padding: '14px 16px', marginBottom: 10,
-            border:      isCur ? `1px solid ${l.color}66` : 'var(--card-border)',
-            boxShadow:   isCur ? `0 0 16px ${l.glow}22` : 'none',
-            opacity:     isUnlocked ? 1 : 0.55,
-          }}>
+          <div
+            key={l.name}
+            onClick={() => setSelectedLevel(l)}
+            style={{
+              background:  isCur ? 'rgba(59,130,246,0.08)' : 'var(--card-bg)',
+              borderRadius: 12, padding: '14px 16px', marginBottom: 10,
+              border:      isCur ? `1px solid ${l.color}66` : 'var(--card-border)',
+              boxShadow:   isCur ? `0 0 16px ${l.glow}22` : 'none',
+              opacity:     isUnlocked ? 1 : 0.55,
+              cursor:      'pointer',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: (isCur || (!isUnlocked && i === li + 1)) && nextXp ? 8 : 0 }}>
-              {/* Rank image — 72×72 premium circle */}
               <div style={{
                 width: 72, height: 72, borderRadius: '50%', overflow: 'hidden',
                 background: isUnlocked ? l.bg : 'linear-gradient(135deg,#1e293b,#334155)',
@@ -176,8 +219,7 @@ export default function RanksTab({ stats, openDetail, onDetailClose }) {
                 flexShrink: 0,
               }}>
                 <img
-                  src={l.img}
-                  alt={l.name}
+                  src={l.img} alt={l.name}
                   className="rounded-full object-cover"
                   style={{ width: '100%', height: '100%', transform: 'scale(1.1)' }}
                 />
@@ -201,7 +243,7 @@ export default function RanksTab({ stats, openDetail, onDetailClose }) {
               </div>
 
               {!isUnlocked && (
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-muted)', textAlign: 'right' }}>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-muted)', textAlign: 'right', flexShrink: 0 }}>
                   {(l.xpNeeded - xp).toLocaleString()}<br />
                   <span style={{ fontSize: 10 }}>XP away</span>
                 </div>

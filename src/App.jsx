@@ -469,7 +469,7 @@ export default function App() {
         {badgePreview && (
           <BadgePopup
             badge={badgePreview.badge}
-            earned={!!earnedBadgeObj[badgePreview.badge.id]}
+            earned={badgePreview.earned ?? !!earnedBadgeObj[badgePreview.badge.id]}
             earnedDate={earnedBadgeObj[badgePreview.badge.id]?.ts}
             onClose={handleBadgeClose}
           />
@@ -495,7 +495,7 @@ export default function App() {
               weeklyChallenge={st.weeklyChallenge}
               players={st.players}
               newBadgeIds={newBadgeIds}
-              onBadgeClick={b => setBadgePreview({ badge: b })}
+              onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
               onStartSession={() => { startSession(); setTab('session') }}
               onNavigate={handleDashNavigate}
             />
@@ -541,7 +541,7 @@ export default function App() {
               sessions={st.sessions}
               players={st.players}
               onPurchase={() => {}}
-              onBadgeClick={b => setBadgePreview({ badge: b })}
+              onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
             />
           )}
           {tab === 'board' && (
@@ -564,7 +564,7 @@ export default function App() {
               player={aPlayer}
               sessions={st.sessions}
               newBadgeIds={newBadgeIds}
-              onBadgeClick={b => setBadgePreview({ badge: b })}
+              onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
             />
           )}
           {tab === 'ranks' && <RanksTab stats={stats} openDetail={rankDetailOpen} onDetailClose={() => setRankDetailOpen(false)} />}
