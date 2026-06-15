@@ -51,7 +51,7 @@ export default function ChallengesTab({ player, sessions, dailyChallenge, weekly
 
             {/* Primary metric */}
             <div style={{ marginBottom: 10 }}>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#64748b', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 3 }}>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color: '#64748b', letterSpacing: '0.06em', marginBottom: 3 }}>
                 {ZONES.find(z => z.id === ch.zone)?.label}
               </div>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 36, fontWeight: 900, color: 'var(--text-1)', lineHeight: 1 }}>

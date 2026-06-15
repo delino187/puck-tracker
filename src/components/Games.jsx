@@ -53,7 +53,7 @@ export default function Games({ player, sessions, onSubmitGame }) {
                 ZERO-TOUCH
               </div>
 
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 28, fontWeight: 900, color: 'var(--text-1)', letterSpacing: '0.03em', lineHeight: 1.1 }}>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 30, color: 'var(--text-1)', letterSpacing: '0.03em', lineHeight: 1.1 }}>
                 Around the World
               </div>
             </div>

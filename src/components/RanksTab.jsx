@@ -52,7 +52,7 @@ export default function RanksTab({ stats }) {
 
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: 18, color: isUnlocked ? l.color : '#94a3b8' }}>
+                  <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.03em', color: isUnlocked ? l.color : '#94a3b8' }}>
                     {l.name}
                   </span>
                   {isCur && (

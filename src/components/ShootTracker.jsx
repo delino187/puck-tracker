@@ -66,7 +66,7 @@ export default function ShootTracker({
           >
             <div style={{ height: 4, background: 'linear-gradient(90deg,#1d4ed8,#3b82f6,#60a5fa)' }} />
             <div style={{ padding: '20px 20px 18px' }}>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 28, fontWeight: 900, color: 'var(--text-1)', marginBottom: 6 }}>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 30, color: 'var(--text-1)', marginBottom: 6, letterSpacing: '0.03em' }}>
                 🎯 Target Practice
               </div>
               <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55 }}>
@@ -94,7 +94,7 @@ export default function ShootTracker({
           >
             <div style={{ height: 4, background: 'linear-gradient(90deg,#059669,#10b981,#34d399)' }} />
             <div style={{ padding: '20px 20px 18px' }}>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 28, fontWeight: 900, color: 'var(--text-1)', marginBottom: 6 }}>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 30, color: 'var(--text-1)', marginBottom: 6, letterSpacing: '0.03em' }}>
                 🏒 Technique Only
               </div>
               <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.55 }}>

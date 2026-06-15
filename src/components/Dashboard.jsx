@@ -50,7 +50,7 @@ function ChallengeRow({ ch, label, Icon, color, sessions, playerId }) {
 
       {/* Prompt text */}
       <div style={{
-        fontFamily: "'Barlow Condensed',sans-serif", fontSize: 18, fontWeight: 800,
+        fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.03em',
         color: 'var(--text-1)', marginBottom: 8, lineHeight: 1.2,
       }}>
         Hit {target} {zoneName} {target === 1 ? 'shot' : 'shots'}
