@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Target, Zap, CalendarDays, BookOpen, Lock } from 'lucide-react'
 import { LEVELS } from '../constants/levels.js'
 import { ZONES }  from '../constants/zones.js'
@@ -98,6 +99,28 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
 
   // Highest streak milestone badge the player's current streak qualifies for
   const activeStreakBadge = [...STREAK_BADGES].reverse().find(b => stats.streak >= b.milestone) ?? null
+
+  // ── Dash entrance music ────────────────────────────────────────────────────
+  const audioRef          = useRef(null)
+  const [mutePrompt, setMutePrompt] = useState(false)
+
+  useEffect(() => {
+    const audio = new Audio('/intro-song.m4a')
+    audio.volume = 0.6
+    audioRef.current = audio
+
+    audio.play().catch(() => setMutePrompt(true))
+
+    return () => {
+      audio.pause()
+      audio.currentTime = 0
+    }
+  }, [])
+
+  function handleUnmute() {
+    audioRef.current?.play().catch(() => {})
+    setMutePrompt(false)
+  }
 
   return (
     <div style={{ padding: '14px 16px 80px' }}>
@@ -284,6 +307,28 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
       <button style={C.btnP} onClick={onStartSession}>
         <Target size={16} /> Start New Session
       </button>
+
+      {mutePrompt && (
+        <div
+          onClick={handleUnmute}
+          style={{
+            position: 'fixed', bottom: 24, right: 20, zIndex: 200,
+            background: 'rgba(10,15,26,0.92)',
+            border: '1px solid #3b82f644',
+            borderRadius: 24, padding: '9px 16px',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 7,
+            backdropFilter: 'blur(10px)',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 0 14px #3b82f622',
+            fontFamily: "'Barlow Condensed',sans-serif",
+            fontSize: 12, fontWeight: 700,
+            color: '#93c5fd', letterSpacing: '0.08em',
+            userSelect: 'none',
+          }}
+        >
+          🔊 Tap to Unmute Music
+        </div>
+      )}
     </div>
   )
 }
