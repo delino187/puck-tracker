@@ -12,7 +12,7 @@ export const PLAYER_TABS = [
   { id: 'ranks',      Icon: Star,            label: 'Ranks'          },  // Progression Tier
 ]
 
-export default function TabBar({ active, onChange, hasSess }) {
+export default function TabBar({ active, onChange, hasSess, hasPendingVersus, hasPendingGames }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'center', background: 'var(--nav-bg)',
@@ -21,7 +21,17 @@ export default function TabBar({ active, onChange, hasSess }) {
     }}>
       {PLAYER_TABS.map(t => {
         const sel = active === t.id
-        const dot = t.id === 'session' && hasSess && !sel
+
+        // Session dot — amber, no pulse (informational)
+        const sessionDot  = t.id === 'session'    && hasSess            && !sel
+        // Versus dot — red, pulsing (action required)
+        const versusDot   = t.id === 'challenges' && hasPendingVersus   && !sel
+        // Games dot — red, pulsing (action required)
+        const gamesDot    = t.id === 'games'      && hasPendingGames    && !sel
+
+        const showDot   = sessionDot || versusDot || gamesDot
+        const urgentDot = versusDot  || gamesDot
+
         return (
           <button
             key={t.id}
@@ -43,11 +53,21 @@ export default function TabBar({ active, onChange, hasSess }) {
             }}>
               {t.label}
             </div>
-            {dot && (
-              <div style={{
-                position: 'absolute', top: 5, right: 5, width: 5, height: 5,
-                borderRadius: '50%', background: '#f59e0b',
-              }} />
+
+            {showDot && (
+              <div
+                className={urgentDot ? 'animate-pulse' : ''}
+                style={{
+                  position: 'absolute',
+                  top: urgentDot ? 4 : 5,
+                  right: urgentDot ? 4 : 5,
+                  width:  urgentDot ? 7 : 5,
+                  height: urgentDot ? 7 : 5,
+                  borderRadius: '50%',
+                  background: urgentDot ? '#ef4444' : '#f59e0b',
+                  boxShadow: urgentDot ? '0 0 6px #ef444499' : 'none',
+                }}
+              />
             )}
           </button>
         )

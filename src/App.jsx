@@ -33,7 +33,7 @@ import CoachMsgPopup       from './components/overlays/CoachMsgPopup.jsx'
 import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
 import { loadChallengesForPlayer } from './services/peerChallengeService.js'
-import { loadPuckGamesForPlayer }  from './services/puckGameService.js'
+import { loadPuckGamesForPlayer, getGameAction } from './services/puckGameService.js'
 
 import { C, APP_BG } from './styles.js'
 
@@ -466,6 +466,15 @@ export default function App() {
     const stats          = playerStats(aPlayer, st.sessions)
     const earnedBadgeObj = aPlayer.earnedBadges || {}
 
+    // ── Notification dot flags (reactive — clear instantly when turn completes) ──
+    const hasPendingVersus = peerChallenges.some(
+      c => c.receiverId === aPlayer.id && c.status === 'pending'
+    )
+    const hasPendingGames = puckGames.some(g => {
+      const action = getGameAction(g, aPlayer.id)
+      return action === 'set' || action === 'match' || action === 'expired'
+    })
+
     return (
       <div style={{ ...APP_BG, minHeight: '100vh', position: 'relative' }}>
         <GlobalStyles />
@@ -549,7 +558,7 @@ export default function App() {
           onThemeToggle={toggleOutsideMode}
           onStreakClick={() => setTab('streak')}
         />
-        <TabBar active={tab} onChange={setTab} hasSess={!!aSess} />
+        <TabBar active={tab} onChange={setTab} hasSess={!!aSess} hasPendingVersus={hasPendingVersus} hasPendingGames={hasPendingGames} />
 
         <div style={{ maxWidth: 520, margin: '0 auto' }}>
           {tab === 'dashboard' && (
