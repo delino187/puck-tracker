@@ -33,6 +33,7 @@ import CoachMsgPopup       from './components/overlays/CoachMsgPopup.jsx'
 import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
 import { loadChallengesForPlayer } from './services/peerChallengeService.js'
+import { loadPuckGamesForPlayer }  from './services/puckGameService.js'
 
 import { C, APP_BG } from './styles.js'
 
@@ -57,6 +58,7 @@ export default function App() {
   const [rankDetailOpen,  setRankDetailOpen]   = useState(false)
   const [peerChallenges,  setPeerChallenges]   = useState([])
   const [challengeScreen, setChallengeScreen]  = useState(null) // null | 'create' | { mode:'respond', challenge }
+  const [puckGames,       setPuckGames]        = useState([])
 
   const badgeQRef    = useRef([])
   const epicAudioRef = useRef(null)
@@ -77,10 +79,31 @@ export default function App() {
     if (st) saveSt(st)
   }, [st])
 
-  // ── Load peer challenges when a player is active ─────────────────────────
+  // ── Load peer challenges + PUCK games when a player is active ────────────
   useEffect(() => {
     if (!st?.activePlayerId) return
     loadChallengesForPlayer(st.activePlayerId).then(setPeerChallenges)
+    loadPuckGamesForPlayer(st.activePlayerId).then(setPuckGames)
+  }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Retroactive badge check — runs once when a player session opens ───────
+  // Catches badges that should have been awarded from technique-mode pucks
+  // or any other shots logged before this fix was deployed.
+  useEffect(() => {
+    if (!st?.activePlayerId || !st) return
+    const player = st.players.find(p => p.id === st.activePlayerId)
+    if (!player) return
+    const already   = { ...(player.earnedBadges || {}) }
+    const newBadges = BADGES.filter(b => !already[b.id] && b.check(player, st.sessions))
+    if (!newBadges.length) return
+    const now = Date.now()
+    newBadges.forEach(b => { already[b.id] = { ts: now } })
+    setSt(prev => ({
+      ...prev,
+      players: prev.players.map(p =>
+        p.id === player.id ? { ...p, earnedBadges: already } : p
+      ),
+    }))
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Dashboard intro music: start on Dash tab, stop on any other tab ───────
@@ -561,8 +584,14 @@ export default function App() {
           {tab === 'games' && (
             <Games
               player={aPlayer}
+              players={st.players}
               sessions={st.sessions}
+              puckGames={puckGames}
               onSubmitGame={gameSession => upd({ sessions: [...st.sessions, gameSession] })}
+              onPuckGameUpdate={updated => setPuckGames(prev => {
+                const idx = prev.findIndex(g => g.id === updated.id)
+                return idx >= 0 ? prev.map(g => g.id === updated.id ? updated : g) : [updated, ...prev]
+              })}
             />
           )}
           {tab === 'challenges' && (

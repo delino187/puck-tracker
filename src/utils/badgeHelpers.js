@@ -1,11 +1,17 @@
 import { ZONES } from '../constants/zones.js'
+import { useAppStore } from '../store/useAppStore.js'
 
 export function getPSessions(player, sessions) {
   return sessions.filter(s => s.playerId === player.id)
 }
 
 export function lifetimeShots(p, s) {
-  return getPSessions(p, s).reduce((a, x) => a + x.sets.length * 10, 0)
+  const sessionShots  = getPSessions(p, s).reduce((a, x) => a + x.sets.length * 10, 0)
+  // Technique-mode pucks live in Zustand, not in the sessions array —
+  // read synchronously via getState() so this works outside React components.
+  const techEntry     = useAppStore.getState().techniqueByPlayer[p.id]
+  const techniqueShots = techEntry?.totalPucks || 0
+  return sessionShots + techniqueShots
 }
 
 export function zoneHits(p, s, zones) {
