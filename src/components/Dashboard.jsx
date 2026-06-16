@@ -5,10 +5,12 @@ import { STREAK_BADGES } from '../constants/streakBadges.js'
 import { getWeekStart } from '../utils/stats.js'
 import { useAppStore } from '../store/useAppStore.js'
 import { C } from '../styles.js'
-import StatCard          from './shared/StatCard.jsx'
-import XPBar             from './shared/XPBar.jsx'
-import BadgeCircle       from './shared/BadgeCircle.jsx'
-import PeerChallengeCard from './shared/PeerChallengeCard.jsx'
+import StatCard           from './shared/StatCard.jsx'
+import XPBar              from './shared/XPBar.jsx'
+import BadgeCircle        from './shared/BadgeCircle.jsx'
+import PeerChallengeCard  from './shared/PeerChallengeCard.jsx'
+import DailyProgressRing  from './shared/DailyProgressRing.jsx'
+import LiveFeed           from './shared/LiveFeed.jsx'
 
 // ── Challenge card helpers ─────────────────────────────────────────────────────
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
@@ -32,6 +34,11 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
   const recent       = sessions.filter(s => s.playerId === player.id).slice(-5).reverse()
   // Highest streak milestone badge the player's current streak qualifies for
   const activeStreakBadge = [...STREAK_BADGES].reverse().find(b => stats.streak >= b.milestone) ?? null
+
+  // Today's shots (session-based only — technique pucks are session-less)
+  const todayShots = sessions
+    .filter(s => s.playerId === player.id && new Date(s.date).toDateString() === new Date().toDateString())
+    .reduce((a, s) => a + s.sets.length * 10, 0)
 
   return (
     <div style={{ padding: '14px 16px 80px' }}>
@@ -151,6 +158,11 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
         <StatCard label="Week Rank" value={weekRank > 0 ? `#${weekRank}` : '—'}                     color="#fbbf24" />
       </div>
 
+      {/* ── Daily Progress Ring ───────────────────────────────────────────── */}
+      <div style={{ ...C.card, padding: '16px 18px' }}>
+        <DailyProgressRing shots={todayShots} />
+      </div>
+
       {/* ── Incoming peer challenges ──────────────────────────────────────── */}
       {peerChallenges.filter(c => c.receiverId === player.id && c.status === 'pending').map(c => (
         <PeerChallengeCard
@@ -203,6 +215,11 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
             )
           })}
         </div>
+      )}
+
+      {/* ── Live Feed ─────────────────────────────────────────────────────── */}
+      {players.length > 1 && (
+        <LiveFeed players={players} sessions={sessions} currentPlayerId={player.id} />
       )}
 
       <button style={C.btnP} onClick={onStartSession}>

@@ -1,9 +1,16 @@
+import { useEffect } from 'react'
 import { X, Lock } from 'lucide-react'
+import confetti from 'canvas-confetti'
 import { TIER } from '../../constants/badges.js'
 import Particles from '../shared/Particles.jsx'
 
 export default function BadgePopup({ badge, earned, earnedDate, onClose }) {
   const tc      = TIER[badge.tier]
+
+  useEffect(() => {
+    if (!earned) return
+    confetti({ particleCount: 90, spread: 70, origin: { y: 0.55 }, ticks: 90, scalar: 0.85, colors: [tc.ring, '#ffffff', '#fef08a', tc.ring] })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const IconC   = badge.Icon
   const inner   = earned ? badge.innerBg : 'linear-gradient(135deg,#1e293b,#334155)'
   const iconClr = earned ? badge.innerIcon : '#6b7280'
