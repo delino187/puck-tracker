@@ -26,10 +26,13 @@ import PlayerHeader  from './components/shared/PlayerHeader.jsx'
 import GlobalStyles  from './components/shared/GlobalStyles.jsx'
 import Scaffold      from './components/shared/Scaffold.jsx'
 
-import BadgePopup        from './components/overlays/BadgePopup.jsx'
-import EpicCelebration  from './components/overlays/EpicCelebration.jsx'
-import CelebOverlay     from './components/overlays/CelebOverlay.jsx'
-import CoachMsgPopup    from './components/overlays/CoachMsgPopup.jsx'
+import BadgePopup           from './components/overlays/BadgePopup.jsx'
+import EpicCelebration     from './components/overlays/EpicCelebration.jsx'
+import CelebOverlay        from './components/overlays/CelebOverlay.jsx'
+import CoachMsgPopup       from './components/overlays/CoachMsgPopup.jsx'
+import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
+import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
+import { loadChallengesForPlayer } from './services/peerChallengeService.js'
 
 import { C, APP_BG } from './styles.js'
 
@@ -50,8 +53,10 @@ export default function App() {
   const [npName,        setNpName]       = useState('')
   const [npNum,         setNpNum]        = useState('')
   const [npPw,          setNpPw]         = useState('')
-  const [dashMutePrompt,setDashMutePrompt] = useState(false)
-  const [rankDetailOpen,setRankDetailOpen] = useState(false)
+  const [dashMutePrompt,  setDashMutePrompt]   = useState(false)
+  const [rankDetailOpen,  setRankDetailOpen]   = useState(false)
+  const [peerChallenges,  setPeerChallenges]   = useState([])
+  const [challengeScreen, setChallengeScreen]  = useState(null) // null | 'create' | { mode:'respond', challenge }
 
   const badgeQRef    = useRef([])
   const epicAudioRef = useRef(null)
@@ -71,6 +76,12 @@ export default function App() {
   useEffect(() => {
     if (st) saveSt(st)
   }, [st])
+
+  // ── Load peer challenges when a player is active ─────────────────────────
+  useEffect(() => {
+    if (!st?.activePlayerId) return
+    loadChallengesForPlayer(st.activePlayerId).then(setPeerChallenges)
+  }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Dashboard intro music: start on Dash tab, stop on any other tab ───────
   useEffect(() => {
@@ -154,6 +165,16 @@ export default function App() {
   function handleDashUnmute() {
     dashAudioRef.current?.play().catch(() => {})
     setDashMutePrompt(false)
+  }
+
+  function handlePeerChallengeSubmit({ challenge }) {
+    // Merge updated challenge into local list — XP is awarded via logTechniqueShots inside the screens
+    setPeerChallenges(prev => {
+      const idx = prev.findIndex(c => c.id === challenge.id)
+      return idx >= 0
+        ? prev.map(c => c.id === challenge.id ? challenge : c)
+        : [challenge, ...prev]
+    })
   }
 
   function handleDashNavigate(tabId, openRankDetail = false) {
@@ -475,6 +496,28 @@ export default function App() {
           />
         )}
 
+        {/* ── Peer challenge full-screen flows ─────────────────────────── */}
+        {challengeScreen === 'create' && (
+          <div style={{ position: 'fixed', inset: 0, background: 'var(--page-bg)', zIndex: 300, overflowY: 'auto' }}>
+            <CreatePeerChallenge
+              player={aPlayer}
+              players={st.players}
+              onBack={() => setChallengeScreen(null)}
+              onSubmit={handlePeerChallengeSubmit}
+            />
+          </div>
+        )}
+        {challengeScreen?.mode === 'respond' && (
+          <div style={{ position: 'fixed', inset: 0, background: 'var(--page-bg)', zIndex: 300, overflowY: 'auto' }}>
+            <RespondToChallenge
+              player={aPlayer}
+              challenge={challengeScreen.challenge}
+              onBack={() => setChallengeScreen(null)}
+              onSubmit={handlePeerChallengeSubmit}
+            />
+          </div>
+        )}
+
         <PlayerHeader
           player={aPlayer}
           stats={stats}
@@ -491,13 +534,13 @@ export default function App() {
               player={aPlayer}
               stats={stats}
               sessions={st.sessions}
-              dailyChallenge={st.dailyChallenge}
-              weeklyChallenge={st.weeklyChallenge}
               players={st.players}
               newBadgeIds={newBadgeIds}
               onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
               onStartSession={() => { startSession(); setTab('session') }}
               onNavigate={handleDashNavigate}
+              peerChallenges={peerChallenges}
+              onAcceptChallenge={c => setChallengeScreen({ mode: 'respond', challenge: c })}
             />
           )}
           {tab === 'session' && (
@@ -510,8 +553,6 @@ export default function App() {
               onLogAll={handleLogAll}
               onEndSession={endSession}
               onStart={startSession}
-              dailyChallenge={st.dailyChallenge}
-              weeklyChallenge={st.weeklyChallenge}
               flashZone={flashZone}
               flashType={flashType}
               puckAnim={puckAnim}
@@ -527,11 +568,10 @@ export default function App() {
           {tab === 'challenges' && (
             <ChallengesTab
               player={aPlayer}
-              sessions={st.sessions}
-              dailyChallenge={st.dailyChallenge}
-              weeklyChallenge={st.weeklyChallenge}
-              h2h={st.h2h}
               players={st.players}
+              peerChallenges={peerChallenges}
+              onCreateChallenge={() => setChallengeScreen('create')}
+              onAcceptChallenge={c => setChallengeScreen({ mode: 'respond', challenge: c })}
             />
           )}
           {tab === 'streak' && (

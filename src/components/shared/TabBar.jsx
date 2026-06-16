@@ -1,10 +1,10 @@
-import { LayoutDashboard, Target, ListChecks, Trophy, BarChart2, Award, Star, Gamepad2, Flame } from 'lucide-react'
+import { LayoutDashboard, Target, Swords, Trophy, BarChart2, Award, Star, Gamepad2, Flame } from 'lucide-react'
 
 export const PLAYER_TABS = [
   { id: 'dashboard',  Icon: LayoutDashboard, label: 'Dash'           },  // Overview
   { id: 'session',    Icon: Target,          label: 'Shoot'          },  // Core Action
   { id: 'games',      Icon: Gamepad2,        label: 'Games'          },  // Secondary Action
-  { id: 'challenges', Icon: ListChecks,      label: 'Challenges'     },  // Structured Action
+  { id: 'challenges', Icon: Swords,          label: 'Versus'         },  // P2P Showdowns
   { id: 'streak',     Icon: Flame,           label: 'Streaks & Shop' },  // Progression & Economy (merged)
   { id: 'board',      Icon: Trophy,          label: 'Board'          },  // Social
   { id: 'stats',      Icon: BarChart2,       label: 'My Stats'       },  // Analytics

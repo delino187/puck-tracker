@@ -1,82 +1,18 @@
-import { Target, Zap, CalendarDays, BookOpen, Lock, ChevronRight } from 'lucide-react'
+import { Target, Lock, ChevronRight } from 'lucide-react'
 import { LEVELS } from '../constants/levels.js'
-import { ZONES }  from '../constants/zones.js'
 import { BADGES } from '../constants/badges.js'
 import { STREAK_BADGES } from '../constants/streakBadges.js'
 import { getWeekStart } from '../utils/stats.js'
-import { challengeLabel } from '../utils/challengeEngine.js'
 import { useAppStore } from '../store/useAppStore.js'
 import { C } from '../styles.js'
-import StatCard    from './shared/StatCard.jsx'
-import XPBar       from './shared/XPBar.jsx'
-import BadgeCircle from './shared/BadgeCircle.jsx'
+import StatCard          from './shared/StatCard.jsx'
+import XPBar             from './shared/XPBar.jsx'
+import BadgeCircle       from './shared/BadgeCircle.jsx'
+import PeerChallengeCard from './shared/PeerChallengeCard.jsx'
 
 // ── Challenge card helpers ─────────────────────────────────────────────────────
-function ChallengeRow({ ch, label, Icon, color, sessions, playerId }) {
-  if (!ch) return null
-  const zoneName = ZONES.find(z => z.id === ch.zone)?.label ?? ch.zone
-  const isCoach  = ch.source === 'coach'
-
-  // Today's or this-week's hits in the challenge zone
-  const ws      = getWeekStart()
-  const today   = new Date().toDateString()
-  const pSets   = sessions
-    .filter(s => s.playerId === playerId)
-    .filter(s => label === 'Daily'
-      ? new Date(s.date).toDateString() === today
-      : new Date(s.date) >= ws)
-    .flatMap(s => s.sets)
-  const hits    = pSets.filter(s => s.zone === ch.zone).reduce((a, s) => a + s.hits, 0)
-  const target  = parseInt(ch.target) || 5
-  const pct     = Math.min(100, (hits / target) * 100)
-  const done    = hits >= target
-
-  return (
-    <div style={{ marginBottom: 10 }}>
-      {/* Header row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Icon size={13} color={isCoach ? '#f59e0b' : color} />
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: isCoach ? '#f59e0b' : color, letterSpacing: '0.1em' }}>
-            {isCoach ? '📋 COACH' : label.toUpperCase()}
-          </span>
-        </div>
-        <span style={{
-          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 800,
-          color: done ? '#34d399' : 'var(--text-1)',
-        }}>
-          {hits}/{target}{done ? ' ✅' : ''}
-        </span>
-      </div>
-
-      {/* Prompt text */}
-      <div style={{
-        fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.03em',
-        color: 'var(--text-1)', marginBottom: 8, lineHeight: 1.2,
-      }}>
-        Hit {target} {zoneName} {target === 1 ? 'shot' : 'shots'}
-      </div>
-
-      {/* Progress bar */}
-      <div style={{ height: 7, background: 'var(--progress-track)', borderRadius: 4, overflow: 'hidden', border: 'var(--card-border)' }}>
-        <div style={{
-          height: '100%', width: `${pct}%`,
-          background: done ? '#22c55e' : (isCoach ? '#f59e0b' : color),
-          borderRadius: 4, transition: 'width 0.5s',
-        }} />
-      </div>
-
-      {done && (
-        <div style={{ color: '#34d399', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, marginTop: 5, display: 'flex', alignItems: 'center', gap: 3 }}>
-          ✓ Complete! +{label === 'Daily' ? 50 : 100} XP
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
-export default function Dashboard({ player, stats, sessions, dailyChallenge, weeklyChallenge, players, onStartSession, newBadgeIds, onBadgeClick, onNavigate }) {
+export default function Dashboard({ player, stats, sessions, players, onStartSession, newBadgeIds, onBadgeClick, onNavigate, peerChallenges = [], onAcceptChallenge }) {
   const ws      = getWeekStart()
   const cur     = LEVELS[stats.li]
   const next    = LEVELS[stats.li + 1]
@@ -94,8 +30,6 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
 
   const earnedBadges = BADGES.filter(b => player.earnedBadges?.[b.id])
   const recent       = sessions.filter(s => s.playerId === player.id).slice(-5).reverse()
-  const hasChallenges = dailyChallenge || weeklyChallenge
-
   // Highest streak milestone badge the player's current streak qualifies for
   const activeStreakBadge = [...STREAK_BADGES].reverse().find(b => stats.streak >= b.milestone) ?? null
 
@@ -217,41 +151,15 @@ export default function Dashboard({ player, stats, sessions, dailyChallenge, wee
         <StatCard label="Week Rank" value={weekRank > 0 ? `#${weekRank}` : '—'}                     color="#fbbf24" />
       </div>
 
-      {/* ── Active challenges — dynamic engine + coach override ───────────── */}
-      {hasChallenges && (
-        <div
-          onClick={() => onNavigate?.('challenges')}
-          style={{ ...C.card, padding: '20px 18px', borderColor: '#f59e0b44', cursor: 'pointer' }}
-        >
-          {/* Card header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-            <BookOpen size={13} color="#f59e0b" />
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: '#f59e0b', letterSpacing: '0.15em' }}>
-              ACTIVE CHALLENGES
-            </span>
-            {(dailyChallenge?.source === 'coach' || weeklyChallenge?.source === 'coach') && (
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#f59e0b', background: '#f59e0b18', border: '1px solid #f59e0b33', borderRadius: 4, padding: '1px 6px' }}>
-                COACH SET
-              </span>
-            )}
-            <ChevronRight size={13} color="#f59e0b" style={{ marginLeft: 'auto' }} />
-          </div>
-
-          {/* Divider */}
-          <div style={{ height: 1, background: 'linear-gradient(90deg,transparent,#f59e0b33,transparent)', marginBottom: 14 }} />
-
-          <ChallengeRow
-            ch={dailyChallenge} label="Daily"
-            Icon={Zap} color="#f59e0b"
-            sessions={sessions} playerId={player.id}
-          />
-          <ChallengeRow
-            ch={weeklyChallenge} label="Weekly"
-            Icon={CalendarDays} color="#60a5fa"
-            sessions={sessions} playerId={player.id}
-          />
-        </div>
-      )}
+      {/* ── Incoming peer challenges ──────────────────────────────────────── */}
+      {peerChallenges.filter(c => c.receiverId === player.id && c.status === 'pending').map(c => (
+        <PeerChallengeCard
+          key={c.id}
+          challenge={c}
+          playerId={player.id}
+          onAccept={onAcceptChallenge}
+        />
+      ))}
 
       {/* ── Recent badges ─────────────────────────────────────────────────── */}
       {earnedBadges.length > 0 && (

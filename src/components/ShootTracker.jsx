@@ -7,7 +7,7 @@ const ENCOURAGE_MSGS = [
   "Keep your head up and try another set",
   "Don't look down at the puck. Lock in on your target!",
 ]
-import { Target, CheckCircle, Zap, ChevronLeft } from 'lucide-react'
+import { Target, CheckCircle, ChevronLeft } from 'lucide-react'
 import { ZONES } from '../constants/zones.js'
 import { C } from '../styles.js'
 import StatCard          from './shared/StatCard.jsx'
@@ -19,7 +19,6 @@ import { syncQueue }     from '../services/syncQueue.js'
 export default function ShootTracker({
   player, session, sesGoal, setSesGoal,
   onLogSet, onLogAll, onEndSession, onStart,
-  dailyChallenge, weeklyChallenge,
   flashZone, flashType, puckAnim,
 }) {
   // null = mode fork  |  'target' = zone tracker  |  'technique' = technique mode
@@ -323,33 +322,6 @@ export default function ShootTracker({
           <NetSVG flashZone={flashZone} flashType={flashType} puckAnim={puckAnim} />
         </div>
       </div>
-
-      {/* ── Active challenge bars ─────────────────────────────────────────── */}
-      {[
-        dailyChallenge  && { ch: dailyChallenge,  label: 'Daily',  xp: 50  },
-        weeklyChallenge && { ch: weeklyChallenge, label: 'Weekly', xp: 100 },
-      ].filter(Boolean).map(({ ch, label, xp }) => {
-        const hits   = session.sets.filter(s => s.zone === ch.zone).reduce((a, s) => a + s.hits, 0)
-        const target = parseInt(ch.target) || 5
-        return (
-          <div key={label} style={{ ...C.card, borderColor: '#f59e0b44' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Zap size={11} color="#f59e0b" />
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#f59e0b', fontWeight: 700 }}>
-                  {label}: {ZONES.find(z => z.id === ch.zone)?.label}
-                </span>
-              </div>
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: hits >= target ? '#34d399' : '#f59e0b' }}>
-                {hits}/{target}{hits >= target ? ' ✅' : ''}
-              </span>
-            </div>
-            <div style={{ height: 4, background: '#0a0f1a', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${Math.min(100, hits / target * 100)}%`, background: hits >= target ? '#22c55e' : '#f59e0b', borderRadius: 2, transition: 'width 0.4s' }} />
-            </div>
-          </div>
-        )
-      })}
 
       {/* ── Recent sets ──────────────────────────────────────────────────── */}
       {session.sets.length > 0 && (

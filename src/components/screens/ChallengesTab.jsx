@@ -1,102 +1,119 @@
-import { CheckCircle, Zap, CalendarDays, Swords, AlertCircle, TrendingUp } from 'lucide-react'
-import { ZONES } from '../../constants/zones.js'
-import { getWeekStart } from '../../utils/stats.js'
+import { Plus, Swords, Clock, Trophy, Info } from 'lucide-react'
+import { useState } from 'react'
+import PeerChallengeCard from '../shared/PeerChallengeCard.jsx'
+import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
 
-export default function ChallengesTab({ player, sessions, dailyChallenge, weeklyChallenge, h2h, players }) {
-  const ws    = getWeekStart()
-  const today = new Date().toDateString()
+export default function ChallengesTab({
+  player,
+  players,
+  peerChallenges = [],
+  onCreateChallenge,
+  onAcceptChallenge,
+}) {
+  const [showTips, setShowTips] = useState(false)
 
-  const todaySets = sessions.filter(s => s.playerId === player.id && new Date(s.date).toDateString() === today).flatMap(s => s.sets)
-  const weekSets  = sessions.filter(s => s.playerId === player.id && new Date(s.date) >= ws).flatMap(s => s.sets)
-
-  const isInH2H  = h2h && (h2h.p1 === player.id || h2h.p2 === player.id)
-  const opp      = isInH2H ? players.find(p => p.id === (h2h.p1 === player.id ? h2h.p2 : h2h.p1)) : null
-  const myShots  = isInH2H ? sessions.filter(s => s.playerId === player.id && new Date(s.date) >= ws).flatMap(s => s.sets).length * 10 : 0
-  const oppShots = opp      ? sessions.filter(s => s.playerId === opp.id    && new Date(s.date) >= ws).flatMap(s => s.sets).length * 10 : 0
-
-  const chs = [
-    dailyChallenge  && { ch: dailyChallenge,  label: 'Daily Challenge',  sets: todaySets, xp: 50,  Icon: Zap,         color: '#f59e0b' },
-    weeklyChallenge && { ch: weeklyChallenge, label: 'Weekly Challenge', sets: weekSets,  xp: 100, Icon: CalendarDays, color: '#60a5fa' },
-  ].filter(Boolean)
+  const incoming  = peerChallenges.filter(c => c.receiverId   === player.id && c.status === 'pending')
+  const outgoing  = peerChallenges.filter(c => c.challengerId === player.id && c.status === 'pending')
+  const completed = peerChallenges.filter(c => c.status === 'completed').slice(0, 5)
+  const hasActive = incoming.length > 0 || outgoing.length > 0
 
   return (
     <div style={{ padding: '14px 16px 80px' }}>
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, letterSpacing: '0.12em', color: 'var(--text-2)', textTransform: 'uppercase', marginBottom: 7 }}>
-        Active Challenges
+      {showTips && <RecordingTipsModal onClose={() => setShowTips(false)} />}
+
+      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div>
+          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 28, color: '#a855f7', letterSpacing: '0.06em', lineHeight: 1, textShadow: '0 0 20px #a855f744' }}>
+            ⚔️ VERSUS
+          </div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#64748b', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 2 }}>
+            Peer Showdowns · 3 or 5 Shots
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => setShowTips(true)}
+            style={{ background: 'transparent', border: '1px solid #334155', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: '#64748b', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11 }}
+          >
+            <Info size={12} /> TIPS
+          </button>
+          {players.length > 1 && (
+            <button
+              onClick={onCreateChallenge}
+              style={{ background: 'linear-gradient(135deg,#6b21a8,#a855f7)', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: "'Bangers',sans-serif", fontSize: 16, letterSpacing: '0.06em', boxShadow: '0 0 16px #a855f740' }}
+            >
+              <Plus size={14} /> ISSUE
+            </button>
+          )}
+        </div>
       </div>
 
-      {chs.length === 0 && !isInH2H && (
-        <div style={{ background: 'var(--card-bg)', borderRadius: 14, padding: '20px 18px', border: 'var(--card-border)', textAlign: 'center', color: 'var(--text-muted)', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, letterSpacing: '0.06em', marginBottom: 12 }}>
-          No active challenges — check with your coach!
+      {/* ── Active Showdowns ─────────────────────────────────────────────────── */}
+      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
+        <Clock size={11} /> ACTIVE SHOWDOWNS
+        {hasActive && (
+          <span style={{ background: '#a855f7', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 9, fontWeight: 700, marginLeft: 4 }}>
+            {incoming.length + outgoing.length}
+          </span>
+        )}
+      </div>
+
+      {!hasActive && (
+        <div style={{ background: 'linear-gradient(135deg,#0f0c1a,#1a1030)', borderRadius: 14, padding: '28px 20px', border: '1px dashed #a855f733', textAlign: 'center', marginBottom: 16 }}>
+          <div style={{ fontSize: 36, marginBottom: 10 }}>⚔️</div>
+          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, color: '#a855f7', letterSpacing: '0.06em', marginBottom: 6 }}>
+            NO ACTIVE SHOWDOWNS
+          </div>
+          {players.length > 1
+            ? <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#64748b' }}>
+                Tap <strong style={{ color: '#a855f7' }}>ISSUE</strong> to call out a teammate!
+              </div>
+            : <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#64748b' }}>
+                Add more players to the roster to unlock showdowns.
+              </div>
+          }
         </div>
       )}
 
-      {chs.map(({ ch, label, sets, xp, Icon, color }) => {
-        const hits   = sets.filter(s => s.zone === ch.zone).reduce((a, s) => a + s.hits, 0)
-        const target = parseInt(ch.target) || 5
-        const done   = hits >= target
-        return (
-          <div key={label} style={{ background: 'var(--card-bg)', borderRadius: 14, padding: '20px', border: `1px solid ${color}44`, marginBottom: 12 }}>
-            {/* Header row */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Icon size={14} color={color} />
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color, letterSpacing: '0.14em' }}>{label.toUpperCase()}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: 'var(--text-muted)', background: 'var(--progress-track)', border: 'var(--card-border)', borderRadius: 5, padding: '2px 7px', letterSpacing: '0.08em' }}>+{xp} XP</span>
-                {done && <CheckCircle size={15} color="#34d399" />}
-              </div>
-            </div>
+      {/* Incoming first — most urgent */}
+      {incoming.length > 0 && (
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#ef4444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>
+          🔥 Waiting on you
+        </div>
+      )}
+      {incoming.map(c => (
+        <PeerChallengeCard key={c.id} challenge={c} playerId={player.id} onAccept={onAcceptChallenge} />
+      ))}
 
-            {/* Primary metric */}
-            <div style={{ marginBottom: 10 }}>
-              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color: '#64748b', letterSpacing: '0.06em', marginBottom: 3 }}>
-                {ZONES.find(z => z.id === ch.zone)?.label}
-              </div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 36, fontWeight: 900, color: 'var(--text-1)', lineHeight: 1 }}>
-                {hits}<span style={{ fontSize: 18, fontWeight: 500, color: 'var(--text-muted)' }}>/{target}</span>
-              </div>
-            </div>
+      {outgoing.length > 0 && (
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#3b82f6', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8, marginTop: incoming.length > 0 ? 12 : 0 }}>
+          ⏳ Waiting on them
+        </div>
+      )}
+      {outgoing.map(c => (
+        <PeerChallengeCard key={c.id} challenge={c} playerId={player.id} onAccept={onAcceptChallenge} />
+      ))}
 
-            <div style={{ height: 7, background: 'var(--progress-track)', borderRadius: 4, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${Math.min(100, hits / target * 100)}%`, background: done ? '#22c55e' : color, borderRadius: 4, transition: 'width 0.5s' }} />
-            </div>
-            {done && (
-              <div style={{ marginTop: 10, color: '#34d399', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <CheckCircle size={13} /> Complete! +{xp} XP
-              </div>
-            )}
+      {/* ── Recent Results ───────────────────────────────────────────────────── */}
+      {completed.length > 0 && (
+        <>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10, marginTop: 20, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <Trophy size={11} /> RECENT RESULTS
           </div>
-        )
-      })}
+          {completed.map(c => (
+            <PeerChallengeCard key={c.id} challenge={c} playerId={player.id} onAccept={() => {}} />
+          ))}
+        </>
+      )}
 
-      {/* Head-to-head */}
-      {isInH2H && opp && (
-        <div style={{ background: 'var(--card-bg)', borderRadius: 14, padding: '20px', border: '1px solid #ef444444', marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-            <Swords size={14} color="#ef4444" />
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: '#ef4444', letterSpacing: '0.14em' }}>HEAD-TO-HEAD THIS WEEK</span>
+      {/* ── Empty roster ─────────────────────────────────────────────────────── */}
+      {players.length <= 1 && (
+        <div style={{ background: 'var(--card-bg)', borderRadius: 12, padding: '16px 18px', border: 'var(--card-border)', marginTop: 8 }}>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            <strong style={{ color: 'var(--text-1)' }}>Peer showdowns require 2+ players.</strong>{' '}
+            Ask your coach to add teammates to the roster so you can start issuing challenges.
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginBottom: 10 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 15, fontWeight: 800, color: myShots > oppShots ? '#fbbf24' : 'var(--text-1)' }}>{player.name} (you)</div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 38, fontWeight: 900, color: '#60a5fa', lineHeight: 1 }}>{myShots}</div>
-            </div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 18, color: '#475569' }}>VS</div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 15, fontWeight: 800, color: oppShots > myShots ? '#fbbf24' : 'var(--text-1)' }}>{opp.name}</div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 38, fontWeight: 900, color: '#60a5fa', lineHeight: 1 }}>{oppShots}</div>
-            </div>
-          </div>
-          <div style={{
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, textAlign: 'center',
-            color: myShots > oppShots ? '#34d399' : myShots < oppShots ? '#ef4444' : '#fbbf24',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-          }}>
-            {myShots > oppShots ? <><TrendingUp size={13} />You're leading!</> : myShots < oppShots ? <><AlertCircle size={13} />Time to put in work!</> : <>All tied up!</>}
-          </div>
-          <div style={{ color: '#94a3b8', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, textAlign: 'center', marginTop: 4 }}>+50 XP for winning</div>
         </div>
       )}
     </div>
