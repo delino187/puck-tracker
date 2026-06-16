@@ -15,6 +15,7 @@ import Dashboard        from './components/Dashboard.jsx'
 import ShootTracker     from './components/ShootTracker.jsx'
 import Games            from './components/Games.jsx'
 import StreakHub        from './components/StreakHub.jsx'
+import DailyQuests      from './components/screens/DailyQuests.jsx'
 import TeamLeaderboards from './components/TeamLeaderboards.jsx'
 import GoalHeatmap      from './components/GoalHeatmap.jsx'
 import BadgeGrid        from './components/BadgeGrid.jsx'
@@ -447,6 +448,10 @@ export default function App() {
                   jerseyNum: npNum.trim(),
                   password: npPw.trim() || autoPw,
                   earnedBadges: {},
+                  diamonds: 0,
+                  streak_freezes: 0,
+                  last_quest_spin: null,
+                  daily_quests: [],
                   createdAt: Date.now(),
                 }
                 upd({ players: [...st.players, p], view: 'coach' })
@@ -613,14 +618,22 @@ export default function App() {
             />
           )}
           {tab === 'streak' && (
-            <StreakHub
-              player={aPlayer}
-              stats={stats}
-              sessions={st.sessions}
-              players={st.players}
-              onPurchase={() => {}}
-              onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
-            />
+            <>
+              <DailyQuests
+                player={aPlayer}
+                onDiamondEarn={(amount) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: (p.diamonds || 0) + amount } : p) })}
+              />
+              <div style={{ marginTop: 20 }}>
+                <StreakHub
+                  player={aPlayer}
+                  stats={stats}
+                  sessions={st.sessions}
+                  players={st.players}
+                  onPurchase={() => {}}
+                  onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
+                />
+              </div>
+            </>
           )}
           {tab === 'board' && (
             <TeamLeaderboards
