@@ -90,11 +90,12 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onClo
 
         {/* ── Header label ──────────────────────────────────────────────────── */}
         <div style={{
-          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
-          letterSpacing: '0.2em', color: '#06b6d4',
+          fontFamily: "'Bangers',sans-serif", fontSize: 22,
+          letterSpacing: '0.16em', color: '#06b6d4',
           textAlign: 'center', textTransform: 'uppercase', marginBottom: 20,
+          textShadow: '0 0 16px rgba(6,182,212,0.5)',
         }}>
-          Your Profile
+          YOUR PROFILE
         </div>
 
         {/* ── Avatar with camera overlay ────────────────────────────────────── */}
@@ -230,10 +231,10 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onClo
             { label: 'Streak',  value: stats.streak > 0 ? `${stats.streak}d` : '—' },
           ].map(({ label, value }) => (
             <div key={label} style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.04em', color: '#f1f5f9', lineHeight: 1 }}>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.04em', color: '#f1f5f9', lineHeight: 1 }}>
                 {value}
               </div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 3 }}>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800, color: '#06b6d4', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 4 }}>
                 {label}
               </div>
             </div>
@@ -243,8 +244,8 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onClo
         {/* ── Medals ────────────────────────────────────────────────────────── */}
         {medals.length > 0 && (
           <div style={{ width: '100%', overflow: 'hidden', padding: '0 2px' }}>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8 }}>
-              Badges ({medals.length})
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.12em', color: '#f1f5f9', textTransform: 'uppercase', marginBottom: 10 }}>
+              Badges <span style={{ color: '#06b6d4' }}>({medals.length})</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, justifyItems: 'center', alignItems: 'center', width: '100%', maxWidth: '100%' }}>
               {medals.map(b => (

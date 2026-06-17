@@ -161,10 +161,10 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
             { label: 'Hits',    value: totalHits > 0 ? totalHits.toLocaleString() : '—' },
           ].map(({ label, value }) => (
             <div key={label} style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.04em', color: '#f1f5f9', lineHeight: 1 }}>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.04em', color: '#f1f5f9', lineHeight: 1 }}>
                 {value}
               </div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.1em', textTransform: 'uppercase', marginTop: 3 }}>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#a855f7', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 4 }}>
                 {label}
               </div>
             </div>
@@ -174,8 +174,8 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
         {/* ── Medals ────────────────────────────────────────────────────────── */}
         {medals.length > 0 && (
           <div style={{ marginBottom: 16, width: '100%', overflow: 'hidden', padding: '0 2px' }}>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8 }}>
-              Badges
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.12em', color: '#f1f5f9', textTransform: 'uppercase', marginBottom: 10 }}>
+              Badges <span style={{ color: '#a855f7' }}>({medals.length})</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, justifyItems: 'center', alignItems: 'center', width: '100%', maxWidth: '100%' }}>
               {medals.map(b => (
