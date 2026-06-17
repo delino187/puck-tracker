@@ -68,9 +68,9 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
         style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0, position: 'relative' }}
       >
         {player.photoURL ? (
-          <Avatar player={player} size={40} style={{ border: `2px solid ${cur.color}`, boxShadow: `0 0 12px ${cur.glow}66` }} />
+          <Avatar player={player} size={40} className="arcade-glow" style={{ borderRadius: '50%' }} />
         ) : (
-          <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: cur.bg, border: `2px solid ${cur.color}`, boxShadow: `0 0 12px ${cur.glow}66` }}>
+          <div className="arcade-glow" style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: cur.bg }}>
             <img src={cur.img} alt={cur.name} className="rounded-full object-cover" style={{ width: '100%', height: '100%', transform: 'scale(1.1)' }} />
           </div>
         )}

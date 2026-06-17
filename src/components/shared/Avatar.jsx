@@ -1,5 +1,5 @@
 // Circular player avatar — shows photoURL image or first-initial fallback.
-export default function Avatar({ player, size = 28, style = {} }) {
+export default function Avatar({ player, size = 28, style = {}, className = '' }) {
   const initial = player?.name?.[0]?.toUpperCase() ?? '?'
   const fontSize = Math.round(size * 0.42)
 
@@ -8,6 +8,7 @@ export default function Avatar({ player, size = 28, style = {} }) {
       <img
         src={player.photoURL}
         alt={player?.name ?? ''}
+        className={className}
         style={{
           width: size, height: size,
           borderRadius: '50%',
@@ -20,18 +21,21 @@ export default function Avatar({ player, size = 28, style = {} }) {
   }
 
   return (
-    <div style={{
-      width: size, height: size,
-      borderRadius: '50%',
-      background: '#1e3a5f',
-      border: '1px solid #3b82f644',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      flexShrink: 0,
-      fontFamily: "'Bangers',sans-serif",
-      fontSize,
-      color: '#60a5fa',
-      ...style,
-    }}>
+    <div
+      className={className}
+      style={{
+        width: size, height: size,
+        borderRadius: '50%',
+        background: '#1e3a5f',
+        border: '1px solid #3b82f644',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
+        fontFamily: "'Bangers',sans-serif",
+        fontSize,
+        color: '#60a5fa',
+        ...style,
+      }}
+    >
       {initial}
     </div>
   )
