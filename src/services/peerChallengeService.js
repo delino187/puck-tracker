@@ -1,16 +1,13 @@
 /**
  * Peer Challenge Service
  * Firestore: teams/team_main/peerChallenges/{id}
- * Storage:   peerChallenges/{challengeId}/{role}.{ext}
- *
- * NOTE: Firebase Storage rules must allow authenticated or open writes to
- *   /peerChallenges/** for video uploads to succeed.
+ * Storage:   Vercel Blob (peerChallenges/{challengeId}/{role}.{ext})
  */
-import { db, storage } from '../firebase.js'
+import { db } from '../firebase.js'
 import {
   collection, doc, addDoc, updateDoc, getDocs,
 } from 'firebase/firestore'
-import { ref, uploadBytesResumable } from 'firebase/storage'
+import { upload } from '@vercel/blob/client'
 
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'peerChallenges')
@@ -22,40 +19,35 @@ function playSfxAsync(url) {
 }
 
 // ── Video upload ──────────────────────────────────────────────────────────────
-// Pure client-side Firebase SDK upload with manual URL construction.
-// Bypasses getDownloadURL CORS lock by building the download URL directly.
+// Vercel Blob client upload — no Firebase Storage, no CORS preflight blocks.
+// onUploadProgress fires on every packet: { loaded, total, percentage (0–100) }
 export async function uploadChallengeVideo(file, challengeId, role, onProgress) {
   if (file.size > MAX_FILE_BYTES) throw new Error('FILE_TOO_LARGE')
 
-  const ext        = file.name.split('.').pop() || 'mp4'
-  const path       = `peerChallenges/${challengeId}/${role}.${ext}`
-  const fileRef    = ref(storage, path)
-  const bucket     = storage.app.options.storageBucket
-  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
+  const ext      = file.name.split('.').pop() || 'mp4'
+  const pathname = `peerChallenges/${challengeId}/${role}.${ext}`
 
-  return new Promise((resolve, reject) => {
-    const task = uploadBytesResumable(fileRef, file)
+  try {
+    const blob = await upload(pathname, file, {
+      access:          'public',
+      handleUploadUrl: '/api/avatar/upload',
+      onUploadProgress: ({ percentage }) => {
+        onProgress?.(Math.round(percentage))
+      },
+    })
 
-    task.on(
-      'state_changed',
-      snapshot => {
-        if (snapshot.totalBytes > 0 && onProgress) {
-          const pct = Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)
-          onProgress(pct)
-        }
-      },
-      error => {
-        console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
-        reject(new Error(error.code === 'storage/canceled' ? 'UPLOAD_TIMEOUT' : 'UPLOAD_FAILED'))
-      },
-      () => {
-        // Upload bytes complete. Skip getDownloadURL CORS lock and use manual URL.
-        onProgress?.(100)
-        playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
-        resolve(downloadUrl)
-      }
-    )
-  })
+    // blob.url is the permanent Vercel Blob CDN URL — no manual construction needed.
+    onProgress?.(100)
+    playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+    return blob.url
+  } catch (err) {
+    console.error('[Upload] Vercel Blob upload failed:', err)
+    if (err?.message?.toLowerCase().includes('size') ||
+        err?.message?.toLowerCase().includes('large')) {
+      throw new Error('FILE_TOO_LARGE')
+    }
+    throw new Error('UPLOAD_FAILED')
+  }
 }
 
 // ── Create ────────────────────────────────────────────────────────────────────

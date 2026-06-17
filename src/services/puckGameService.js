@@ -8,9 +8,9 @@
  *   Setter MAKES → defender_pending  → if defender MAKES: no letter + setter stays
  *   Setter MISSES → no letter, turn flips to other player immediately
  */
-import { db, storage } from '../firebase.js'
+import { db } from '../firebase.js'
 import { collection, doc, addDoc, updateDoc, getDocs } from 'firebase/firestore'
-import { ref, uploadBytesResumable } from 'firebase/storage'
+import { upload } from '@vercel/blob/client'
 
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'puckGames')
@@ -38,39 +38,33 @@ function freshRound(setterPlayerId) {
 }
 
 // ── Video upload ──────────────────────────────────────────────────────────────
-// Pure client-side Firebase SDK upload with manual URL construction.
+// Vercel Blob client upload — no Firebase Storage, no CORS preflight blocks.
 export async function uploadPuckVideo(file, gameId, role, onProgress) {
   if (file.size > MAX_FILE_BYTES) throw new Error('FILE_TOO_LARGE')
 
-  const ext        = file.name.split('.').pop() || 'mp4'
-  const path       = `puckGames/${gameId}/${role}_${Date.now()}.${ext}`
-  const fileRef    = ref(storage, path)
-  const bucket     = storage.app.options.storageBucket
-  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
+  const ext      = file.name.split('.').pop() || 'mp4'
+  const pathname = `puckGames/${gameId}/${role}_${Date.now()}.${ext}`
 
-  return new Promise((resolve, reject) => {
-    const task = uploadBytesResumable(fileRef, file)
+  try {
+    const blob = await upload(pathname, file, {
+      access:          'public',
+      handleUploadUrl: '/api/avatar/upload',
+      onUploadProgress: ({ percentage }) => {
+        onProgress?.(Math.round(percentage))
+      },
+    })
 
-    task.on(
-      'state_changed',
-      snapshot => {
-        if (snapshot.totalBytes > 0 && onProgress) {
-          const pct = Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)
-          onProgress(pct)
-        }
-      },
-      error => {
-        console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
-        reject(new Error(error.code === 'storage/canceled' ? 'UPLOAD_TIMEOUT' : 'UPLOAD_FAILED'))
-      },
-      () => {
-        // Upload bytes complete. Skip getDownloadURL CORS lock and use manual URL.
-        onProgress?.(100)
-        playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
-        resolve(downloadUrl)
-      }
-    )
-  })
+    onProgress?.(100)
+    playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+    return blob.url
+  } catch (err) {
+    console.error('[Upload] Vercel Blob upload failed:', err)
+    if (err?.message?.toLowerCase().includes('size') ||
+        err?.message?.toLowerCase().includes('large')) {
+      throw new Error('FILE_TOO_LARGE')
+    }
+    throw new Error('UPLOAD_FAILED')
+  }
 }
 
 // ── Create ────────────────────────────────────────────────────────────────────
