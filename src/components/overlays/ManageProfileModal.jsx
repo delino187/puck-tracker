@@ -246,24 +246,27 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onClo
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8 }}>
               Badges ({medals.length})
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, justifyItems: 'center', alignItems: 'center' }}>
               {medals.map(b => (
                 <div
                   key={b.id}
                   title={`${b.name} — ${b.desc}`}
                   style={{
-                    aspectRatio: '1 / 1', borderRadius: 10,
                     background: b.innerBg || '#1e293b',
-                    border: '1px solid rgba(255,255,255,0.06)',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                    borderRadius: '50%',
+                    padding: 3,
+                    boxShadow: '0 2px 10px rgba(0,0,0,0.6)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: 6, overflow: 'hidden',
                   }}
                 >
                   {b.img ? (
-                    <img src={b.img} alt={b.name} style={{ width: '100%', height: '100%', objectFit: 'contain', aspectRatio: '1/1', display: 'block' }} />
+                    <div className="badge-circle">
+                      <img src={b.img} alt={b.name} />
+                    </div>
                   ) : (
-                    <b.Icon size={22} color={b.innerIcon || '#94a3b8'} />
+                    <div style={{ width: 52, height: 52, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <b.Icon size={24} color={b.innerIcon || '#94a3b8'} />
+                    </div>
                   )}
                 </div>
               ))}
