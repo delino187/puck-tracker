@@ -10,7 +10,6 @@
  */
 import { db, storage } from '../firebase.js'
 import { collection, doc, addDoc, updateDoc, getDocs } from 'firebase/firestore'
-import { ref, uploadBytesResumable } from 'firebase/storage'
 
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'puckGames')
@@ -38,73 +37,64 @@ function freshRound(setterPlayerId) {
 }
 
 // ── Video upload ──────────────────────────────────────────────────────────────
+// Two-phase: fetch signed URL from backend, then XHR PUT to GCS directly.
 export async function uploadPuckVideo(file, gameId, role, onProgress) {
   if (file.size > MAX_FILE_BYTES) throw new Error('FILE_TOO_LARGE')
 
-  const ext     = file.name.split('.').pop() || 'mp4'
-  const path    = `puckGames/${gameId}/${role}_${Date.now()}.${ext}`
-  const fileRef = ref(storage, path)
+  const ext         = file.name.split('.').pop() || 'mp4'
+  const storagePath = `puckGames/${gameId}/${role}_${Date.now()}.${ext}`
+  const contentType = file.type || 'video/mp4'
+  const bucket      = storage.app.options.storageBucket
+  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(storagePath)}?alt=media`
 
+  // ── Phase 1: Acquire signed URL from backend ───
+  let signedUrl
+  try {
+    const resp = await fetch('/api/upload-url', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ storagePath, contentType }),
+    })
+    if (!resp.ok) {
+      const text = await resp.text()
+      console.error('[Upload] /api/upload-url returned', resp.status, text)
+      throw new Error('UPLOAD_FAILED')
+    }
+    ;({ signedUrl } = await resp.json())
+  } catch (err) {
+    if (err.message === 'UPLOAD_FAILED') throw err
+    console.error('[Upload] Could not reach /api/upload-url:', err)
+    throw new Error('UPLOAD_FAILED')
+  }
+
+  // ── Phase 2: XHR PUT directly to signed GCS URL ───
   return new Promise((resolve, reject) => {
-    // ── Guard + shared state ─────────────────────────────────────────────────
-    const isSavingRef = { current: false }
-    let   simPct      = 0
-    let   realPct     = 0    // upper-scope: updated by snapshot, read by error callback
+    const xhr = new XMLHttpRequest()
 
-    const bucket    = storage.app.options.storageBucket
-    const manualUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
-
-    const simTimer = onProgress ? setInterval(() => {
-      simPct = Math.min(simPct + (90 - simPct) * 0.1, 90)
-      onProgress(Math.round(simPct))
-    }, 250) : null
-
-    // ── finalize(url) — single exit point, guarded against double-call ───────
-    function finalize(url) {
-      if (isSavingRef.current) return
-      isSavingRef.current = true
-      clearInterval(simTimer)
-      onProgress?.(100)
-      playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
-      resolve(url)
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round(e.loaded / e.total * 100))
+      }
     }
 
-    const task = uploadBytesResumable(fileRef, file)
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(100)
+        playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+        resolve(downloadUrl)
+      } else {
+        console.error('[Upload] Signed PUT failed:', xhr.status, xhr.statusText, xhr.responseText)
+        reject(new Error('UPLOAD_FAILED'))
+      }
+    }
 
-    task.on(
-      'state_changed',
+    xhr.onerror   = () => { console.error('[Upload] XHR network error');        reject(new Error('UPLOAD_FAILED'))  }
+    xhr.ontimeout = () => { console.error('[Upload] XHR timed out after 60s');  reject(new Error('UPLOAD_TIMEOUT')) }
+    xhr.timeout   = 60_000
 
-      // PATH 1: Reception short-circuit
-      snapshot => {
-        if (snapshot.totalBytes > 0) {
-          realPct = snapshot.bytesTransferred / snapshot.totalBytes
-          const displayPct = Math.round(realPct * 100)
-          if (onProgress && displayPct > simPct) { simPct = displayPct; onProgress(displayPct) }
-
-          if (realPct >= 0.90 && !isSavingRef.current) {
-            task.cancel()
-            finalize(manualUrl)
-          }
-        }
-      },
-
-      // PATH 2 & 3: Error interception
-      error => {
-        if (error.code === 'storage/canceled') return   // PATH 2: we triggered this
-
-        if (realPct >= 0.90) {                          // PATH 3: CORS blocked finalization
-          console.warn('[Upload] CORS blocked finalization — bytes confirmed, forcing complete:', error.code)
-          finalize(manualUrl)
-        } else {
-          clearInterval(simTimer)
-          console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
-          reject(new Error('UPLOAD_FAILED'))
-        }
-      },
-
-      // PATH 4: Standard success hook
-      () => { finalize(manualUrl) }
-    )
+    xhr.open('PUT', signedUrl)
+    xhr.setRequestHeader('Content-Type', contentType)
+    xhr.send(file)
   })
 }
 

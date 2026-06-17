@@ -10,7 +10,8 @@ import { db, storage } from '../firebase.js'
 import {
   collection, doc, addDoc, updateDoc, getDocs,
 } from 'firebase/firestore'
-import { ref, uploadBytesResumable } from 'firebase/storage'
+// firebase/storage SDK no longer needed for uploads — backend issues signed URLs,
+// XHR PUTs directly to GCS, bypassing Firebase SDK CORS entirely.
 
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'peerChallenges')
@@ -22,83 +23,71 @@ function playSfxAsync(url) {
 }
 
 // ── Video upload ──────────────────────────────────────────────────────────────
+// Two-phase approach:
+//   Phase 1 — fetch() to /api/upload-url  → backend signs a GCS URL (no CORS issue,
+//             happens before the progress bar appears)
+//   Phase 2 — XHR PUT to that signed URL → xhr.upload.onprogress fires on every
+//             packet, giving true 0→100% progress. GCS signed URLs are pre-authorized
+//             so no preflight block occurs.
 export async function uploadChallengeVideo(file, challengeId, role, onProgress) {
   if (file.size > MAX_FILE_BYTES) throw new Error('FILE_TOO_LARGE')
 
-  const ext     = file.name.split('.').pop() || 'mp4'
-  const path    = `peerChallenges/${challengeId}/${role}.${ext}`
-  const fileRef = ref(storage, path)
+  const ext         = file.name.split('.').pop() || 'mp4'
+  const storagePath = `peerChallenges/${challengeId}/${role}.${ext}`
+  const contentType = file.type || 'video/mp4'
+  const bucket      = storage.app.options.storageBucket
+  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(storagePath)}?alt=media`
 
+  // ── Phase 1: Acquire signed URL from backend (before UI shows progress) ───
+  let signedUrl
+  try {
+    const resp = await fetch('/api/upload-url', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ storagePath, contentType }),
+    })
+    if (!resp.ok) {
+      const text = await resp.text()
+      console.error('[Upload] /api/upload-url returned', resp.status, text)
+      throw new Error('UPLOAD_FAILED')
+    }
+    ;({ signedUrl } = await resp.json())
+  } catch (err) {
+    if (err.message === 'UPLOAD_FAILED') throw err
+    console.error('[Upload] Could not reach /api/upload-url:', err)
+    throw new Error('UPLOAD_FAILED')
+  }
+
+  // ── Phase 2: XHR PUT directly to signed GCS URL ───────────────────────────
   return new Promise((resolve, reject) => {
-    // ── Guard + shared state ─────────────────────────────────────────────────
-    const isSavingRef = { current: false }   // double-submission guard
-    let   simPct      = 0                    // animation ticker (0–90)
-    let   realPct     = 0                    // actual byte-transfer ratio (0.0–1.0), upper-scope
-                                             // so all four paths read the same value
+    const xhr = new XMLHttpRequest()
 
-    const bucket    = storage.app.options.storageBucket
-    const manualUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
-
-    // Visual progress simulation — fills to ~90% while bytes transfer.
-    const simTimer = onProgress ? setInterval(() => {
-      simPct = Math.min(simPct + (90 - simPct) * 0.1, 90)
-      onProgress(Math.round(simPct))
-    }, 250) : null
-
-    // ── finalize(url) — single exit point, guarded against double-call ───────
-    function finalize(url) {
-      if (isSavingRef.current) return
-      isSavingRef.current = true
-      clearInterval(simTimer)
-      onProgress?.(100)
-      playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
-      resolve(url)
+    // Real per-packet progress — no simulation needed, GCS signed URLs stream fine.
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round(e.loaded / e.total * 100))
+      }
     }
 
-    const task = uploadBytesResumable(fileRef, file)
+    // 100% hard completion trigger — GCS status 200 means bucket confirmed receipt.
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(100)
+        playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+        resolve(downloadUrl)
+      } else {
+        console.error('[Upload] Signed PUT failed:', xhr.status, xhr.statusText, xhr.responseText)
+        reject(new Error('UPLOAD_FAILED'))
+      }
+    }
 
-    task.on(
-      'state_changed',
+    xhr.onerror   = () => { console.error('[Upload] XHR network error');        reject(new Error('UPLOAD_FAILED'))  }
+    xhr.ontimeout = () => { console.error('[Upload] XHR timed out after 60s');  reject(new Error('UPLOAD_TIMEOUT')) }
+    xhr.timeout   = 60_000
 
-      // ── PATH 1: Reception short-circuit ─────────────────────────────────
-      // Updates the upper-scope realPct every snapshot so Paths 2/3 can read it.
-      // When realPct hits 0.90, bytes are physically at Firebase — cancel the SDK
-      // task to stop the CORS-blocked finalization loop and force-complete.
-      snapshot => {
-        if (snapshot.totalBytes > 0) {
-          realPct = snapshot.bytesTransferred / snapshot.totalBytes
-          const displayPct = Math.round(realPct * 100)
-          if (onProgress && displayPct > simPct) { simPct = displayPct; onProgress(displayPct) }
-
-          if (realPct >= 0.90 && !isSavingRef.current) {
-            task.cancel()           // triggers PATH 2 (storage/canceled) → silently ignored
-            finalize(manualUrl)
-          }
-        }
-      },
-
-      // ── PATH 2 & 3: Error interception ───────────────────────────────────
-      error => {
-        // PATH 2: We fired task.cancel() ourselves in PATH 1 — ignore silently.
-        if (error.code === 'storage/canceled') return
-
-        // PATH 3: A hard CORS block or network error fired before PATH 1 could.
-        // If realPct shows bytes arrived (>= 0.90), treat as success anyway.
-        if (realPct >= 0.90) {
-          console.warn('[Upload] CORS blocked finalization — bytes confirmed via realPct, forcing complete:', error.code)
-          finalize(manualUrl)
-        } else {
-          clearInterval(simTimer)
-          console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
-          reject(new Error('UPLOAD_FAILED'))
-        }
-      },
-
-      // ── PATH 4: Standard success hook ────────────────────────────────────
-      // Fires transparently when Firebase CORS is fully configured.
-      // isSavingRef prevents a double-resolve if PATH 1 already ran.
-      () => { finalize(manualUrl) }
-    )
+    xhr.open('PUT', signedUrl)
+    xhr.setRequestHeader('Content-Type', contentType)  // must match what the backend signed
+    xhr.send(file)                                       // raw File blob — NOT FormData
   })
 }
 
