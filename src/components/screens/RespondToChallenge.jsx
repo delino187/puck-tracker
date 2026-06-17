@@ -21,7 +21,7 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
 
   const [videoFile,  setVideoFile]  = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
-  const [myHits,     setMyHits]     = useState(challenge.challengerHits)
+  const [myHits,     setMyHits]     = useState(null)
   const [error,      setError]      = useState('')
   const [uploading,      setUploading]      = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -178,7 +178,7 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
             </button>
           ))}
         </div>
-        {myHits >= challenge.challengerHits && myHits > 0 && (
+        {myHits !== null && myHits >= challenge.challengerHits && myHits > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 10, color: '#22c55e', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12 }}>
             <Trophy size={13} /> That's a WIN — you matched or beat the score!
           </div>
@@ -195,7 +195,8 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
       ) : (
         <button
           onClick={handleSubmit}
-          style={{ ...C.btnP, background: 'linear-gradient(135deg,#6b21a8,#a855f7)', boxShadow: '0 0 20px #a855f740', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em' }}
+          disabled={myHits === null}
+          style={{ ...C.btnP, background: myHits === null ? '#1e293b' : 'linear-gradient(135deg,#6b21a8,#a855f7)', boxShadow: myHits === null ? 'none' : '0 0 20px #a855f740', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', opacity: myHits === null ? 0.45 : 1, cursor: myHits === null ? 'not-allowed' : 'pointer' }}
         >
           ⚔️ SUBMIT RESPONSE
         </button>

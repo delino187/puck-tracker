@@ -43,7 +43,7 @@ export default function ChallengesTab({
               onClick={onCreateChallenge}
               style={{ background: 'linear-gradient(135deg,#6b21a8,#a855f7)', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontFamily: "'Bangers',sans-serif", fontSize: 16, letterSpacing: '0.06em', boxShadow: '0 0 16px #a855f740' }}
             >
-              <Plus size={14} /> ISSUE
+              <Plus size={14} /> ISSUE CHALLENGE
             </button>
           )}
         </div>

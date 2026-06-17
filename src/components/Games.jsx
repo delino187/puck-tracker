@@ -96,7 +96,7 @@ export default function Games({ player, players, sessions, puckGames, onSubmitGa
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
             <div style={{ flex: 1 }}>
               <div style={{ display: 'inline-block', background: 'linear-gradient(135deg,#059669,#10b981)', borderRadius: 6, padding: '3px 8px', marginBottom: 6, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                ZERO-TOUCH
+                SINGLE PLAYER
               </div>
               <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 30, color: 'var(--text-1)', letterSpacing: '0.03em', lineHeight: 1.1 }}>
                 Around the World

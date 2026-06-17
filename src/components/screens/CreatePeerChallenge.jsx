@@ -94,7 +94,7 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
           </button>
           <div style={{ flex: 1 }}>
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, color: '#a855f7', letterSpacing: '0.06em', lineHeight: 1, textShadow: '0 0 16px #a855f755' }}>
-              ISSUE A SHOWDOWN
+              ISSUE A CHALLENGE
             </div>
           </div>
           <button onClick={() => setShowTips(true)} style={{ background: 'transparent', border: '1px solid #334155', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: '#64748b', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11 }}>
