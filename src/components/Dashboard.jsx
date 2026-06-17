@@ -89,9 +89,7 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 32, fontWeight: 800, color: '#60a5fa', lineHeight: 1 }}>
               {stats.weekShots}
             </div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 5 }}>
-              PUCKS
-            </div>
+            <div className="stat-label">PUCKS</div>
           </div>
 
           {/* Accuracy */}
@@ -99,9 +97,7 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 32, fontWeight: 800, color: '#34d399', lineHeight: 1 }}>
               {stats.weekShots > 0 ? stats.weekAcc.toFixed(0) + '%' : '—'}
             </div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 5 }}>
-              ACCURACY
-            </div>
+            <div className="stat-label">ACCURACY</div>
           </div>
 
           {/* Streak — earned badge with day count, or locked Spark as motivational goal */}
@@ -141,9 +137,7 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
                 </div>
               )
             })()}
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", color: 'var(--text-muted)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 5 }}>
-              STREAK
-            </div>
+            <div className="stat-label">STREAK</div>
           </div>
 
         </div>

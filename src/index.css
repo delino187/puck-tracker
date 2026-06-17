@@ -116,6 +116,19 @@ select { -webkit-appearance: none; }
     inset 0 0 8px 2px rgba(6, 182, 212, 0.9);
 }
 
+/* ── Arcade stat label ───────────────────────────────────────────────────── */
+/* Apply to any text label sitting beneath a stat number. */
+.stat-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #06b6d4;
+  margin-top: 4px;
+  line-height: 1;
+}
+
 /* ── Circular badge cell ─────────────────────────────────────────────────── */
 .badge-circle {
   width: 52px;

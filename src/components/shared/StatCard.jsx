@@ -4,7 +4,7 @@ export default function StatCard({ label, value, color = '#3b82f6' }) {
       <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 26, fontWeight: 800, color, lineHeight: 1 }}>
         {value}
       </div>
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", color: 'var(--text-muted)', fontSize: 10, marginTop: 5, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", color: '#06b6d4', fontSize: 12, fontWeight: 800, marginTop: 5, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
         {label}
       </div>
     </div>

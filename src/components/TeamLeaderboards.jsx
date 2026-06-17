@@ -83,7 +83,7 @@ export default function TeamLeaderboards({ player, players, sessions, h2h }) {
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 44, fontWeight: 900, color: '#f97316', lineHeight: 1 }}>
               {streakLeader.streak}
             </div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.1em' }}>DAYS</div>
+            <div className="stat-label">DAYS</div>
           </div>
         </div>
       )}
@@ -102,9 +102,9 @@ export default function TeamLeaderboards({ player, players, sessions, h2h }) {
               textAlign: 'center',
             }}>
               <Icon size={16} color={color} style={{ marginBottom: 3 }} />
-              <div style={{ color, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, letterSpacing: '0.1em', marginBottom: 3 }}>{label}</div>
+              <div style={{ color, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', marginBottom: 3 }}>{label}</div>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 17, fontWeight: 700, color: 'var(--text-1)' }}>{p.name}</div>
-              <div style={{ color: 'var(--text-2)', fontSize: 11 }}>{sub}</div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#06b6d4' }}>{sub}</div>
             </div>
           ))}
         </div>
@@ -139,11 +139,11 @@ export default function TeamLeaderboards({ player, players, sessions, h2h }) {
             </div>
             <div style={{ textAlign: 'center', minWidth: 40 }}>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 900, color: '#60a5fa', lineHeight: 1 }}>{p.shots}</div>
-              <div style={{ color: 'var(--text-muted)', fontSize: 9 }}>shots</div>
+              <div className="stat-label">shots</div>
             </div>
             <div style={{ textAlign: 'center', minWidth: 44, background: 'var(--progress-track)', borderRadius: 8, padding: '4px 7px' }}>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 800, color: '#34d399' }}>{p.acc.toFixed(0)}%</div>
-              <div style={{ color: 'var(--text-muted)', fontSize: 9 }}>acc</div>
+              <div className="stat-label">acc</div>
             </div>
           </div>
         )

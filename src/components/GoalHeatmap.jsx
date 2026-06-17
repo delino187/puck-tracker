@@ -79,17 +79,17 @@ export default function GoalHeatmap({ player, stats, sessions }) {
           {best && (
             <div style={{ background: 'var(--card-bg)', borderRadius: 10, padding: 12, border: '1px solid #22c55e44', textAlign: 'center' }}>
               <Star size={16} color="#34d399" style={{ marginBottom: 3 }} />
-              <div style={{ color: '#34d399', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, letterSpacing: '0.1em', margin: '3px 0' }}>BEST ZONE</div>
+              <div style={{ color: '#34d399', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', margin: '3px 0' }}>BEST ZONE</div>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-1)' }}>{best.label}</div>
-              <div style={{ color: 'var(--text-2)', fontSize: 11 }}>{stats.zoneStats[best.id]?.acc.toFixed(0)}%</div>
+              <div className="stat-label" style={{ color: '#34d399' }}>{stats.zoneStats[best.id]?.acc.toFixed(0)}%</div>
             </div>
           )}
           {weak && (
             <div style={{ background: 'var(--card-bg)', borderRadius: 10, padding: 12, border: '1px solid #ef444444', textAlign: 'center' }}>
               <TrendingUp size={16} color="#ef4444" style={{ marginBottom: 3 }} />
-              <div style={{ color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, letterSpacing: '0.1em', margin: '3px 0' }}>WORK ON</div>
+              <div style={{ color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', margin: '3px 0' }}>WORK ON</div>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-1)' }}>{weak.label}</div>
-              <div style={{ color: 'var(--text-2)', fontSize: 11 }}>{stats.zoneStats[weak.id]?.acc.toFixed(0)}%</div>
+              <div className="stat-label" style={{ color: '#ef4444' }}>{stats.zoneStats[weak.id]?.acc.toFixed(0)}%</div>
             </div>
           )}
         </div>
