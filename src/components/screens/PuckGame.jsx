@@ -95,7 +95,8 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
   const [videoFile,     setVideoFile]    = useState(null)
   const [previewUrl,    setPreviewUrl]   = useState(null)
   const [videoError,    setVideoError]   = useState('')
-  const [submitting,    setSubmitting]   = useState(false)
+  const [submitting,     setSubmitting]    = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [error,         setError]        = useState('')
 
   const logTechniqueShots = useAppStore(s => s.logTechniqueShots)
@@ -149,7 +150,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
     if (!videoFile) { setError('Upload your video first.'); return }
     setSubmitting(true); setError('')
     try {
-      const url = await uploadPuckVideo(videoFile, selectedGame.id, `setter_${player.id}`)
+      const url = await uploadPuckVideo(videoFile, selectedGame.id, `setter_${player.id}`, setUploadProgress)
       logTechniqueShots(player.id, 3)   // all 3 shots logged → +3 XP
       const updated = await submitSetterShot(selectedGame, { zone, trickStyle: trick, videoUrl: url, made })
       await refresh(updated)
@@ -161,7 +162,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
     if (!videoFile) { setError('Upload your video first.'); return }
     setSubmitting(true); setError('')
     try {
-      const url = await uploadPuckVideo(videoFile, selectedGame.id, `defender_${player.id}`)
+      const url = await uploadPuckVideo(videoFile, selectedGame.id, `defender_${player.id}`, setUploadProgress)
       logTechniqueShots(player.id, 3)   // all 3 shots logged → +3 XP
       const updated = await submitDefenderResponse(selectedGame, { videoUrl: url, made })
       await refresh(updated)
@@ -291,14 +292,23 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
 
             {error && <div style={{ color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, marginBottom: 10 }}>{error}</div>}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <button onClick={() => handleSetterSubmit(true)} disabled={submitting || !videoFile} style={{ background: videoFile ? 'linear-gradient(135deg,#14532d,#22c55e)' : '#0f172a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', cursor: videoFile ? 'pointer' : 'default', boxShadow: videoFile ? '0 0 16px #22c55e40' : 'none' }}>
-                {submitting ? '...' : '✅ I MADE IT!'}
-              </button>
-              <button onClick={() => handleSetterSubmit(false)} disabled={submitting || !videoFile} style={{ background: videoFile ? 'linear-gradient(135deg,#7f1d1d,#ef4444)' : '#0f172a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', cursor: videoFile ? 'pointer' : 'default', boxShadow: videoFile ? '0 0 16px #ef444440' : 'none' }}>
-                {submitting ? '...' : '❌ I MISSED'}
-              </button>
-            </div>
+            {submitting ? (
+              <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, background: '#0f172a', border: '2px solid #a855f7' }}>
+                <div style={{ position: 'absolute', inset: 0, width: `${uploadProgress}%`, background: 'linear-gradient(90deg,#6b21a8,#a855f7)', transition: 'width 0.15s ease-out' }} />
+                <div style={{ position: 'relative', zIndex: 1, padding: '14px', textAlign: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', color: '#fff' }}>
+                  🛰️ UPLOADING... {uploadProgress}%
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <button onClick={() => handleSetterSubmit(true)} disabled={!videoFile} style={{ background: videoFile ? 'linear-gradient(135deg,#14532d,#22c55e)' : '#0f172a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', cursor: videoFile ? 'pointer' : 'default', boxShadow: videoFile ? '0 0 16px #22c55e40' : 'none' }}>
+                  ✅ I MADE IT!
+                </button>
+                <button onClick={() => handleSetterSubmit(false)} disabled={!videoFile} style={{ background: videoFile ? 'linear-gradient(135deg,#7f1d1d,#ef4444)' : '#0f172a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', cursor: videoFile ? 'pointer' : 'default', boxShadow: videoFile ? '0 0 16px #ef444440' : 'none' }}>
+                  ❌ I MISSED
+                </button>
+              </div>
+            )}
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#475569', textAlign: 'center', marginTop: 10 }}>
               Hit 1-of-3 = ✅ MADE IT · Miss all 3 = ❌ MISSED (turn flips, no letter)
             </div>
@@ -339,12 +349,23 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
                 </div>
                 {error && <div style={{ color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, marginBottom: 10 }}>{error}</div>}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                  <button onClick={() => handleDefenderSubmit(true)} disabled={submitting || !videoFile} style={{ background: videoFile ? 'linear-gradient(135deg,#14532d,#22c55e)' : '#0f172a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', cursor: videoFile ? 'pointer' : 'default', boxShadow: videoFile ? '0 0 16px #22c55e40' : 'none' }}>
-                    {submitting ? '...' : '✅ I MADE IT!'}
-                  </button>
-                  <button onClick={() => handleDefenderSubmit(false)} disabled={submitting || !videoFile} style={{ background: videoFile ? 'linear-gradient(135deg,#7f1d1d,#ef4444)' : '#0f172a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', cursor: videoFile ? 'pointer' : 'default', boxShadow: videoFile ? '0 0 16px #ef444440' : 'none' }}>
-                    {submitting ? '...' : '❌ I MISSED'}
-                  </button>
+                  {submitting ? (
+                    <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, background: '#0f172a', border: '2px solid #a855f7', gridColumn: '1 / -1' }}>
+                      <div style={{ position: 'absolute', inset: 0, width: `${uploadProgress}%`, background: 'linear-gradient(90deg,#6b21a8,#a855f7)', transition: 'width 0.15s ease-out' }} />
+                      <div style={{ position: 'relative', zIndex: 1, padding: '14px', textAlign: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', color: '#fff' }}>
+                        🛰️ UPLOADING... {uploadProgress}%
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <button onClick={() => handleDefenderSubmit(true)} disabled={!videoFile} style={{ background: videoFile ? 'linear-gradient(135deg,#14532d,#22c55e)' : '#0f172a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', cursor: videoFile ? 'pointer' : 'default', boxShadow: videoFile ? '0 0 16px #22c55e40' : 'none' }}>
+                        ✅ I MADE IT!
+                      </button>
+                      <button onClick={() => handleDefenderSubmit(false)} disabled={!videoFile} style={{ background: videoFile ? 'linear-gradient(135deg,#7f1d1d,#ef4444)' : '#0f172a', color: '#fff', border: 'none', borderRadius: 12, padding: '14px', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', cursor: videoFile ? 'pointer' : 'default', boxShadow: videoFile ? '0 0 16px #ef444440' : 'none' }}>
+                        ❌ I MISSED
+                      </button>
+                    </>
+                  )}
                 </div>
               </>
             )}

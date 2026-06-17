@@ -23,7 +23,8 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
   const [previewUrl, setPreviewUrl] = useState(null)
   const [myHits,     setMyHits]     = useState(challenge.challengerHits)
   const [error,      setError]      = useState('')
-  const [uploading,  setUploading]  = useState(false)
+  const [uploading,      setUploading]      = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [done,       setDone]       = useState(false)
   const [won,        setWon]        = useState(false)
   const [showTips,   setShowTips]   = useState(false)
@@ -57,7 +58,7 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
     setUploading(true)
     try {
       const tempKey  = `${player.id}_${Date.now()}`
-      const videoUrl = await uploadChallengeVideo(videoFile, tempKey, 'receiver')
+      const videoUrl = await uploadChallengeVideo(videoFile, tempKey, 'receiver', setUploadProgress)
       const updated  = await respondToChallenge(challenge, myHits, videoUrl)
       logTechniqueShots(player.id, shotCount)
       setWon(updated.winnerId === player.id)
@@ -184,13 +185,21 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
         )}
       </div>
 
-      <button
-        onClick={handleSubmit}
-        disabled={uploading}
-        style={{ ...C.btnP, background: uploading ? '#1e293b' : 'linear-gradient(135deg,#6b21a8,#a855f7)', boxShadow: uploading ? 'none' : '0 0 20px #a855f740', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em' }}
-      >
-        {uploading ? '📡 UPLOADING...' : '⚔️ SUBMIT RESPONSE'}
-      </button>
+      {uploading ? (
+        <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, background: '#0f172a', border: '2px solid #a855f7' }}>
+          <div style={{ position: 'absolute', inset: 0, width: `${uploadProgress}%`, background: 'linear-gradient(90deg,#6b21a8,#a855f7)', transition: 'width 0.15s ease-out' }} />
+          <div style={{ position: 'relative', zIndex: 1, padding: '14px', textAlign: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', color: '#fff' }}>
+            🛰️ UPLOADING... {uploadProgress}%
+          </div>
+        </div>
+      ) : (
+        <button
+          onClick={handleSubmit}
+          style={{ ...C.btnP, background: 'linear-gradient(135deg,#6b21a8,#a855f7)', boxShadow: '0 0 20px #a855f740', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em' }}
+        >
+          ⚔️ SUBMIT RESPONSE
+        </button>
+      )}
     </div>
   )
 }

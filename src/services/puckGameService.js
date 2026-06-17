@@ -10,12 +10,12 @@
  */
 import { db, storage } from '../firebase.js'
 import { collection, doc, addDoc, updateDoc, getDocs } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 
-const TEAM_ID       = 'team_main'
-const COL           = () => collection(db, 'teams', TEAM_ID, 'puckGames')
-const LETTERS       = ['P', 'U', 'C', 'K']
-const UPLOAD_MS     = 15_000
+const TEAM_ID        = 'team_main'
+const COL            = () => collection(db, 'teams', TEAM_ID, 'puckGames')
+const LETTERS        = ['P', 'U', 'C', 'K']
+const UPLOAD_MS      = 60_000
 const MAX_FILE_BYTES = 15 * 1024 * 1024
 
 function withUploadTimeout(promise) {
@@ -51,14 +51,24 @@ function freshRound(setterPlayerId) {
   }
 }
 
-// ── Video upload ──────────────────────────────────────────────────────────────
-export async function uploadPuckVideo(file, gameId, role) {
+// ── Video upload — direct client-side resumable upload with progress ──────────
+export async function uploadPuckVideo(file, gameId, role, onProgress) {
   if (file.size > MAX_FILE_BYTES) throw new Error('FILE_TOO_LARGE')
 
   const ext     = file.name.split('.').pop() || 'mp4'
   const fileRef = ref(storage, `puckGames/${gameId}/${role}_${Date.now()}.${ext}`)
 
-  await withUploadTimeout(uploadBytes(fileRef, file))
+  const task = uploadBytesResumable(fileRef, file)
+  if (onProgress) {
+    task.on('state_changed', snapshot => {
+      const pct = snapshot.totalBytes > 0
+        ? Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)
+        : 0
+      onProgress(pct)
+    })
+  }
+
+  await withUploadTimeout(task)
   const url = await withUploadTimeout(getDownloadURL(fileRef))
 
   playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')

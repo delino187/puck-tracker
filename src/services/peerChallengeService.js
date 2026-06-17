@@ -10,13 +10,13 @@ import { db, storage } from '../firebase.js'
 import {
   collection, doc, addDoc, updateDoc, getDocs,
 } from 'firebase/firestore'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 
-const TEAM_ID       = 'team_main'
-const COL           = () => collection(db, 'teams', TEAM_ID, 'peerChallenges')
-const EXPIRY_MS     = 48 * 60 * 60 * 1000   // 48 hours
-const UPLOAD_MS     = 15_000                  // 15-second hard timeout
-const MAX_FILE_BYTES = 15 * 1024 * 1024      // 15 MB
+const TEAM_ID        = 'team_main'
+const COL            = () => collection(db, 'teams', TEAM_ID, 'peerChallenges')
+const EXPIRY_MS      = 48 * 60 * 60 * 1000   // 48 hours
+const UPLOAD_MS      = 60_000                  // 60-second timeout for mobile networks
+const MAX_FILE_BYTES = 15 * 1024 * 1024       // 15 MB
 
 // Races a promise against a timeout; rejects with a tagged error on expiry.
 function withUploadTimeout(promise) {
@@ -37,18 +37,29 @@ function playSfxAsync(url) {
   } catch {}
 }
 
-// ── Video upload ──────────────────────────────────────────────────────────────
-export async function uploadChallengeVideo(file, challengeId, role) {
+// ── Video upload — direct client-side resumable upload with progress ──────────
+export async function uploadChallengeVideo(file, challengeId, role, onProgress) {
   if (file.size > MAX_FILE_BYTES) throw new Error('FILE_TOO_LARGE')
 
   const ext     = file.name.split('.').pop() || 'mp4'
   const path    = `peerChallenges/${challengeId}/${role}.${ext}`
   const fileRef = ref(storage, path)
 
-  await withUploadTimeout(uploadBytes(fileRef, file))
+  // uploadBytesResumable streams directly from the browser to Storage,
+  // bypassing any serverless function timeout. It also exposes byte-level progress.
+  const task = uploadBytesResumable(fileRef, file)
+  if (onProgress) {
+    task.on('state_changed', snapshot => {
+      const pct = snapshot.totalBytes > 0
+        ? Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)
+        : 0
+      onProgress(pct)
+    })
+  }
+
+  await withUploadTimeout(task)
   const url = await withUploadTimeout(getDownloadURL(fileRef))
 
-  // Non-blocking success sound — runs after URL is retrieved, never delays return.
   playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
   return url
 }

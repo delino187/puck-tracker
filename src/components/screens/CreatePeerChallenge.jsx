@@ -25,7 +25,8 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
   const [previewUrl, setPreviewUrl] = useState(null)
   const [myHits,     setMyHits]     = useState(3)
   const [error,      setError]      = useState('')
-  const [uploading,  setUploading]  = useState(false)
+  const [uploading,       setUploading]       = useState(false)
+  const [uploadProgress,  setUploadProgress]  = useState(0)
   const [showTips,   setShowTips]   = useState(false)
   const fileInputRef = useRef(null)
 
@@ -60,7 +61,7 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
     setUploading(true)
     try {
       const tempKey  = `${player.id}_${Date.now()}`
-      const videoUrl = await uploadChallengeVideo(videoFile, tempKey, 'challenger')
+      const videoUrl = await uploadChallengeVideo(videoFile, tempKey, 'challenger', setUploadProgress)
       const challenge = await createChallenge({
         challengerId:   player.id,
         challengerName: player.name,
@@ -250,13 +251,21 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
           )}
         </div>
 
-        <button
-          onClick={handleSubmit}
-          disabled={uploading}
-          style={{ ...C.btnP, background: uploading ? '#1e293b' : 'linear-gradient(135deg,#6b21a8,#a855f7)', boxShadow: uploading ? 'none' : '0 0 20px #a855f740', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em' }}
-        >
-          {uploading ? '📡 UPLOADING...' : '⚔️ ISSUE SHOWDOWN'}
-        </button>
+        {uploading ? (
+          <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, background: '#0f172a', border: '2px solid #a855f7' }}>
+            <div style={{ position: 'absolute', inset: 0, width: `${uploadProgress}%`, background: 'linear-gradient(90deg,#6b21a8,#a855f7)', transition: 'width 0.15s ease-out' }} />
+            <div style={{ position: 'relative', zIndex: 1, padding: '14px', textAlign: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', color: '#fff' }}>
+              🛰️ UPLOADING... {uploadProgress}%
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={handleSubmit}
+            style={{ ...C.btnP, background: 'linear-gradient(135deg,#6b21a8,#a855f7)', boxShadow: '0 0 20px #a855f740', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em' }}
+          >
+            ⚔️ ISSUE SHOWDOWN
+          </button>
+        )}
       </div>
     )
   }
