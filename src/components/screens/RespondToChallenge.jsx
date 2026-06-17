@@ -102,7 +102,7 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
         <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}>
           <ChevronLeft size={22} />
         </button>
-        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, color: '#a855f7', letterSpacing: '0.06em' }}>
+        <div className="text-3d-purple" style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.06em' }}>
           MATCH THE SCORE!
         </div>
         <button onClick={() => setShowTips(true)} style={{ marginLeft: 'auto', background: 'transparent', border: '1px solid #334155', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: '#64748b', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11 }}>

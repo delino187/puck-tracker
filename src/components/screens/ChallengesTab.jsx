@@ -24,7 +24,7 @@ export default function ChallengesTab({
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div>
-          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 28, color: '#a855f7', letterSpacing: '0.06em', lineHeight: 1, textShadow: '0 0 20px #a855f744' }}>
+          <div className="text-3d-purple" style={{ fontFamily: "'Bangers',sans-serif", fontSize: 28, letterSpacing: '0.06em', lineHeight: 1 }}>
             ⚔️ VERSUS
           </div>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#64748b', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 2 }}>

@@ -67,7 +67,7 @@ export default function Games({ player, players, sessions, puckGames, onSubmitGa
                   </div>
                 )}
               </div>
-              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 34, color: '#ef4444', letterSpacing: '0.06em', lineHeight: 1.1, textShadow: '0 0 20px #ef444433' }}>
+              <div className="text-3d-red" style={{ fontFamily: "'Bangers',sans-serif", fontSize: 34, letterSpacing: '0.06em', lineHeight: 1.1 }}>
                 P-U-C-K
               </div>
             </div>
@@ -98,7 +98,7 @@ export default function Games({ player, players, sessions, puckGames, onSubmitGa
               <div style={{ display: 'inline-block', background: 'linear-gradient(135deg,#059669,#10b981)', borderRadius: 6, padding: '3px 8px', marginBottom: 6, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                 SINGLE PLAYER
               </div>
-              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 30, color: 'var(--text-1)', letterSpacing: '0.03em', lineHeight: 1.1 }}>
+              <div className="text-3d-gold" style={{ fontFamily: "'Bangers',sans-serif", fontSize: 30, letterSpacing: '0.03em', lineHeight: 1.1 }}>
                 Around the World
               </div>
             </div>

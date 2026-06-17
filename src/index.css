@@ -90,3 +90,32 @@ select { -webkit-appearance: none; }
 }
 /* Spring curve overshoots slightly then settles — satisfying tap reward */
 .badge-pop { animation: badgePop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
+/* ── 3D arcade text utilities ──────────────────────────────────────────────
+   Stacked offset shadows create a pressed-block depth effect.
+   Apply to Bangers headline elements; inline color/textShadow must be removed
+   from the element's style prop so these classes take full control.         */
+.text-3d-purple {
+  color: #a855f7;
+  text-shadow:
+    1px 1px 0 #6b21a8,
+    2px 2px 0 #6b21a8,
+    3px 3px 0 #6b21a8,
+    4px 4px 3px rgba(0, 0, 0, 0.5);
+}
+.text-3d-gold {
+  color: #f1b827;
+  text-shadow:
+    1px 1px 0 #b58006,
+    2px 2px 0 #b58006,
+    3px 3px 0 #b58006,
+    4px 4px 3px rgba(0, 0, 0, 0.5);
+}
+.text-3d-red {
+  color: #ef4444;
+  text-shadow:
+    1px 1px 0 #991b1b,
+    2px 2px 0 #991b1b,
+    3px 3px 0 #991b1b,
+    4px 4px 3px rgba(0, 0, 0, 0.5);
+}

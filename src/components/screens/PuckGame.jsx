@@ -186,7 +186,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
       <div style={{ padding: '20px 16px 80px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
           <button onClick={() => { setView('list'); setError('') }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}><ChevronLeft size={22} /></button>
-          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, color: '#ef4444', letterSpacing: '0.06em', textShadow: '0 0 16px #ef444455' }}>START A P-U-C-K GAME</div>
+          <div className="text-3d-red" style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.06em' }}>START A P-U-C-K GAME</div>
         </div>
         <div style={C.card}>
           <label style={C.label}>Challenge</label>

@@ -93,7 +93,7 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
             <ChevronLeft size={22} />
           </button>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, color: '#a855f7', letterSpacing: '0.06em', lineHeight: 1, textShadow: '0 0 16px #a855f755' }}>
+            <div className="text-3d-purple" style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.06em', lineHeight: 1 }}>
               ISSUE A CHALLENGE
             </div>
           </div>
