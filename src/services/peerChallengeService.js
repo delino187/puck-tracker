@@ -10,7 +10,7 @@ import { db, storage } from '../firebase.js'
 import {
   collection, doc, addDoc, updateDoc, getDocs,
 } from 'firebase/firestore'
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
+import { ref, uploadBytesResumable } from 'firebase/storage'
 
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'peerChallenges')
@@ -62,18 +62,19 @@ export async function uploadChallengeVideo(file, challengeId, role, onProgress) 
         console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
         reject(new Error(error.code === 'storage/canceled' ? 'UPLOAD_TIMEOUT' : 'UPLOAD_FAILED'))
       },
-      async () => {
-        // Completion callback — keep loading state active until getDownloadURL resolves.
+      () => {
+        // Completion callback.
+        // getDownloadURL triggers a second CORS preflight that Firebase blocks in some
+        // configurations, so we build the download URL directly from the known path.
+        // Format: /v0/b/{bucket}/o/{encodedPath}?alt=media
+        // Firebase Storage security rules control read access; no token required when
+        // rules allow `allow read: if true`.
         clearInterval(simTimer)
         onProgress?.(100)
-        try {
-          const url = await getDownloadURL(task.snapshot.ref)
-          playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
-          resolve(url)
-        } catch (err) {
-          console.error('[Upload] getDownloadURL failed after upload completed:', err)
-          reject(new Error('UPLOAD_FAILED'))
-        }
+        const bucket  = storage.app.options.storageBucket
+        const url     = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
+        playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+        resolve(url)
       }
     )
   })

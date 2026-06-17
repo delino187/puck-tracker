@@ -10,7 +10,7 @@
  */
 import { db, storage } from '../firebase.js'
 import { collection, doc, addDoc, updateDoc, getDocs } from 'firebase/firestore'
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
+import { ref, uploadBytesResumable } from 'firebase/storage'
 
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'puckGames')
@@ -67,17 +67,14 @@ export async function uploadPuckVideo(file, gameId, role, onProgress) {
         console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
         reject(new Error(error.code === 'storage/canceled' ? 'UPLOAD_TIMEOUT' : 'UPLOAD_FAILED'))
       },
-      async () => {
+      () => {
+        // Build URL manually — avoids a second CORS preflight from getDownloadURL.
         clearInterval(simTimer)
         onProgress?.(100)
-        try {
-          const url = await getDownloadURL(task.snapshot.ref)
-          playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
-          resolve(url)
-        } catch (err) {
-          console.error('[Upload] getDownloadURL failed after upload completed:', err)
-          reject(new Error('UPLOAD_FAILED'))
-        }
+        const bucket  = storage.app.options.storageBucket
+        const url     = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
+        playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+        resolve(url)
       }
     )
   })
