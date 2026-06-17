@@ -1,15 +1,17 @@
 /**
  * Vercel Serverless Function — /api/avatar/upload
  *
- * Secure client-upload token handler for @vercel/blob.
- * The browser calls this endpoint twice per upload:
- *   1. To get a short-lived client token (type: 'blob.generate-client-token')
- *   2. To confirm completion   (type: 'blob.upload-completed')
+ * Client-upload token handler for @vercel/blob.
+ * Called twice per upload by @vercel/blob/client:
+ *   1. POST { type: 'blob.generate-client-token' } → returns a short-lived upload token
+ *   2. POST { type: 'blob.upload-completed'      } → confirms the file landed in the store
  *
- * Required environment variable (Vercel Dashboard → Storage → Blob → Connect):
- *   BLOB_READ_WRITE_TOKEN — issued when you connect a Blob store to your project
+ * Required env var (Vercel Dashboard → Storage → Blob → Connect Store → env vars):
+ *   BLOB_READ_WRITE_TOKEN
  *
- * Note: run `vercel dev` locally (not `vite dev`) to test this endpoint.
+ * This project is Vite + React (not Next.js), so @vercel/blob/next and NextResponse
+ * are not available. handleUpload from @vercel/blob/client is the correct import.
+ * Run `vercel dev` locally to test — Vite dev server does not serve /api routes.
  */
 
 import { handleUpload } from '@vercel/blob/client'
@@ -25,36 +27,41 @@ export default async function handler(req, res) {
   try {
     const body = req.body
 
-    // handleUpload needs a Web API Request object, not a Node IncomingMessage.
+    // handleUpload requires a Web API Request object (not Node's IncomingMessage).
+    // We construct one so the SDK can read headers like Authorization correctly.
     const webRequest = new Request(
-      `https://${req.headers.host ?? 'localhost'}${req.url}`,
+      `https://${req.headers.host ?? 'vercel.app'}${req.url}`,
       {
         method:  'POST',
         headers: new Headers(req.headers),
-        body:    JSON.stringify(body),
+        // body intentionally omitted — handleUpload reads from the `body` param directly
       }
     )
 
     const jsonResponse = await handleUpload({
       body,
       request: webRequest,
-      onBeforeGenerateToken: async (pathname) => ({
-        allowedContentTypes: [
-          'video/mp4',
-          'video/quicktime',
-          'video/mov',
-          'video/webm',
-        ],
-        maximumSizeInBytes: 50 * 1024 * 1024,   // 50 MB server-side ceiling
-      }),
-      onUploadCompleted: async ({ blob }) => {
-        console.log('[Blob] Upload completed:', blob.pathname, blob.url)
+      // Explicit token reference so it's never silently undefined
+      token: process.env.BLOB_READ_WRITE_TOKEN,
+      onBeforeGenerateToken: async (pathname) => {
+        return {
+          allowedContentTypes: [
+            'video/mp4',
+            'video/quicktime',
+            'video/x-matroska',
+            'video/mov',
+          ],
+          maximumSizeInBytes: 70 * 1024 * 1024,   // 70 MB — room for high-res clips
+        }
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        console.log('[Blob API] Blob storage write successfully acknowledged:', blob.url)
       },
     })
 
     res.status(200).json(jsonResponse)
-  } catch (err) {
-    console.error('[Blob] handleUpload error:', err.message)
-    res.status(400).json({ error: err.message })
+  } catch (error) {
+    console.error('[Blob API Error Callback]:', error.message)
+    res.status(400).json({ error: error.message })
   }
 }
