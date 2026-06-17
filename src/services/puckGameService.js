@@ -10,73 +10,15 @@
  */
 import { db, storage } from '../firebase.js'
 import { collection, doc, addDoc, updateDoc, getDocs } from 'firebase/firestore'
-// No firebase/storage SDK needed for uploads — XHR hits the REST endpoint directly.
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
 
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'puckGames')
 const LETTERS        = ['P', 'U', 'C', 'K']
-const XHR_TIMEOUT_MS = 60_000
 const MAX_FILE_BYTES = 15 * 1024 * 1024
 
 function playSfxAsync(url) {
   try { new Audio(url).play().catch(() => {}) } catch {}
-}
-
-function xhrUpload(file, storagePath, bucket, onProgress) {
-  const safeName  = encodeURIComponent(storagePath)
-  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${safeName}&uploadType=media`
-
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
-
-    xhr.upload.onprogress = e => {
-      if (e.lengthComputable && onProgress) {
-        onProgress(Math.round(e.loaded / e.total * 100))
-      }
-    }
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const result  = JSON.parse(xhr.responseText)
-          const token   = result.downloadTokens ?? ''
-          const baseUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${safeName}?alt=media`
-          resolve(token ? `${baseUrl}&token=${token}` : baseUrl)
-        } catch (parseErr) {
-          console.error('[Upload] Could not parse Firebase Storage response:', xhr.responseText, parseErr)
-          reject(new Error('UPLOAD_FAILED'))
-        }
-      } else {
-        console.error(
-          `[Upload] Firebase Storage rejected the upload.\n` +
-          `  Status : ${xhr.status} ${xhr.statusText}\n` +
-          `  URL    : ${uploadUrl}\n` +
-          `  Body   : ${xhr.responseText}`
-        )
-        reject(new Error('UPLOAD_FAILED'))
-      }
-    }
-
-    xhr.onerror = () => {
-      console.error(
-        `[Upload] XHR network error (status ${xhr.status}). ` +
-        `If status is 0, this is a CORS preflight block.\n` +
-        `Response: "${xhr.responseText}" | URL: ${uploadUrl}`
-      )
-      reject(new Error('UPLOAD_FAILED'))
-    }
-
-    xhr.ontimeout = () => {
-      console.error(`[Upload] XHR timed out after ${XHR_TIMEOUT_MS / 1000}s. URL: ${uploadUrl}`)
-      reject(new Error('UPLOAD_TIMEOUT'))
-    }
-
-    xhr.timeout = XHR_TIMEOUT_MS
-
-    xhr.open('PUT', uploadUrl)
-    xhr.setRequestHeader('Content-Type', file.type || 'video/mp4')
-    xhr.send(file)
-  })
 }
 
 function freshRound(setterPlayerId) {
@@ -99,13 +41,46 @@ function freshRound(setterPlayerId) {
 export async function uploadPuckVideo(file, gameId, role, onProgress) {
   if (file.size > MAX_FILE_BYTES) throw new Error('FILE_TOO_LARGE')
 
-  const ext    = file.name.split('.').pop() || 'mp4'
-  const path   = `puckGames/${gameId}/${role}_${Date.now()}.${ext}`
-  const bucket = storage.app.options.storageBucket
+  const ext     = file.name.split('.').pop() || 'mp4'
+  const path    = `puckGames/${gameId}/${role}_${Date.now()}.${ext}`
+  const fileRef = ref(storage, path)
 
-  const url = await xhrUpload(file, path, bucket, onProgress)
-  playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
-  return url
+  return new Promise((resolve, reject) => {
+    let simPct    = 0
+    const simTimer = onProgress ? setInterval(() => {
+      simPct = Math.min(simPct + (90 - simPct) * 0.1, 90)
+      onProgress(Math.round(simPct))
+    }, 250) : null
+
+    const task = uploadBytesResumable(fileRef, file)
+
+    task.on(
+      'state_changed',
+      snapshot => {
+        if (snapshot.totalBytes > 0 && onProgress) {
+          const real = Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)
+          if (real > simPct) { simPct = real; onProgress(real) }
+        }
+      },
+      error => {
+        clearInterval(simTimer)
+        console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
+        reject(new Error(error.code === 'storage/canceled' ? 'UPLOAD_TIMEOUT' : 'UPLOAD_FAILED'))
+      },
+      async () => {
+        clearInterval(simTimer)
+        onProgress?.(100)
+        try {
+          const url = await getDownloadURL(task.snapshot.ref)
+          playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+          resolve(url)
+        } catch (err) {
+          console.error('[Upload] getDownloadURL failed after upload completed:', err)
+          reject(new Error('UPLOAD_FAILED'))
+        }
+      }
+    )
+  })
 }
 
 // ── Create ────────────────────────────────────────────────────────────────────
