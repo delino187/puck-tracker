@@ -452,6 +452,7 @@ export default function App() {
                   streak_freezes: 0,
                   last_quest_spin: null,
                   daily_quests: [],
+                  photoURL: null,
                   createdAt: Date.now(),
                 }
                 upd({ players: [...st.players, p], view: 'coach' })
@@ -562,6 +563,7 @@ export default function App() {
           theme={theme}
           onThemeToggle={toggleOutsideMode}
           onStreakClick={() => setTab('streak')}
+          onPhotoUpload={url => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, photoURL: url } : p) })}
         />
         <TabBar active={tab} onChange={setTab} hasSess={!!aSess} hasPendingVersus={hasPendingVersus} hasPendingGames={hasPendingGames} />
 

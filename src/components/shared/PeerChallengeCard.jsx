@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react'
 import { Play, Clock, Trophy, Swords } from 'lucide-react'
 import { ZONES } from '../../constants/zones.js'
 import { formatCountdown } from '../../services/peerChallengeService.js'
+import Avatar from './Avatar.jsx'
 
-export default function PeerChallengeCard({ challenge, playerId, onAccept }) {
+export default function PeerChallengeCard({ challenge, playerId, players = [], onAccept }) {
+  const challenger = players.find(p => p.id === challenge.challengerId)
+  const receiver   = players.find(p => p.id === challenge.receiverId)
   const [countdown, setCountdown] = useState(formatCountdown(challenge.expiresAt))
   const [showVideo,  setShowVideo]  = useState(false)
 
@@ -58,9 +61,15 @@ export default function PeerChallengeCard({ challenge, playerId, onAccept }) {
             CHALLENGE ISSUED
           </span>
         </div>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-1)', marginBottom: 4 }}>
-          You challenged <strong>{challenge.receiverName}</strong> to match{' '}
-          <strong>{challenge.challengerHits} hits</strong> in <strong>{zoneName}</strong>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <Avatar player={challenger} size={26} />
+          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-1)' }}>
+            vs
+          </span>
+          <Avatar player={receiver} size={26} />
+          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-1)', flex: 1 }}>
+            <strong>{challenge.receiverName}</strong> · {challenge.challengerHits} hits · {zoneName}
+          </span>
         </div>
 
         {challenge.challengerVideo && (
@@ -98,6 +107,12 @@ export default function PeerChallengeCard({ challenge, playerId, onAccept }) {
         <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.08em', color: '#a855f7', textShadow: '0 0 20px #a855f755' }}>
           CHALLENGE INCOMING!
         </span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <Avatar player={challenger} size={32} style={{ border: '2px solid #a855f755' }} />
+        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#94a3b8', letterSpacing: '0.06em' }}>VS</span>
+        <Avatar player={receiver} size={32} style={{ border: '2px solid #a855f755' }} />
       </div>
 
       <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color: '#f1f5f9', marginBottom: 6, letterSpacing: '0.04em' }}>

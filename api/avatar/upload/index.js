@@ -50,9 +50,12 @@ export default async function handler(req, res) {
       request: webRequest,
       token: process.env.BLOB_READ_WRITE_TOKEN,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
+        const isImage = pathname.startsWith('profilePictures/')
         return {
-          allowedContentTypes: ['video/mp4', 'video/quicktime', 'video/mov'],
-          maximumSizeInBytes: 70 * 1024 * 1024,  // 70 MB — room for high-res clips
+          allowedContentTypes: isImage
+            ? ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic']
+            : ['video/mp4', 'video/quicktime', 'video/mov'],
+          maximumSizeInBytes: isImage ? 5 * 1024 * 1024 : 70 * 1024 * 1024,
         }
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {

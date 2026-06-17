@@ -1,9 +1,12 @@
+import { useRef, useState } from 'react'
 import { ChevronLeft, Flame, Sun, Moon } from 'lucide-react'
+import { upload } from '@vercel/blob/client'
 import { LEVELS } from '../../constants/levels.js'
 import { useAppStore } from '../../store/useAppStore.js'
 import XPBar from './XPBar.jsx'
+import Avatar from './Avatar.jsx'
 
-export default function PlayerHeader({ player, stats, onBack, theme, onThemeToggle, onStreakClick }) {
+export default function PlayerHeader({ player, stats, onBack, theme, onThemeToggle, onStreakClick, onPhotoUpload }) {
   const cur    = LEVELS[stats.li]
   const next   = LEVELS[stats.li + 1]
   const earned = stats.xp - cur.xpNeeded
@@ -14,6 +17,28 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
   // the counter updates the instant a +10/+25/+50 button is tapped.
   const techniquePucks = useAppStore(s => s.techniqueByPlayer[player.id]?.totalPucks || 0)
   const totalPucks     = (stats.totalShots ?? 0) + techniquePucks
+
+  const fileInputRef    = useRef(null)
+  const [uploading, setUploading] = useState(false)
+
+  async function handleAvatarChange(e) {
+    const file = e.target.files?.[0]
+    if (!file || !onPhotoUpload) return
+    const ext = file.name.split('.').pop() || 'jpg'
+    setUploading(true)
+    try {
+      const blob = await upload(`profilePictures/${player.id}.${ext}`, file, {
+        access:          'public',
+        handleUploadUrl: '/api/avatar/upload',
+      })
+      onPhotoUpload(blob.url)
+    } catch (err) {
+      console.error('[Avatar upload]', err)
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
 
   return (
     <div style={{
@@ -29,18 +54,32 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
         <ChevronLeft size={22} />
       </button>
 
-      {/* Rank medallion */}
-      <div style={{
-        width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', flexShrink: 0,
-        background: cur.bg, border: `2px solid ${cur.color}`,
-        boxShadow: `0 0 12px ${cur.glow}66`,
-      }}>
-        <img
-          src={cur.img} alt={cur.name}
-          className="rounded-full object-cover"
-          style={{ width: '100%', height: '100%', transform: 'scale(1.1)' }}
-        />
-      </div>
+      {/* Avatar — tapping opens image picker; falls back to rank medallion */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleAvatarChange}
+        style={{ display: 'none' }}
+      />
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        title="Tap to change profile picture"
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0, position: 'relative' }}
+      >
+        {player.photoURL ? (
+          <Avatar player={player} size={40} style={{ border: `2px solid ${cur.color}`, boxShadow: `0 0 12px ${cur.glow}66` }} />
+        ) : (
+          <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: cur.bg, border: `2px solid ${cur.color}`, boxShadow: `0 0 12px ${cur.glow}66` }}>
+            <img src={cur.img} alt={cur.name} className="rounded-full object-cover" style={{ width: '100%', height: '100%', transform: 'scale(1.1)' }} />
+          </div>
+        )}
+        {uploading && (
+          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 14, height: 14, border: '2px solid #a855f7', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+          </div>
+        )}
+      </button>
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
         {/* Name / rank / XP — grows to fill available space */}
