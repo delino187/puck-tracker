@@ -10,29 +10,54 @@
  */
 import { db, storage } from '../firebase.js'
 import { collection, doc, addDoc, updateDoc, getDocs } from 'firebase/firestore'
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage'
+// No firebase/storage SDK needed for uploads — XHR hits the REST endpoint directly.
 
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'puckGames')
 const LETTERS        = ['P', 'U', 'C', 'K']
-const UPLOAD_MS      = 60_000
+const XHR_TIMEOUT_MS = 60_000
 const MAX_FILE_BYTES = 15 * 1024 * 1024
 
-function withUploadTimeout(promise) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('UPLOAD_TIMEOUT')), UPLOAD_MS)
-    ),
-  ])
+function playSfxAsync(url) {
+  try { new Audio(url).play().catch(() => {}) } catch {}
 }
 
-function playSfxAsync(url) {
-  try {
-    const a = new Audio(url)
-    a.volume = 0.5
-    a.play().catch(() => {})
-  } catch {}
+function xhrUpload(file, storagePath, bucket, onProgress) {
+  const safeName  = encodeURIComponent(storagePath)
+  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${safeName}`
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+
+    xhr.upload.onprogress = e => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round(e.loaded / e.total * 100))
+      }
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const result  = JSON.parse(xhr.responseText)
+          const token   = result.downloadTokens ?? ''
+          const baseUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${safeName}?alt=media`
+          resolve(token ? `${baseUrl}&token=${token}` : baseUrl)
+        } catch {
+          reject(new Error('UPLOAD_FAILED'))
+        }
+      } else {
+        reject(new Error('UPLOAD_FAILED'))
+      }
+    }
+
+    xhr.onerror   = () => reject(new Error('UPLOAD_FAILED'))
+    xhr.ontimeout = () => reject(new Error('UPLOAD_TIMEOUT'))
+    xhr.timeout   = XHR_TIMEOUT_MS
+
+    xhr.open('POST', uploadUrl)
+    xhr.setRequestHeader('Content-Type', file.type || 'video/mp4')
+    xhr.send(file)
+  })
 }
 
 function freshRound(setterPlayerId) {
@@ -51,26 +76,15 @@ function freshRound(setterPlayerId) {
   }
 }
 
-// ── Video upload — direct client-side resumable upload with progress ──────────
+// ── Video upload ──────────────────────────────────────────────────────────────
 export async function uploadPuckVideo(file, gameId, role, onProgress) {
   if (file.size > MAX_FILE_BYTES) throw new Error('FILE_TOO_LARGE')
 
-  const ext     = file.name.split('.').pop() || 'mp4'
-  const fileRef = ref(storage, `puckGames/${gameId}/${role}_${Date.now()}.${ext}`)
+  const ext    = file.name.split('.').pop() || 'mp4'
+  const path   = `puckGames/${gameId}/${role}_${Date.now()}.${ext}`
+  const bucket = storage.app.options.storageBucket
 
-  const task = uploadBytesResumable(fileRef, file)
-  if (onProgress) {
-    task.on('state_changed', snapshot => {
-      const pct = snapshot.totalBytes > 0
-        ? Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)
-        : 0
-      onProgress(pct)
-    })
-  }
-
-  await withUploadTimeout(task)
-  const url = await withUploadTimeout(getDownloadURL(fileRef))
-
+  const url = await xhrUpload(file, path, bucket, onProgress)
   playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
   return url
 }
