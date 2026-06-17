@@ -173,11 +173,11 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
 
         {/* ── Medals ────────────────────────────────────────────────────────── */}
         {medals.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 16, width: '100%', overflow: 'hidden', padding: '0 2px' }}>
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8 }}>
               Badges
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, justifyItems: 'center', alignItems: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, justifyItems: 'center', alignItems: 'center', width: '100%', maxWidth: '100%' }}>
               {medals.map(b => (
                 <div
                   key={b.id}
