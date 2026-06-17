@@ -10,6 +10,7 @@
  */
 import { db, storage } from '../firebase.js'
 import { collection, doc, addDoc, updateDoc, getDocs } from 'firebase/firestore'
+import { ref, uploadBytesResumable } from 'firebase/storage'
 
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'puckGames')
@@ -37,64 +38,38 @@ function freshRound(setterPlayerId) {
 }
 
 // ── Video upload ──────────────────────────────────────────────────────────────
-// Two-phase: fetch signed URL from backend, then XHR PUT to GCS directly.
+// Pure client-side Firebase SDK upload with manual URL construction.
 export async function uploadPuckVideo(file, gameId, role, onProgress) {
   if (file.size > MAX_FILE_BYTES) throw new Error('FILE_TOO_LARGE')
 
-  const ext         = file.name.split('.').pop() || 'mp4'
-  const storagePath = `puckGames/${gameId}/${role}_${Date.now()}.${ext}`
-  const contentType = file.type || 'video/mp4'
-  const bucket      = storage.app.options.storageBucket
-  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(storagePath)}?alt=media`
+  const ext        = file.name.split('.').pop() || 'mp4'
+  const path       = `puckGames/${gameId}/${role}_${Date.now()}.${ext}`
+  const fileRef    = ref(storage, path)
+  const bucket     = storage.app.options.storageBucket
+  const downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
 
-  // ── Phase 1: Acquire signed URL from backend ───
-  let signedUrl
-  try {
-    const resp = await fetch('/api/upload-url', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ storagePath, contentType }),
-    })
-    if (!resp.ok) {
-      const text = await resp.text()
-      console.error('[Upload] /api/upload-url returned', resp.status, text)
-      throw new Error('UPLOAD_FAILED')
-    }
-    ;({ signedUrl } = await resp.json())
-  } catch (err) {
-    if (err.message === 'UPLOAD_FAILED') throw err
-    console.error('[Upload] Could not reach /api/upload-url:', err)
-    throw new Error('UPLOAD_FAILED')
-  }
-
-  // ── Phase 2: XHR PUT directly to signed GCS URL ───
   return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest()
+    const task = uploadBytesResumable(fileRef, file)
 
-    xhr.upload.onprogress = e => {
-      if (e.lengthComputable && onProgress) {
-        onProgress(Math.round(e.loaded / e.total * 100))
-      }
-    }
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
+    task.on(
+      'state_changed',
+      snapshot => {
+        if (snapshot.totalBytes > 0 && onProgress) {
+          const pct = Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)
+          onProgress(pct)
+        }
+      },
+      error => {
+        console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
+        reject(new Error(error.code === 'storage/canceled' ? 'UPLOAD_TIMEOUT' : 'UPLOAD_FAILED'))
+      },
+      () => {
+        // Upload bytes complete. Skip getDownloadURL CORS lock and use manual URL.
         onProgress?.(100)
         playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
         resolve(downloadUrl)
-      } else {
-        console.error('[Upload] Signed PUT failed:', xhr.status, xhr.statusText, xhr.responseText)
-        reject(new Error('UPLOAD_FAILED'))
       }
-    }
-
-    xhr.onerror   = () => { console.error('[Upload] XHR network error');        reject(new Error('UPLOAD_FAILED'))  }
-    xhr.ontimeout = () => { console.error('[Upload] XHR timed out after 60s');  reject(new Error('UPLOAD_TIMEOUT')) }
-    xhr.timeout   = 60_000
-
-    xhr.open('PUT', signedUrl)
-    xhr.setRequestHeader('Content-Type', contentType)
-    xhr.send(file)
+    )
   })
 }
 
