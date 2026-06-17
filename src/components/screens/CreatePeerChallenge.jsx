@@ -5,6 +5,7 @@ import { C } from '../../styles.js'
 import { useAppStore } from '../../store/useAppStore.js'
 import { uploadChallengeVideo, createChallenge } from '../../services/peerChallengeService.js'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
+import { playScoreSound } from '../../utils/arcadeSounds.js'
 
 const MAX_SECS = 10
 
@@ -24,6 +25,7 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
   const [videoFile,  setVideoFile]  = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
   const [myHits,     setMyHits]     = useState(3)
+  const [tapPulse,   setTapPulse]   = useState(null)
   const [error,      setError]      = useState('')
   const [uploading,       setUploading]       = useState(false)
   const [uploadProgress,  setUploadProgress]  = useState(0)
@@ -237,7 +239,8 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
             {Array.from({ length: shotCount + 1 }, (_, n) => (
               <button
                 key={n}
-                onClick={() => setMyHits(n)}
+                className={tapPulse === n ? 'score-tap' : ''}
+                onClick={() => { setMyHits(n); playScoreSound(n); navigator.vibrate?.(50); setTapPulse(n); setTimeout(() => setTapPulse(null), 220) }}
                 style={{ background: myHits === n ? '#a855f7' : '#0f172a', color: myHits === n ? '#000' : '#94a3b8', border: `1px solid ${myHits === n ? '#a855f7' : '#334155'}`, borderRadius: 8, padding: '12px 4px', fontFamily: "'Bangers',sans-serif", fontSize: 22, cursor: 'pointer' }}
               >
                 {n}

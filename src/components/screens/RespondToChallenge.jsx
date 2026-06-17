@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react'
-import { ChevronLeft, Video, Upload, CheckCircle, AlertCircle, Trophy, Info } from 'lucide-react'
+import { ChevronLeft, Video, Upload, CheckCircle, AlertCircle, Trophy, Info, Play } from 'lucide-react'
 import { ZONES } from '../../constants/zones.js'
 import { C } from '../../styles.js'
 import { useAppStore } from '../../store/useAppStore.js'
 import { uploadChallengeVideo, respondToChallenge } from '../../services/peerChallengeService.js'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
+import { playScoreSound } from '../../utils/arcadeSounds.js'
 
 const MAX_SECS = 10
 
@@ -28,7 +29,11 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
   const [done,       setDone]       = useState(false)
   const [won,        setWon]        = useState(false)
   const [showTips,   setShowTips]   = useState(false)
-  const fileInputRef = useRef(null)
+  const [tapPulse,   setTapPulse]   = useState(null)  // score button being animated
+  const [bothPlaying, setBothPlaying] = useState(false)
+  const fileInputRef  = useRef(null)
+  const challVideoRef = useRef(null)
+  const myVideoRef    = useRef(null)
 
   const logTechniqueShots = useAppStore(s => s.logTechniqueShots)
   const zoneName = ZONES.find(z => z.id === challenge.zone)?.label ?? challenge.zone
@@ -50,6 +55,24 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
       setPreviewUrl(objectUrl)
     }
     vid.src = objectUrl
+  }
+
+  function handleHitSelect(n) {
+    setMyHits(n)
+    playScoreSound(n)
+    navigator.vibrate?.(50)
+    setTapPulse(n)
+    setTimeout(() => setTapPulse(null), 220)
+  }
+
+  function playBoth() {
+    const cv = challVideoRef.current
+    const mv = myVideoRef.current
+    if (!cv || !mv) return
+    cv.currentTime = 0
+    mv.currentTime = 0
+    Promise.all([cv.play(), mv.play()]).catch(() => {})
+    setBothPlaying(true)
   }
 
   async function handleSubmit() {
@@ -121,48 +144,96 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
         </div>
       </div>
 
-      {/* Challenger's proof */}
-      {challenge.challengerVideo && (
+      {/* ── Video section — split-screen when both clips are available ──────── */}
+      {challenge.challengerVideo && previewUrl ? (
         <div style={C.card}>
-          <label style={C.label}>Their Proof</label>
-          <video src={challenge.challengerVideo} controls playsInline style={{ width: '100%', borderRadius: 8, maxHeight: 200 }} />
+          <label style={{ ...C.label, color: '#a855f7', textAlign: 'center', letterSpacing: '0.1em', marginBottom: 10 }}>
+            ⚔️ SIDE-BY-SIDE SHOWDOWN
+          </label>
+          <div style={{ position: 'relative' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              <div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#64748b', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>
+                  {challenge.challengerName}
+                </div>
+                <video
+                  ref={challVideoRef}
+                  src={challenge.challengerVideo}
+                  playsInline
+                  style={{ width: '100%', borderRadius: 8, aspectRatio: '9/16', objectFit: 'cover', background: '#000' }}
+                />
+              </div>
+              <div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#64748b', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>
+                  YOU
+                </div>
+                <video
+                  ref={myVideoRef}
+                  src={previewUrl}
+                  playsInline
+                  style={{ width: '100%', borderRadius: 8, aspectRatio: '9/16', objectFit: 'cover', background: '#000' }}
+                />
+              </div>
+            </div>
+            {/* Central PLAY overlay — triggers both videos simultaneously */}
+            {!bothPlaying && (
+              <button
+                onClick={playBoth}
+                style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', background: 'rgba(168,85,247,0.92)', border: '2px solid #a855f7', borderRadius: '50%', width: 54, height: 54, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 0 28px #a855f7', zIndex: 10 }}
+              >
+                <Play size={22} color="#fff" fill="#fff" />
+              </button>
+            )}
+          </div>
+          <input ref={fileInputRef} type="file" accept="video/mp4,video/quicktime,video/*" capture="environment" onChange={handleVideoSelect} style={{ display: 'none' }} />
+          <button onClick={() => { setVideoFile(null); setPreviewUrl(null); setBothPlaying(false) }} style={{ marginTop: 10, background: 'transparent', border: '1px solid #334155', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#94a3b8' }}>
+            Change Video
+          </button>
+          {error && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 8, color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, lineHeight: 1.4 }}>
+              <AlertCircle size={13} style={{ marginTop: 1, flexShrink: 0 }} /> {error}
+            </div>
+          )}
         </div>
+      ) : (
+        <>
+          {/* Challenger's proof — shown alone until user picks their video */}
+          {challenge.challengerVideo && (
+            <div style={C.card}>
+              <label style={C.label}>Their Proof</label>
+              <video src={challenge.challengerVideo} controls playsInline style={{ width: '100%', borderRadius: 8, maxHeight: 200 }} />
+            </div>
+          )}
+
+          {/* Own video — record or upload */}
+          <div style={C.card}>
+            <label style={C.label}>Your Proof (≤ {MAX_SECS}s)</label>
+            <input ref={fileInputRef} type="file" accept="video/mp4,video/quicktime,video/*" capture="environment" onChange={handleVideoSelect} style={{ display: 'none' }} />
+            {!previewUrl ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <button onClick={() => { fileInputRef.current?.setAttribute('capture','environment'); fileInputRef.current?.click() }} style={{ background: '#0f172a', border: '1px solid #a855f744', borderRadius: 10, padding: '18px 8px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: '#d8b4fe', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700 }}>
+                  <Video size={24} color="#a855f7" /> RECORD NOW
+                </button>
+                <button onClick={() => { fileInputRef.current?.removeAttribute('capture'); fileInputRef.current?.click() }} style={{ background: '#0f172a', border: '1px solid #3b82f644', borderRadius: 10, padding: '18px 8px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: '#93c5fd', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700 }}>
+                  <Upload size={24} color="#3b82f6" /> UPLOAD FILE
+                </button>
+              </div>
+            ) : (
+              <div>
+                <video src={previewUrl} controls playsInline style={{ width: '100%', borderRadius: 8, marginBottom: 8, maxHeight: 220 }} />
+                <button onClick={() => { setVideoFile(null); setPreviewUrl(null) }} style={{ background: 'transparent', border: '1px solid #334155', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#94a3b8' }}>
+                  Change Video
+                </button>
+              </div>
+            )}
+            {error && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 10, color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, lineHeight: 1.4 }}>
+                <AlertCircle size={13} style={{ marginTop: 1, flexShrink: 0 }} /> {error}
+              </div>
+            )}
+          </div>
+        </>
       )}
-
-      {/* Own video */}
-      <div style={C.card}>
-        <label style={C.label}>Your Proof (≤ {MAX_SECS}s)</label>
-        <input ref={fileInputRef} type="file" accept="video/mp4,video/quicktime,video/*" capture="environment" onChange={handleVideoSelect} style={{ display: 'none' }} />
-
-        {!previewUrl ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <button
-              onClick={() => { fileInputRef.current?.setAttribute('capture','environment'); fileInputRef.current?.click() }}
-              style={{ background: '#0f172a', border: '1px solid #a855f744', borderRadius: 10, padding: '18px 8px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: '#d8b4fe', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700 }}
-            >
-              <Video size={24} color="#a855f7" /> RECORD NOW
-            </button>
-            <button
-              onClick={() => { fileInputRef.current?.removeAttribute('capture'); fileInputRef.current?.click() }}
-              style={{ background: '#0f172a', border: '1px solid #3b82f644', borderRadius: 10, padding: '18px 8px', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: '#93c5fd', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700 }}
-            >
-              <Upload size={24} color="#3b82f6" /> UPLOAD FILE
-            </button>
-          </div>
-        ) : (
-          <div>
-            <video src={previewUrl} controls playsInline style={{ width: '100%', borderRadius: 8, marginBottom: 8, maxHeight: 220 }} />
-            <button onClick={() => { setVideoFile(null); setPreviewUrl(null) }} style={{ background: 'transparent', border: '1px solid #334155', borderRadius: 8, padding: '6px 14px', cursor: 'pointer', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#94a3b8' }}>
-              Change Video
-            </button>
-          </div>
-        )}
-        {error && (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 10, color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, lineHeight: 1.4 }}>
-            <AlertCircle size={13} style={{ marginTop: 1, flexShrink: 0 }} /> {error}
-          </div>
-        )}
-      </div>
 
       {/* Hits selector */}
       <div style={C.card}>
@@ -171,7 +242,8 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
           {Array.from({ length: shotCount + 1 }, (_, n) => (
             <button
               key={n}
-              onClick={() => setMyHits(n)}
+              className={tapPulse === n ? 'score-tap' : ''}
+              onClick={() => handleHitSelect(n)}
               style={{ background: myHits === n ? '#a855f7' : '#0f172a', color: myHits === n ? '#000' : '#94a3b8', border: `1px solid ${myHits === n ? '#a855f7' : '#334155'}`, borderRadius: 8, padding: '12px 4px', fontFamily: "'Bangers',sans-serif", fontSize: 22, cursor: 'pointer' }}
             >
               {n}

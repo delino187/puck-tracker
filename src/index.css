@@ -91,6 +91,14 @@ select { -webkit-appearance: none; }
 /* Spring curve overshoots slightly then settles — satisfying tap reward */
 .badge-pop { animation: badgePop 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 
+/* ── Score-picker tap burst ──────────────────────────────────────────────── */
+@keyframes scoreTap {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+.score-tap { animation: scoreTap 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+
 /* ── 3D arcade text utilities ──────────────────────────────────────────────
    Stacked offset shadows create a pressed-block depth effect.
    Apply to Bangers headline elements; inline color/textShadow must be removed
