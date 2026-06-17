@@ -177,22 +177,37 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 8 }}>
               Badges
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {/* Fixed-cell grid — 6 columns, each cell is a 52×52 square */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
               {medals.map(b => (
                 <div
                   key={b.id}
-                  title={b.name}
+                  title={`${b.name} — ${b.desc}`}
                   style={{
-                    width: 36, height: 36, borderRadius: 10,
+                    aspectRatio: '1 / 1',
+                    borderRadius: 10,
                     background: b.innerBg || '#1e293b',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                    padding: 6,
+                    overflow: 'hidden',
                   }}
                 >
-                  {b.img
-                    ? <img src={b.img} alt={b.name} style={{ width: 24, height: 24, objectFit: 'contain' }} />
-                    : <b.Icon size={18} color={b.innerIcon || '#94a3b8'} />
-                  }
+                  {b.img ? (
+                    <img
+                      src={b.img}
+                      alt={b.name}
+                      style={{
+                        width: '100%', height: '100%',
+                        objectFit: 'contain',
+                        aspectRatio: '1 / 1',
+                        display: 'block',
+                      }}
+                    />
+                  ) : (
+                    <b.Icon size={22} color={b.innerIcon || '#94a3b8'} />
+                  )}
                 </div>
               ))}
             </div>
