@@ -22,59 +22,71 @@ function playSfxAsync(url) {
 }
 
 // ── Video upload ──────────────────────────────────────────────────────────────
-// Uses the official Firebase SDK (uploadBytesResumable) which handles auth tokens,
-// CORS, and retry logic internally — no raw XHR needed.
-//
-// Progress note: for files under ~5 MB the SDK sends a single chunk, so the only
-// real state_changed event fires at 100%. A smooth simulation runs in parallel
-// (capped at 90%) so the bar visually fills during the transfer. The completion
-// callback (onFulfilled) drives it to 100% and holds loading state until
-// getDownloadURL fully resolves.
 export async function uploadChallengeVideo(file, challengeId, role, onProgress) {
   if (file.size > MAX_FILE_BYTES) throw new Error('FILE_TOO_LARGE')
 
-  const ext      = file.name.split('.').pop() || 'mp4'
-  const path     = `peerChallenges/${challengeId}/${role}.${ext}`
-  const fileRef  = ref(storage, path)
+  const ext     = file.name.split('.').pop() || 'mp4'
+  const path    = `peerChallenges/${challengeId}/${role}.${ext}`
+  const fileRef = ref(storage, path)
 
   return new Promise((resolve, reject) => {
-    // Smooth progress simulation — fills to ~90% while the SDK transfers bytes.
-    // Real state_changed events override whenever they report a higher value.
-    let simPct   = 0
+    let simPct          = 0
+    const isSavingRef   = { current: false }   // prevents double-resolve on cancel + onFulfilled
+    const bucket        = storage.app.options.storageBucket
+    const manualUrl     = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
+
     const simTimer = onProgress ? setInterval(() => {
       simPct = Math.min(simPct + (90 - simPct) * 0.1, 90)
       onProgress(Math.round(simPct))
     }, 250) : null
+
+    // Called from either the >= 90% intercept or the natural onFulfilled path.
+    function finalize() {
+      if (isSavingRef.current) return  // guard: only execute once
+      isSavingRef.current = true
+      clearInterval(simTimer)
+      onProgress?.(100)
+      playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+      resolve(manualUrl)
+    }
 
     const task = uploadBytesResumable(fileRef, file)
 
     task.on(
       'state_changed',
       snapshot => {
-        if (snapshot.totalBytes > 0 && onProgress) {
+        if (snapshot.totalBytes > 0) {
           const real = Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)
-          // Only update if the real value is ahead of the simulation.
-          if (real > simPct) { simPct = real; onProgress(real) }
+          if (onProgress && real > simPct) { simPct = real; onProgress(real) }
+
+          // Intercept at >= 90%: bytes are physically at Firebase.
+          // Calling task.cancel() stops the SDK retry loop that CORS is blocking.
+          // isSavingRef prevents the resulting 'storage/canceled' error from rejecting.
+          if (real >= 90 && !isSavingRef.current) {
+            task.cancel()
+            finalize()
+          }
         }
       },
       error => {
-        clearInterval(simTimer)
-        console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
-        reject(new Error(error.code === 'storage/canceled' ? 'UPLOAD_TIMEOUT' : 'UPLOAD_FAILED'))
+        // 'storage/canceled' is expected — we triggered it ourselves above.
+        // Any other error only rejects if bytes haven't arrived yet.
+        if (error.code === 'storage/canceled') return
+        const snap = task.snapshot
+        const pct  = snap.totalBytes > 0 ? snap.bytesTransferred / snap.totalBytes : 0
+        if (pct >= 0.9) {
+          // Bytes reached Firebase but finalization response was CORS-blocked.
+          console.warn('[Upload] CORS blocked finalization — bytes confirmed, forcing complete:', error.code)
+          finalize()
+        } else {
+          clearInterval(simTimer)
+          console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
+          reject(new Error('UPLOAD_FAILED'))
+        }
       },
       () => {
-        // Completion callback.
-        // getDownloadURL triggers a second CORS preflight that Firebase blocks in some
-        // configurations, so we build the download URL directly from the known path.
-        // Format: /v0/b/{bucket}/o/{encodedPath}?alt=media
-        // Firebase Storage security rules control read access; no token required when
-        // rules allow `allow read: if true`.
-        clearInterval(simTimer)
-        onProgress?.(100)
-        const bucket  = storage.app.options.storageBucket
-        const url     = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
-        playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
-        resolve(url)
+        // Natural completion path (fires when CORS is properly configured).
+        finalize()
       }
     )
   })

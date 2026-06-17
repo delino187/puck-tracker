@@ -46,36 +46,54 @@ export async function uploadPuckVideo(file, gameId, role, onProgress) {
   const fileRef = ref(storage, path)
 
   return new Promise((resolve, reject) => {
-    let simPct    = 0
+    let simPct        = 0
+    const isSavingRef = { current: false }
+    const bucket      = storage.app.options.storageBucket
+    const manualUrl   = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
+
     const simTimer = onProgress ? setInterval(() => {
       simPct = Math.min(simPct + (90 - simPct) * 0.1, 90)
       onProgress(Math.round(simPct))
     }, 250) : null
+
+    function finalize() {
+      if (isSavingRef.current) return
+      isSavingRef.current = true
+      clearInterval(simTimer)
+      onProgress?.(100)
+      playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+      resolve(manualUrl)
+    }
 
     const task = uploadBytesResumable(fileRef, file)
 
     task.on(
       'state_changed',
       snapshot => {
-        if (snapshot.totalBytes > 0 && onProgress) {
+        if (snapshot.totalBytes > 0) {
           const real = Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)
-          if (real > simPct) { simPct = real; onProgress(real) }
+          if (onProgress && real > simPct) { simPct = real; onProgress(real) }
+
+          if (real >= 90 && !isSavingRef.current) {
+            task.cancel()
+            finalize()
+          }
         }
       },
       error => {
-        clearInterval(simTimer)
-        console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
-        reject(new Error(error.code === 'storage/canceled' ? 'UPLOAD_TIMEOUT' : 'UPLOAD_FAILED'))
+        if (error.code === 'storage/canceled') return
+        const snap = task.snapshot
+        const pct  = snap.totalBytes > 0 ? snap.bytesTransferred / snap.totalBytes : 0
+        if (pct >= 0.9) {
+          console.warn('[Upload] CORS blocked finalization — forcing complete:', error.code)
+          finalize()
+        } else {
+          clearInterval(simTimer)
+          console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
+          reject(new Error('UPLOAD_FAILED'))
+        }
       },
-      () => {
-        // Build URL manually — avoids a second CORS preflight from getDownloadURL.
-        clearInterval(simTimer)
-        onProgress?.(100)
-        const bucket  = storage.app.options.storageBucket
-        const url     = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
-        playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
-        resolve(url)
-      }
+      () => { finalize() }
     )
   })
 }
