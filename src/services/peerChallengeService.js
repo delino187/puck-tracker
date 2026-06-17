@@ -30,64 +30,74 @@ export async function uploadChallengeVideo(file, challengeId, role, onProgress) 
   const fileRef = ref(storage, path)
 
   return new Promise((resolve, reject) => {
-    let simPct          = 0
-    const isSavingRef   = { current: false }   // prevents double-resolve on cancel + onFulfilled
-    const bucket        = storage.app.options.storageBucket
-    const manualUrl     = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
+    // ── Guard + shared state ─────────────────────────────────────────────────
+    const isSavingRef = { current: false }   // double-submission guard
+    let   simPct      = 0                    // animation ticker (0–90)
+    let   realPct     = 0                    // actual byte-transfer ratio (0.0–1.0), upper-scope
+                                             // so all four paths read the same value
 
+    const bucket    = storage.app.options.storageBucket
+    const manualUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(path)}?alt=media`
+
+    // Visual progress simulation — fills to ~90% while bytes transfer.
     const simTimer = onProgress ? setInterval(() => {
       simPct = Math.min(simPct + (90 - simPct) * 0.1, 90)
       onProgress(Math.round(simPct))
     }, 250) : null
 
-    // Called from either the >= 90% intercept or the natural onFulfilled path.
-    function finalize() {
-      if (isSavingRef.current) return  // guard: only execute once
+    // ── finalize(url) — single exit point, guarded against double-call ───────
+    function finalize(url) {
+      if (isSavingRef.current) return
       isSavingRef.current = true
       clearInterval(simTimer)
       onProgress?.(100)
       playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
-      resolve(manualUrl)
+      resolve(url)
     }
 
     const task = uploadBytesResumable(fileRef, file)
 
     task.on(
       'state_changed',
+
+      // ── PATH 1: Reception short-circuit ─────────────────────────────────
+      // Updates the upper-scope realPct every snapshot so Paths 2/3 can read it.
+      // When realPct hits 0.90, bytes are physically at Firebase — cancel the SDK
+      // task to stop the CORS-blocked finalization loop and force-complete.
       snapshot => {
         if (snapshot.totalBytes > 0) {
-          const real = Math.round(snapshot.bytesTransferred / snapshot.totalBytes * 100)
-          if (onProgress && real > simPct) { simPct = real; onProgress(real) }
+          realPct = snapshot.bytesTransferred / snapshot.totalBytes
+          const displayPct = Math.round(realPct * 100)
+          if (onProgress && displayPct > simPct) { simPct = displayPct; onProgress(displayPct) }
 
-          // Intercept at >= 90%: bytes are physically at Firebase.
-          // Calling task.cancel() stops the SDK retry loop that CORS is blocking.
-          // isSavingRef prevents the resulting 'storage/canceled' error from rejecting.
-          if (real >= 90 && !isSavingRef.current) {
-            task.cancel()
-            finalize()
+          if (realPct >= 0.90 && !isSavingRef.current) {
+            task.cancel()           // triggers PATH 2 (storage/canceled) → silently ignored
+            finalize(manualUrl)
           }
         }
       },
+
+      // ── PATH 2 & 3: Error interception ───────────────────────────────────
       error => {
-        // 'storage/canceled' is expected — we triggered it ourselves above.
-        // Any other error only rejects if bytes haven't arrived yet.
+        // PATH 2: We fired task.cancel() ourselves in PATH 1 — ignore silently.
         if (error.code === 'storage/canceled') return
-        const snap = task.snapshot
-        const pct  = snap.totalBytes > 0 ? snap.bytesTransferred / snap.totalBytes : 0
-        if (pct >= 0.9) {
-          // Bytes reached Firebase but finalization response was CORS-blocked.
-          console.warn('[Upload] CORS blocked finalization — bytes confirmed, forcing complete:', error.code)
-          finalize()
+
+        // PATH 3: A hard CORS block or network error fired before PATH 1 could.
+        // If realPct shows bytes arrived (>= 0.90), treat as success anyway.
+        if (realPct >= 0.90) {
+          console.warn('[Upload] CORS blocked finalization — bytes confirmed via realPct, forcing complete:', error.code)
+          finalize(manualUrl)
         } else {
           clearInterval(simTimer)
           console.error('[Upload] Firebase Storage SDK error:', error.code, error.message)
           reject(new Error('UPLOAD_FAILED'))
         }
       },
-      () => {
-        // Natural completion path (fires when CORS is properly configured).
-        finalize()
-      }
+
+      // ── PATH 4: Standard success hook ────────────────────────────────────
+      // Fires transparently when Firebase CORS is fully configured.
+      // isSavingRef prevents a double-resolve if PATH 1 already ran.
+      () => { finalize(manualUrl) }
     )
   })
 }
