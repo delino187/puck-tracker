@@ -12,17 +12,45 @@ import {
 } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
-const TEAM_ID   = 'team_main'
-const COL       = () => collection(db, 'teams', TEAM_ID, 'peerChallenges')
-const EXPIRY_MS = 48 * 60 * 60 * 1000   // 48 hours
+const TEAM_ID       = 'team_main'
+const COL           = () => collection(db, 'teams', TEAM_ID, 'peerChallenges')
+const EXPIRY_MS     = 48 * 60 * 60 * 1000   // 48 hours
+const UPLOAD_MS     = 15_000                  // 15-second hard timeout
+const MAX_FILE_BYTES = 15 * 1024 * 1024      // 15 MB
+
+// Races a promise against a timeout; rejects with a tagged error on expiry.
+function withUploadTimeout(promise) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('UPLOAD_TIMEOUT')), UPLOAD_MS)
+    ),
+  ])
+}
+
+// Fire-and-forget audio helper — never blocks the upload promise chain.
+function playSfxAsync(url) {
+  try {
+    const a = new Audio(url)
+    a.volume = 0.5
+    a.play().catch(() => {})
+  } catch {}
+}
 
 // ── Video upload ──────────────────────────────────────────────────────────────
 export async function uploadChallengeVideo(file, challengeId, role) {
+  if (file.size > MAX_FILE_BYTES) throw new Error('FILE_TOO_LARGE')
+
   const ext     = file.name.split('.').pop() || 'mp4'
   const path    = `peerChallenges/${challengeId}/${role}.${ext}`
   const fileRef = ref(storage, path)
-  await uploadBytes(fileRef, file)
-  return getDownloadURL(fileRef)
+
+  await withUploadTimeout(uploadBytes(fileRef, file))
+  const url = await withUploadTimeout(getDownloadURL(fileRef))
+
+  // Non-blocking success sound — runs after URL is retrieved, never delays return.
+  playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+  return url
 }
 
 // ── Create ────────────────────────────────────────────────────────────────────

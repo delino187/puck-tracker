@@ -8,6 +8,14 @@ import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
 
 const MAX_SECS = 10
 
+function uploadErrMsg(err) {
+  if (err?.message === 'FILE_TOO_LARGE')
+    return 'Video file is too large! Please clip your video down to just the 5-10 seconds of your actual shots before uploading.'
+  if (err?.message === 'UPLOAD_TIMEOUT')
+    return 'Network connection timed out! Try moving closer to your Wi-Fi router.'
+  return 'Upload failed — check your connection and try again.'
+}
+
 export default function RespondToChallenge({ player, challenge, onBack, onSubmit }) {
   const shotCount = challenge.shotCount ?? 5
 
@@ -55,8 +63,8 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
       setWon(updated.winnerId === player.id)
       setDone(true)
       onSubmit({ challenge: updated })
-    } catch {
-      setError('Upload failed — check your connection and try again.')
+    } catch (err) {
+      setError(uploadErrMsg(err))
       setUploading(false)
     }
   }

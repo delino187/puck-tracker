@@ -9,6 +9,14 @@ import {
   loadPuckGamesForPlayer, getGameAction, PUCK_LETTERS,
 } from '../../services/puckGameService.js'
 
+function uploadErrMsg(err) {
+  if (err?.message === 'FILE_TOO_LARGE')
+    return 'Video file is too large! Please clip your video down to just the 5-10 seconds of your actual shots before uploading.'
+  if (err?.message === 'UPLOAD_TIMEOUT')
+    return 'Network connection timed out! Try moving closer to your Wi-Fi router.'
+  return 'Upload failed — check your connection and try again.'
+}
+
 const TRICK_STYLES = ['Forehand', 'Backhand', 'One-Timer', 'Slap Shot', 'Snap Shot', 'Wrist Shot', 'Toe Drag']
 const MAX_SECS     = 10   // 3 shots fit comfortably in 10 seconds
 
@@ -145,7 +153,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
       logTechniqueShots(player.id, 3)   // all 3 shots logged → +3 XP
       const updated = await submitSetterShot(selectedGame, { zone, trickStyle: trick, videoUrl: url, made })
       await refresh(updated)
-    } catch { setError('Upload failed — try again.'); setSubmitting(false) }
+    } catch (err) { setError(uploadErrMsg(err)); setSubmitting(false) }
   }
 
   // ── Defender submits ──────────────────────────────────────────────────────
@@ -157,7 +165,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
       logTechniqueShots(player.id, 3)   // all 3 shots logged → +3 XP
       const updated = await submitDefenderResponse(selectedGame, { videoUrl: url, made })
       await refresh(updated)
-    } catch { setError('Upload failed — try again.'); setSubmitting(false) }
+    } catch (err) { setError(uploadErrMsg(err)); setSubmitting(false) }
   }
 
   // ── Expired defender auto-loss ────────────────────────────────────────────
