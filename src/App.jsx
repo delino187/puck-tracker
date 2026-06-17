@@ -17,6 +17,8 @@ import Games            from './components/Games.jsx'
 import StreakHub        from './components/StreakHub.jsx'
 import DailyQuests      from './components/screens/DailyQuests.jsx'
 import TeamLeaderboards from './components/TeamLeaderboards.jsx'
+import Leaderboard      from './components/screens/Leaderboard.jsx'
+import { updateStreak } from './utils/streakService.js'
 import GoalHeatmap      from './components/GoalHeatmap.jsx'
 import BadgeGrid        from './components/BadgeGrid.jsx'
 import RanksTab         from './components/RanksTab.jsx'
@@ -226,6 +228,8 @@ export default function App() {
     })
     upd({ activeSessionId: null })
     setTab('dashboard')
+    // Persist streak to Firestore; fire-and-forget so it never blocks the UI
+    if (aPlayer) updateStreak(aPlayer.id).catch(() => {})
   }
 
   function handleLogSet(zoneId, hits) {
@@ -452,8 +456,11 @@ export default function App() {
                   streak_freezes: 0,
                   last_quest_spin: null,
                   daily_quests: [],
-                  photoURL: null,
-                  createdAt: Date.now(),
+                  photoURL:     null,
+                  totalWins:    0,
+                  streakCount:  0,
+                  lastActivity: null,
+                  createdAt:    Date.now(),
                 }
                 upd({ players: [...st.players, p], view: 'coach' })
                 setNpName(''); setNpNum(''); setNpPw('')
@@ -641,11 +648,9 @@ export default function App() {
             </>
           )}
           {tab === 'board' && (
-            <TeamLeaderboards
+            <Leaderboard
               player={aPlayer}
               players={st.players}
-              sessions={st.sessions}
-              h2h={st.h2h}
             />
           )}
           {tab === 'stats' && (

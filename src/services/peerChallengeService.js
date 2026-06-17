@@ -5,7 +5,7 @@
  */
 import { db } from '../firebase.js'
 import {
-  collection, doc, addDoc, updateDoc, getDocs,
+  collection, doc, addDoc, updateDoc, getDocs, getDoc,
 } from 'firebase/firestore'
 import { upload } from '@vercel/blob/client'
 
@@ -88,6 +88,24 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
     status:        'completed',
     respondedAt:   Date.now(),
   })
+
+  // Increment totalWins for the winner
+  if (winnerId) {
+    try {
+      const teamRef  = doc(db, 'teams', TEAM_ID)
+      const teamSnap = await getDoc(teamRef)
+      if (teamSnap.exists()) {
+        const players = teamSnap.data().players || []
+        await updateDoc(teamRef, {
+          players: players.map(p =>
+            p.id === winnerId ? { ...p, totalWins: (p.totalWins || 0) + 1 } : p
+          ),
+        })
+      }
+    } catch (err) {
+      console.error('[respondToChallenge] totalWins update failed:', err)
+    }
+  }
 
   return { ...challenge, receiverHits, receiverVideo: videoUrl, winnerId, status: 'completed' }
 }
