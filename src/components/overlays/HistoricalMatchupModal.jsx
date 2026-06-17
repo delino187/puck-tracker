@@ -97,7 +97,7 @@ export default function HistoricalMatchupModal({ player, opponent, onClose }) {
 
           {/* Left — current player */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <Avatar player={player} size={64} style={{ border: '2px solid #3b82f6' }} />
+            <Avatar player={player} size={64} className="arcade-glow" />
             <span style={{
               fontFamily: "'Bangers',sans-serif", fontSize: 16, letterSpacing: '0.04em',
               color: '#f1f5f9', textAlign: 'center', lineHeight: 1.2,
@@ -138,7 +138,7 @@ export default function HistoricalMatchupModal({ player, opponent, onClose }) {
 
           {/* Right — opponent */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-            <Avatar player={opponent} size={64} style={{ border: '2px solid #a855f7' }} />
+            <Avatar player={opponent} size={64} className="arcade-glow" />
             <span style={{
               fontFamily: "'Bangers',sans-serif", fontSize: 16, letterSpacing: '0.04em',
               color: '#f1f5f9', textAlign: 'center', lineHeight: 1.2,

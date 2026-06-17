@@ -4,14 +4,21 @@ import { ZONES } from '../../constants/zones.js'
 import { formatCountdown } from '../../services/peerChallengeService.js'
 import Avatar from './Avatar.jsx'
 import HistoricalMatchupModal from '../overlays/HistoricalMatchupModal.jsx'
+import PlayerProfileCardModal from '../overlays/PlayerProfileCardModal.jsx'
 
-export default function PeerChallengeCard({ challenge, playerId, players = [], onAccept }) {
+export default function PeerChallengeCard({ challenge, playerId, players = [], sessions = [], onAccept }) {
   const challenger = players.find(p => p.id === challenge.challengerId)
   const receiver   = players.find(p => p.id === challenge.receiverId)
   const me         = players.find(p => p.id === playerId)
-  const [countdown,  setCountdown]  = useState(formatCountdown(challenge.expiresAt))
-  const [showVideo,  setShowVideo]  = useState(false)
-  const [matchupOpp, setMatchupOpp] = useState(null)   // non-null → modal open
+  const [countdown,    setCountdown]    = useState(formatCountdown(challenge.expiresAt))
+  const [showVideo,    setShowVideo]    = useState(false)
+  const [matchupOpp,   setMatchupOpp]   = useState(null)   // H2H quick summary
+  const [profilePlayer, setProfilePlayer] = useState(null) // full profile card
+
+  function openProfile(player) {
+    if (!player || player.id === playerId) return
+    setProfilePlayer(player)
+  }
 
   useEffect(() => {
     const iv = setInterval(() => setCountdown(formatCountdown(challenge.expiresAt)), 10_000)
@@ -59,9 +66,8 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], o
             {challenge.challengerName} {challenge.challengerHits} · {challenge.receiverName} {challenge.receiverHits ?? '—'} hits
           </div>
         </div>
-        {matchupOpp && me && (
-          <HistoricalMatchupModal player={me} opponent={matchupOpp} onClose={() => setMatchupOpp(null)} />
-        )}
+        {matchupOpp    && me && <HistoricalMatchupModal     player={me} opponent={matchupOpp}    onClose={() => setMatchupOpp(null)} />}
+        {profilePlayer && me && <PlayerProfileCardModal player={profilePlayer} currentPlayer={me} sessions={sessions} onClose={() => setProfilePlayer(null)} />}
       </>
     )
   }
@@ -81,11 +87,14 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], o
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <Avatar player={challenger} size={26} />
+          {/* My avatar — no action */}
+          <Avatar player={challenger} size={26} className="arcade-glow" />
           <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-1)' }}>vs</span>
-          {/* Tap the opponent avatar/name to open H2H modal */}
-          <button onClick={() => receiver && setMatchupOpp(receiver)} style={{ background: 'none', border: 'none', padding: 0, cursor: receiver ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Avatar player={receiver} size={26} />
+          {/* Opponent avatar → profile card | name text → H2H quick summary */}
+          <button onClick={() => openProfile(receiver)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
+            <Avatar player={receiver} size={26} className="arcade-glow" />
+          </button>
+          <button onClick={() => receiver && setMatchupOpp(receiver)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
             <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#a855f7', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}>
               <strong>{challenge.receiverName}</strong>
             </span>
@@ -113,9 +122,8 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], o
             {expired ? 'EXPIRED — NO RESPONSE' : countdown}
           </span>
         </div>
-        {matchupOpp && me && (
-          <HistoricalMatchupModal player={me} opponent={matchupOpp} onClose={() => setMatchupOpp(null)} />
-        )}
+        {matchupOpp    && me && <HistoricalMatchupModal     player={me} opponent={matchupOpp}    onClose={() => setMatchupOpp(null)} />}
+        {profilePlayer && me && <PlayerProfileCardModal player={profilePlayer} currentPlayer={me} sessions={sessions} onClose={() => setProfilePlayer(null)} />}
       </div>
     )
   }
@@ -136,16 +144,19 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], o
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        {/* Tap challenger to open H2H history */}
-        <button onClick={() => challenger && setMatchupOpp(challenger)} style={{ background: 'none', border: 'none', padding: 0, cursor: challenger ? 'pointer' : 'default' }}>
-          <Avatar player={challenger} size={32} style={{ border: '2px solid #a855f755' }} />
+        {/* Challenger avatar → profile card | name text stays in card body for H2H */}
+        <button onClick={() => openProfile(challenger)} style={{ background: 'none', border: 'none', padding: 0, cursor: challenger ? 'pointer' : 'default' }}>
+          <Avatar player={challenger} size={32} className="arcade-glow" />
         </button>
         <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#94a3b8', letterSpacing: '0.06em' }}>VS</span>
-        <Avatar player={receiver} size={32} style={{ border: '2px solid #a855f755' }} />
+        <Avatar player={receiver} size={32} className="arcade-glow" />
       </div>
 
       <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color: '#f1f5f9', marginBottom: 6, letterSpacing: '0.04em' }}>
-        {challenge.challengerName} scored{' '}
+        {/* Name text tap → quick H2H modal */}
+        <button onClick={() => challenger && setMatchupOpp(challenger)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', font: 'inherit', letterSpacing: 'inherit' }}>
+          {challenge.challengerName}
+        </button>{' '}scored{' '}
         <span style={{ color: '#a855f7' }}>{challenge.challengerHits} HITS</span>{' '}
         in <span style={{ color: '#a855f7' }}>{zoneName.toUpperCase()}</span>
       </div>
@@ -184,9 +195,8 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], o
           ⚔️ ACCEPT CHALLENGE
         </button>
       )}
-      {matchupOpp && me && (
-        <HistoricalMatchupModal player={me} opponent={matchupOpp} onClose={() => setMatchupOpp(null)} />
-      )}
+      {matchupOpp    && me && <HistoricalMatchupModal     player={me} opponent={matchupOpp}    onClose={() => setMatchupOpp(null)} />}
+      {profilePlayer && me && <PlayerProfileCardModal player={profilePlayer} currentPlayer={me} sessions={sessions} onClose={() => setProfilePlayer(null)} />}
     </div>
   )
 }

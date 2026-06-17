@@ -6,6 +6,7 @@ import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
 export default function ChallengesTab({
   player,
   players,
+  sessions = [],
   peerChallenges = [],
   onCreateChallenge,
   onAcceptChallenge,
@@ -83,7 +84,7 @@ export default function ChallengesTab({
         </div>
       )}
       {incoming.map(c => (
-        <PeerChallengeCard key={c.id} challenge={c} playerId={player.id} players={players} onAccept={onAcceptChallenge} />
+        <PeerChallengeCard key={c.id} challenge={c} playerId={player.id} players={players} sessions={sessions} onAccept={onAcceptChallenge} />
       ))}
 
       {outgoing.length > 0 && (
@@ -92,7 +93,7 @@ export default function ChallengesTab({
         </div>
       )}
       {outgoing.map(c => (
-        <PeerChallengeCard key={c.id} challenge={c} playerId={player.id} players={players} onAccept={onAcceptChallenge} />
+        <PeerChallengeCard key={c.id} challenge={c} playerId={player.id} players={players} sessions={sessions} onAccept={onAcceptChallenge} />
       ))}
 
       {/* ── Recent Results ───────────────────────────────────────────────────── */}

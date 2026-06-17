@@ -614,6 +614,7 @@ export default function App() {
             <ChallengesTab
               player={aPlayer}
               players={st.players}
+              sessions={st.sessions}
               peerChallenges={peerChallenges}
               onCreateChallenge={() => setChallengeScreen('create')}
               onAcceptChallenge={c => setChallengeScreen({ mode: 'respond', challenge: c })}
