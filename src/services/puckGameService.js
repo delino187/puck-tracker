@@ -24,7 +24,7 @@ function playSfxAsync(url) {
 
 function xhrUpload(file, storagePath, bucket, onProgress) {
   const safeName  = encodeURIComponent(storagePath)
-  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${safeName}`
+  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${safeName}&uploadType=media`
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -42,19 +42,38 @@ function xhrUpload(file, storagePath, bucket, onProgress) {
           const token   = result.downloadTokens ?? ''
           const baseUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${safeName}?alt=media`
           resolve(token ? `${baseUrl}&token=${token}` : baseUrl)
-        } catch {
+        } catch (parseErr) {
+          console.error('[Upload] Could not parse Firebase Storage response:', xhr.responseText, parseErr)
           reject(new Error('UPLOAD_FAILED'))
         }
       } else {
+        console.error(
+          `[Upload] Firebase Storage rejected the upload.\n` +
+          `  Status : ${xhr.status} ${xhr.statusText}\n` +
+          `  URL    : ${uploadUrl}\n` +
+          `  Body   : ${xhr.responseText}`
+        )
         reject(new Error('UPLOAD_FAILED'))
       }
     }
 
-    xhr.onerror   = () => reject(new Error('UPLOAD_FAILED'))
-    xhr.ontimeout = () => reject(new Error('UPLOAD_TIMEOUT'))
-    xhr.timeout   = XHR_TIMEOUT_MS
+    xhr.onerror = () => {
+      console.error(
+        `[Upload] XHR network error (status ${xhr.status}). ` +
+        `If status is 0, this is a CORS preflight block.\n` +
+        `Response: "${xhr.responseText}" | URL: ${uploadUrl}`
+      )
+      reject(new Error('UPLOAD_FAILED'))
+    }
 
-    xhr.open('POST', uploadUrl)
+    xhr.ontimeout = () => {
+      console.error(`[Upload] XHR timed out after ${XHR_TIMEOUT_MS / 1000}s. URL: ${uploadUrl}`)
+      reject(new Error('UPLOAD_TIMEOUT'))
+    }
+
+    xhr.timeout = XHR_TIMEOUT_MS
+
+    xhr.open('PUT', uploadUrl)
     xhr.setRequestHeader('Content-Type', file.type || 'video/mp4')
     xhr.send(file)
   })

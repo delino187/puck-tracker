@@ -36,14 +36,16 @@ function playSfxAsync(url) {
  * once the binary push is actually underway.
  */
 function xhrUpload(file, storagePath, bucket, onProgress) {
-  // Step 1 — compute the endpoint (synchronous, no network) before touching XHR.
+  // Derive the upload URL before touching XHR (synchronous, no network call).
+  // uploadType=media tells Firebase Storage REST API the body is raw file data.
+  // Without this param Firebase rejects with 400 "Invalid uploadType".
   const safeName  = encodeURIComponent(storagePath)
-  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${safeName}`
+  const uploadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?name=${safeName}&uploadType=media`
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
 
-    // Step 2 — wire progress listener BEFORE open/send so it catches every packet.
+    // Wire progress BEFORE open/send — catches every outbound TCP packet.
     xhr.upload.onprogress = e => {
       if (e.lengthComputable && onProgress) {
         onProgress(Math.round(e.loaded / e.total * 100))
@@ -57,22 +59,49 @@ function xhrUpload(file, storagePath, bucket, onProgress) {
           const token   = result.downloadTokens ?? ''
           const baseUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${safeName}?alt=media`
           resolve(token ? `${baseUrl}&token=${token}` : baseUrl)
-        } catch {
+        } catch (parseErr) {
+          console.error('[Upload] Could not parse Firebase Storage response:', xhr.responseText, parseErr)
           reject(new Error('UPLOAD_FAILED'))
         }
       } else {
+        // Log the full server response so we can see exactly what Firebase rejected.
+        // 400 = bad request (likely missing uploadType or wrong Content-Type)
+        // 403 = security rules blocked it  |  413 = file too large server-side
+        console.error(
+          `[Upload] Firebase Storage rejected the upload.\n` +
+          `  Status : ${xhr.status} ${xhr.statusText}\n` +
+          `  URL    : ${uploadUrl}\n` +
+          `  Body   : ${xhr.responseText}`
+        )
         reject(new Error('UPLOAD_FAILED'))
       }
     }
 
-    xhr.onerror   = () => reject(new Error('UPLOAD_FAILED'))
-    xhr.ontimeout = () => reject(new Error('UPLOAD_TIMEOUT'))
-    xhr.timeout   = XHR_TIMEOUT_MS
+    xhr.onerror = () => {
+      // status=0 + onerror = CORS preflight blocked by browser before reaching server.
+      // Fix: configure Firebase Storage CORS via gsutil or Firebase Console.
+      // $ gsutil cors set cors.json gs://your-bucket-name
+      console.error(
+        `[Upload] XHR network error (status ${xhr.status}). ` +
+        `If status is 0, this is a CORS preflight block — the browser never reached Firebase.\n` +
+        `Response text: "${xhr.responseText}"\n` +
+        `Upload URL: ${uploadUrl}`
+      )
+      reject(new Error('UPLOAD_FAILED'))
+    }
 
-    // Step 3 — open and send; progress events now fire as bytes leave the device.
-    xhr.open('POST', uploadUrl)
+    xhr.ontimeout = () => {
+      console.error(`[Upload] XHR timed out after ${XHR_TIMEOUT_MS / 1000}s. Upload URL: ${uploadUrl}`)
+      reject(new Error('UPLOAD_TIMEOUT'))
+    }
+
+    xhr.timeout = XHR_TIMEOUT_MS
+
+    // PUT the raw file binary — NOT FormData.
+    // Firebase Storage uploadType=media expects the raw file blob as the body.
+    xhr.open('PUT', uploadUrl)
     xhr.setRequestHeader('Content-Type', file.type || 'video/mp4')
-    xhr.send(file)
+    xhr.send(file)  // raw File/Blob, identical to what the SDK sends internally
   })
 }
 
