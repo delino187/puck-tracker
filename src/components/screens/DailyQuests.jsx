@@ -318,6 +318,10 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
     audio.volume = 0.25
     bgMusicRef.current = audio
 
+    audio.addEventListener('error', e =>
+      console.error('Quest Music Error Code:', e.target.error)
+    )
+
     const playAudio = () => {
       if (audio.paused && !mutedRef.current) {
         audio.play().catch(err => console.log('Autoplay blocked, waiting for click...', err))
