@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Flame, Users } from 'lucide-react'
 import { playerStats } from '../utils/stats.js'
 
@@ -5,7 +6,7 @@ const FREEZE_COST = 50
 const SHIELD_COST = 100
 
 // ── Individual showcase card inside the stall grid ────────────────────────────
-function ItemCard({ emoji, name, desc, tag, cost, canBuy, isOwned, owned, onBuy }) {
+function ItemCard({ emoji, name, desc, tag, cost, canBuy, isOwned, owned, onBuy, onInsufficientFunds }) {
   return (
     <div style={{
       background: 'linear-gradient(180deg,#fef9ee,#fef3c7)',
@@ -57,43 +58,44 @@ function ItemCard({ emoji, name, desc, tag, cost, canBuy, isOwned, owned, onBuy 
         {isOwned ? '✅ EQUIPPED' : `x${owned} owned`}
       </div>
 
-      {/* Green pill buy button */}
+      {/* Buy / can't-afford / owned pill button */}
       <button
-        onClick={canBuy ? onBuy : undefined}
-        disabled={!canBuy}
+        disabled={isOwned}
+        onClick={isOwned ? undefined : canBuy ? onBuy : onInsufficientFunds}
         style={{
           width: '100%', marginTop: 4,
           background: isOwned
             ? '#6b7280'
             : canBuy
               ? 'linear-gradient(180deg,#4ade80,#16a34a)'
-              : '#94a3b8',
+              : 'linear-gradient(180deg,#ef4444,#b91c1c)',
           border: isOwned
             ? '2px solid #4b5563'
             : canBuy
               ? '2px solid #15803d'
-              : '2px solid #64748b',
+              : '2px solid #7f1d1d',
           borderRadius: 20, padding: '7px 6px',
           fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.06em',
           color: '#fff',
-          cursor: canBuy ? 'pointer' : 'not-allowed',
+          cursor: isOwned ? 'not-allowed' : 'pointer',
           boxShadow: canBuy ? '0 3px 0 #15803d, 0 0 10px #4ade8055' : 'none',
           textShadow: '0 1px 2px rgba(0,0,0,0.35)',
           transition: 'transform 0.1s',
         }}
-        onMouseDown={e => { if (canBuy) e.currentTarget.style.transform = 'scale(0.96)' }}
+        onMouseDown={e => { if (!isOwned) e.currentTarget.style.transform = 'scale(0.96)' }}
         onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
       >
-        {isOwned ? '— MAX —' : `${cost} 💎`}
+        {isOwned ? '— MAX —' : canBuy ? `${cost} 💎` : 'NEED MORE 💎'}
       </button>
     </div>
   )
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function StreakHub({ player, stats, sessions, players, onPurchaseItem }) {
-  const totalDiamonds = player.diamonds    || 0
-  const hasEloShield  = player.hasEloShield || false
+export default function StreakHub({ player, stats, sessions, players, onPurchaseItem, onNavigate }) {
+  const totalDiamonds   = player.diamonds    || 0
+  const hasEloShield    = player.hasEloShield || false
+  const [showLowBalance, setShowLowBalance] = useState(false)
 
   const streakBoard = [...players]
     .map(p => { const s = playerStats(p, sessions); return { ...p, streak: s.streak } })
@@ -102,6 +104,87 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
 
   return (
     <div style={{ padding: '14px 14px 80px' }}>
+
+      {/* ── Low-balance modal ─────────────────────────────────────────────── */}
+      {showLowBalance && (
+        <div
+          onClick={() => setShowLowBalance(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 300,
+            background: 'rgba(0,0,0,0.72)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '0 24px',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(180deg,#1e1b4b,#312e81)',
+              border: '4px solid #fbbf24',
+              borderRadius: 24,
+              padding: '28px 24px 24px',
+              textAlign: 'center',
+              maxWidth: 320, width: '100%',
+              boxShadow: '0 0 60px #fbbf2444, 0 20px 60px rgba(0,0,0,0.7)',
+            }}
+          >
+            {/* Icon */}
+            <div style={{ fontSize: 52, lineHeight: 1, marginBottom: 10 }}>💎</div>
+
+            {/* Title */}
+            <div style={{
+              fontFamily: "'Bangers',sans-serif", fontSize: 32,
+              letterSpacing: '0.08em', lineHeight: 1,
+              color: '#fbbf24',
+              textShadow: '2px 2px 0 #78350f, 0 0 20px #fbbf2466',
+              marginBottom: 12,
+            }}>
+              OUT OF DIAMONDS!
+            </div>
+
+            {/* Body */}
+            <div style={{
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14,
+              fontWeight: 600, color: '#e2e8f0', lineHeight: 1.55,
+              marginBottom: 22,
+            }}>
+              You don't have enough diamonds to buy this item yet. Go complete some daily quests to fill up your vault!
+            </div>
+
+            {/* CTA */}
+            <button
+              onClick={() => { setShowLowBalance(false); onNavigate?.('quests') }}
+              style={{
+                width: '100%', padding: '14px',
+                background: 'linear-gradient(180deg,#4ade80,#16a34a)',
+                border: '3px solid #15803d',
+                borderRadius: 30,
+                fontFamily: "'Bangers',sans-serif", fontSize: 22,
+                letterSpacing: '0.1em', color: '#fff',
+                cursor: 'pointer',
+                boxShadow: '0 4px 0 #15803d, 0 0 20px #4ade8055',
+                textShadow: '0 1px 3px rgba(0,0,0,0.4)',
+              }}
+            >
+              GO TO QUESTS 🚀
+            </button>
+
+            {/* Dismiss */}
+            <button
+              onClick={() => setShowLowBalance(false)}
+              style={{
+                marginTop: 12, background: 'transparent', border: 'none',
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12,
+                fontWeight: 700, color: '#64748b', cursor: 'pointer',
+                letterSpacing: '0.08em',
+              }}
+            >
+              MAYBE LATER
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════
           WOODEN SHOP STALL
@@ -181,6 +264,7 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
                 canBuy={totalDiamonds >= FREEZE_COST}
                 isOwned={false}
                 onBuy={() => onPurchaseItem?.('streakFreeze', FREEZE_COST)}
+                onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
                 emoji="🛡️"
@@ -191,6 +275,7 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
                 canBuy={!hasEloShield && totalDiamonds >= SHIELD_COST}
                 isOwned={hasEloShield}
                 onBuy={() => { if (!hasEloShield && totalDiamonds >= SHIELD_COST) onPurchaseItem?.('eloShield', SHIELD_COST) }}
+                onInsufficientFunds={() => setShowLowBalance(true)}
               />
             </div>
           </div>

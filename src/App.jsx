@@ -741,6 +741,7 @@ export default function App() {
               stats={stats}
               sessions={st.sessions}
               players={st.players}
+              onNavigate={setTab}
               onPurchaseItem={(itemId, cost) => {
                 const diamonds = aPlayer.diamonds || 0
                 if (diamonds < cost) return
