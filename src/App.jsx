@@ -688,6 +688,7 @@ export default function App() {
             <>
               <DailyQuests
                 player={aPlayer}
+                sessions={st.sessions}
                 onNavigate={setTab}
                 onDiamondEarn={(amount) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: (p.diamonds || 0) + amount } : p) })}
                 onSpinComplete={(quests) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests } : p) })}

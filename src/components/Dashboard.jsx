@@ -73,7 +73,22 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
             {stats.xp} XP{next ? ` · ${(next.xpNeeded - stats.xp).toLocaleString()} to ${next.name}` : ' · Max Rank!'}
           </div>
           <XPBar li={stats.li} xp={stats.xp} compact />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginTop: 7, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: cur.color, letterSpacing: '0.08em' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#64748b' }}>
+              ELO <strong style={{ color: '#f1f5f9' }}>{player.elo ?? 1000}</strong>
+            </span>
+            {player.hasEloShield && (
+              <span style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
+                letterSpacing: '0.07em', color: '#06b6d4',
+                background: 'rgba(6,182,212,0.1)', border: '1px solid rgba(6,182,212,0.35)',
+                borderRadius: 5, padding: '2px 6px', lineHeight: 1.5,
+              }}>
+                🛡️ ELO PROTECTED
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginTop: 5, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: cur.color, letterSpacing: '0.08em' }}>
             VIEW RANK PROGRESS <ChevronRight size={11} />
           </div>
         </div>

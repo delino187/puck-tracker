@@ -56,6 +56,16 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
                 {player.name}
                 {player.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{player.jerseyNum}</span> : ''}
               </span>
+              {player.hasEloShield && (
+                <span title="ELO Shield equipped — next defeat won't cost you ELO" style={{
+                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
+                  letterSpacing: '0.06em', color: '#06b6d4',
+                  background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.35)',
+                  borderRadius: 5, padding: '1px 5px', lineHeight: 1.6,
+                }}>
+                  🛡️ SHIELD
+                </span>
+              )}
               <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: cur.color }}>
                 {cur.name}
               </span>

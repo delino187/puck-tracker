@@ -60,23 +60,74 @@ function timeUntilReset() {
 }
 
 function questTab(text) {
-  if (/P-U-C-K|Versus/i.test(text))           return 'games'
+  if (/P-U-C-K|Versus/i.test(text))                return 'games'
   if (/Shots|Accuracy|Log|Session|Set/i.test(text)) return 'session'
   return null
 }
 
+/**
+ * Calculates live progress for a quest based on today's session data.
+ * Returns { current, target, suffix? } where suffix is '%' for accuracy quests.
+ * Binary / social quests that can't be auto-tracked return { current: 0, target: 1 }.
+ */
+function getQuestProgress(text, sessions) {
+  const today     = new Date().toDateString()
+  const todaySets = sessions
+    .filter(s => new Date(s.date).toDateString() === today)
+    .flatMap(s => s.sets)
+  const todayShots = todaySets.length * 10
+
+  // "Log N Total Shots Today" / "Log N Wrist Shots Today" / "Log N Shots Before Dinner"
+  if (/Log (\d+)/i.test(text)) {
+    const target = parseInt(text.match(/\d+/)[0])
+    return { current: todayShots, target }
+  }
+
+  // "Hit N% Accuracy in a Session"
+  if (/Hit (\d+)%/i.test(text)) {
+    const target   = parseInt(text.match(/\d+/)[0])
+    const bestAcc  = sessions
+      .filter(s => new Date(s.date).toDateString() === today)
+      .reduce((best, s) => {
+        const shots = s.sets.length * 10
+        if (!shots) return best
+        return Math.max(best, Math.round(s.sets.reduce((a, x) => a + x.hits, 0) / shots * 100))
+      }, 0)
+    return { current: bestAcc, target, suffix: '%' }
+  }
+
+  // "Nail a Perfect 10/10 Set"
+  if (/Perfect 10/i.test(text)) {
+    return { current: todaySets.some(s => s.hits === 10) ? 1 : 0, target: 1 }
+  }
+
+  // "Score 8+ Hits in Any Zone"
+  if (/8\+ Hits/i.test(text)) {
+    const best = todaySets.reduce((max, s) => Math.max(max, s.hits), 0)
+    return { current: best, target: 8 }
+  }
+
+  // Social / binary quests — can't auto-track without peerChallenges/puckGames data
+  return { current: 0, target: 1 }
+}
+
 // ── Quest row ─────────────────────────────────────────────────────────────────
-function QuestRow({ quest, completed, isSpinning, shuffleText, onNavigate }) {
-  const tc     = TIER_COLORS[quest.tier]
-  const label  = isSpinning ? shuffleText : quest.text
-  const target = questTab(label)
+function QuestRow({ quest, progress, isSpinning, shuffleText, onNavigate }) {
+  const tc          = TIER_COLORS[quest.tier] || TIER_COLORS.common
+  const label       = isSpinning ? shuffleText : quest.text
+  const tabTarget   = questTab(label)
+  const isPlaceholder = quest.reward === '?'
+  const isDone      = !isPlaceholder && progress ? progress.current >= progress.target : false
+  const sfx         = progress?.suffix || ''
 
   return (
     <div
-      onClick={() => { if (target && !isSpinning) onNavigate(target) }}
+      onClick={() => { if (tabTarget && !isSpinning) onNavigate(tabTarget) }}
       style={{
-        background: 'linear-gradient(135deg,#0f0c1a,#1a0f20)',
-        border: `3px solid ${tc.border}`,
+        background: isDone
+          ? 'linear-gradient(135deg,#091a0a,#0c200d)'
+          : 'linear-gradient(135deg,#0f0c1a,#1a0f20)',
+        border: `3px solid ${isDone ? '#22c55e' : tc.border}`,
         borderRadius: 14,
         padding: '14px 16px',
         marginBottom: 10,
@@ -84,18 +135,20 @@ function QuestRow({ quest, completed, isSpinning, shuffleText, onNavigate }) {
         gridTemplateColumns: '52px 1fr 72px',
         gap: 12,
         alignItems: 'center',
-        boxShadow: `0 0 18px ${tc.glow}44`,
-        cursor: target && !isSpinning ? 'pointer' : 'default',
+        boxShadow: isDone ? '0 0 22px #22c55e33' : `0 0 18px ${tc.glow}44`,
+        cursor: tabTarget && !isSpinning ? 'pointer' : 'default',
         transition: 'transform 0.15s, box-shadow 0.15s',
       }}
-      onMouseEnter={e => { if (target && !isSpinning) { e.currentTarget.style.transform = 'scale(1.01)'; e.currentTarget.style.boxShadow = `0 0 30px ${tc.glow}66` } }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = `0 0 18px ${tc.glow}44` }}
+      onMouseEnter={e => { if (tabTarget && !isSpinning) { e.currentTarget.style.transform = 'scale(1.01)'; e.currentTarget.style.boxShadow = isDone ? '0 0 32px #22c55e55' : `0 0 30px ${tc.glow}66` } }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = isDone ? '0 0 22px #22c55e33' : `0 0 18px ${tc.glow}44` }}
     >
       {/* Left: hex icon */}
       <div style={{
         width: 52, height: 52, flexShrink: 0,
         clipPath: 'polygon(30% 0%,70% 0%,100% 50%,70% 100%,30% 100%,0% 50%)',
-        background: `linear-gradient(135deg,${tc.glow}33,${tc.glow}11)`,
+        background: isDone
+          ? 'linear-gradient(135deg,#14532d66,#22c55e22)'
+          : `linear-gradient(135deg,${tc.glow}33,${tc.glow}11)`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 24,
         transition: 'font-size 0.06s',
@@ -105,32 +158,56 @@ function QuestRow({ quest, completed, isSpinning, shuffleText, onNavigate }) {
 
       {/* Center */}
       <div>
+        {/* Quest title — always bright white against the dark card */}
         <div style={{
           fontFamily: "'Barlow Condensed',sans-serif",
-          fontSize: isSpinning ? 13 : 14,
-          fontWeight: 700,
-          color: isSpinning ? tc.border : (completed ? '#22c55e' : 'var(--text-1)'),
+          fontSize: isSpinning ? 13 : 15,
+          fontWeight: 800,
+          color: isSpinning ? tc.border : isDone ? '#4ade80' : '#ffffff',
           letterSpacing: '0.06em',
           transition: 'color 0.06s',
           minHeight: 18,
+          lineHeight: 1.2,
         }}>
           {label}
         </div>
-        <div style={{
-          display: 'inline-block', marginTop: 5,
-          padding: '2px 8px', borderRadius: 4,
-          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700,
-          letterSpacing: '0.1em',
-          background: completed ? '#14532d' : '#0f172a',
-          color:      completed ? '#4ade80' : (isSpinning ? '#475569' : '#475569'),
-          border:     `1px solid ${completed ? '#22c55e' : '#1e293b'}`,
-          boxShadow:  completed ? '0 0 8px #22c55e66' : 'none',
-          transition: 'all 0.06s',
-        }}>
-          {isSpinning ? '⏳ ROLLING...' : completed ? '✅ COMPLETE!' : '⬜ INCOMPLETE'}
+
+        {/* Status badge + counter on the same row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+          {/* Status badge */}
+          <div style={{
+            display: 'inline-block',
+            padding: '3px 9px', borderRadius: 5,
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
+            letterSpacing: '0.12em',
+            background: isDone ? '#14532d' : '#0c1a26',
+            color:      isDone ? '#4ade80' : isSpinning ? '#475569' : '#22d3ee',
+            border:     `1px solid ${isDone ? '#22c55e66' : isSpinning ? '#1e293b' : '#0e749066'}`,
+            boxShadow:  isDone ? '0 0 8px #22c55e44' : isSpinning ? 'none' : '0 0 6px #22d3ee22',
+            transition: 'all 0.06s',
+          }}>
+            {isSpinning ? '⏳ ROLLING...' : isDone ? '✅ COMPLETE!' : '⬜ INCOMPLETE'}
+          </div>
+
+          {/* Live counter — right next to the badge */}
+          {!isSpinning && !isPlaceholder && progress && (
+            <span style={{
+              fontFamily: "'Bangers',sans-serif",
+              fontSize: 17,
+              letterSpacing: '0.05em',
+              lineHeight: 1,
+              color: isDone ? '#fbbf24' : '#22d3ee',
+              textShadow: isDone ? '0 0 10px #fbbf2444' : '0 0 8px #22d3ee44',
+            }}>
+              {isDone
+                ? '✨ COMPLETED'
+                : `${progress.current}${sfx} / ${progress.target}${sfx}`}
+            </span>
+          )}
         </div>
-        {target && !isSpinning && (
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#334155', marginTop: 4, letterSpacing: '0.06em' }}>
+
+        {tabTarget && !isSpinning && !isDone && (
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 700, color: '#22d3ee', marginTop: 4, letterSpacing: '0.1em' }}>
             TAP TO GO →
           </div>
         )}
@@ -206,7 +283,7 @@ function StadiumLever({ disabled, onSpin, isSpinning }) {
 const SHIELD_COST = 100
 const FREEZE_COST = 50
 
-export default function DailyQuests({ player, onNavigate, onDiamondEarn, onSpinComplete, onPurchaseItem }) {
+export default function DailyQuests({ player, sessions = [], onNavigate, onDiamondEarn, onSpinComplete, onPurchaseItem }) {
   const [spinning,       setSpinning]       = useState(false)
   const [currentQuests,  setCurrentQuests]  = useState(
     player.daily_quests?.length ? player.daily_quests : []
@@ -364,7 +441,7 @@ export default function DailyQuests({ player, onNavigate, onDiamondEarn, onSpinC
             <QuestRow
               key={i}
               quest={quest}
-              completed={false}
+              progress={quest.reward !== '?' ? getQuestProgress(quest.text, sessions) : null}
               isSpinning={spinning}
               shuffleText={shuffleTexts[i] || SHUFFLE_POOL[0]}
               onNavigate={onNavigate}
