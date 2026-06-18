@@ -306,6 +306,21 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
   const [burst,        setBurst]        = useState(null)   // diamond particle array
   const intervalRef  = useRef(null)
   const spinAudioRef = useRef(null)
+  const bgMusicRef   = useRef(null)
+
+  // ── Quest tab background music — play on mount, stop & reset on unmount ──
+  useEffect(() => {
+    const audio = new Audio('/audio/quest-tab-music.mp3')
+    audio.loop   = true
+    audio.volume = 0.25
+    bgMusicRef.current = audio
+    audio.play().catch(() => {})   // silently ignore autoplay block
+    return () => {
+      audio.pause()
+      audio.currentTime = 0
+      bgMusicRef.current = null
+    }
+  }, [])   // empty deps — fires exactly on tab enter / tab leave
 
   // Sync completed/claimed flags written by the session-end path back into
   // local display state without triggering during the spin animation.
