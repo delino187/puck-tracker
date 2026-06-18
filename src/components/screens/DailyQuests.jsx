@@ -308,38 +308,33 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
   const [musicMuted, setMusicMuted] = useState(false)
 
   // ── Quest tab background music ────────────────────────────────────────────
-  // 1. Create and store the Audio instance on mount.
-  // 2. Attempt immediate autoplay (works if user has previously interacted).
-  // 3. If the browser blocks it, register a one-time document click listener
-  //    that retries play() the moment the user first touches anything.
-  // 4. Full cleanup on tab leave: pause, reset, remove the pending listener.
+  // Single persistent Audio instance stored in a ref. Attempts immediate play
+  // on mount; if the browser blocks autoplay, a window click listener retries
+  // every time the user clicks anywhere until it succeeds. Full cleanup on
+  // unmount: listener removed, track paused, timeline reset.
   useEffect(() => {
-    const audio = new Audio('/audio/quest-tab-music.mp3')
+    const audio = new Audio('/quest-tab-music.mp3')
     audio.loop   = true
-    audio.volume = 0.75
+    audio.volume = 0.25
     bgMusicRef.current = audio
 
-    function tryPlay() {
-      if (!mutedRef.current) audio.play().catch(() => {})
-    }
-
-    function handleFirstClick() {
-      if (bgMusicRef.current?.paused && !mutedRef.current) {
-        bgMusicRef.current.play().catch(() => {})
+    const playAudio = () => {
+      if (audio.paused && !mutedRef.current) {
+        audio.play().catch(err => console.log('Autoplay blocked, waiting for click...', err))
       }
-      document.removeEventListener('click', handleFirstClick)
     }
 
-    // Attempt immediate play; if blocked, wait for first click
-    audio.play().catch(() => {
-      document.addEventListener('click', handleFirstClick)
-    })
+    // Persistent window listener — retries on every click until playing
+    window.addEventListener('click', playAudio)
+
+    // Attempt immediate play (works when user has previously interacted)
+    playAudio()
 
     return () => {
+      window.removeEventListener('click', playAudio)
       audio.pause()
       audio.currentTime = 0
       bgMusicRef.current = null
-      document.removeEventListener('click', handleFirstClick)
     }
   }, []) // eslint-disable-line
 
