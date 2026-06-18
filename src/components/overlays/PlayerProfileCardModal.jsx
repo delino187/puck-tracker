@@ -178,11 +178,11 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
 
         {/* ── Medals ────────────────────────────────────────────────────────── */}
         {medals.length > 0 && (
-          <div style={{ marginBottom: 16, width: '100%', overflow: 'hidden', padding: '0 2px' }}>
+          <div style={{ marginBottom: 16, width: '100%', overflow: 'hidden', padding: '0 4px' }}>
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.12em', color: '#f1f5f9', textTransform: 'uppercase', marginBottom: 10 }}>
               Badges <span style={{ color: '#a855f7' }}>({medals.length})</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, justifyItems: 'center', alignItems: 'center', width: '100%', maxWidth: '100%' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, justifyItems: 'center', alignItems: 'center', width: '100%' }}>
               {medals.map(b => (
                 <div key={b.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div
@@ -190,10 +190,9 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
                     style={{
                       background: b.innerBg || '#1e293b',
                       borderRadius: '50%',
-                      padding: 3,
+                      padding: 2,
                       boxShadow: '0 2px 10px rgba(0,0,0,0.6)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      // Live badges pulse with their themed aura
                       animation: b.live
                         ? b.minStreak >= 30
                           ? 'none'
@@ -208,12 +207,12 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
                     className={b.live && b.minStreak >= 30 ? 'arcade-glow' : ''}
                   >
                     {b.img ? (
-                      <div className="badge-circle">
-                        <img src={b.img} alt={b.name} />
+                      <div style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <img src={b.img} alt={b.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       </div>
                     ) : (
-                      <div style={{ width: 52, height: 52, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <b.Icon size={24} color={b.innerIcon || '#94a3b8'} />
+                      <div style={{ width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <b.Icon size={20} color={b.innerIcon || '#94a3b8'} />
                       </div>
                     )}
                   </div>
