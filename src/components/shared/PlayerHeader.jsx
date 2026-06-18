@@ -19,6 +19,9 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
 
   const [showManageModal, setShowManageModal] = useState(false)
 
+  const diamonds   = player.diamonds   || 0
+  const hasShield  = player.hasEloShield || false
+
   return (
     <>
       <div style={{
@@ -56,16 +59,6 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
                 {player.name}
                 {player.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{player.jerseyNum}</span> : ''}
               </span>
-              {player.hasEloShield && (
-                <span title="ELO Shield equipped — next defeat won't cost you ELO" style={{
-                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
-                  letterSpacing: '0.06em', color: '#06b6d4',
-                  background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.35)',
-                  borderRadius: 5, padding: '1px 5px', lineHeight: 1.6,
-                }}>
-                  🛡️ SHIELD
-                </span>
-              )}
               <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: cur.color }}>
                 {cur.name}
               </span>
@@ -125,6 +118,57 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
             </span>
           </button>
         )}
+      </div>
+
+      {/* ── Currency strip — diamonds + ELO shield, visible on every tab ─────── */}
+      <div style={{
+        background: 'var(--nav-bg)',
+        borderBottom: 'var(--nav-border)',
+        padding: '5px 12px',
+        display: 'flex', alignItems: 'center', gap: 8,
+      }}>
+        {/* 💎 Diamond box */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          background: 'linear-gradient(135deg,#2a1a4a,#1a0a2a)',
+          border: '2px solid #fbbf24',
+          borderRadius: 10, padding: '5px 11px',
+          boxShadow: '0 0 14px #fbbf2433',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 18, lineHeight: 1 }}>💎</span>
+          <div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, color: '#fbbf24', letterSpacing: '0.14em', lineHeight: 1 }}>
+              DIAMONDS
+            </div>
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: '#fbbf24', lineHeight: 1, textShadow: '0 0 10px #fbbf2466' }}>
+              {diamonds.toLocaleString()}
+            </div>
+          </div>
+        </div>
+
+        {/* 🛡️ ELO Shield box */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          background: hasShield
+            ? 'linear-gradient(135deg,#050d1a,#091828)'
+            : 'rgba(15,23,42,0.45)',
+          border: `2px solid ${hasShield ? '#06b6d4' : '#1e293b'}`,
+          borderRadius: 10, padding: '5px 11px',
+          boxShadow: hasShield ? '0 0 14px #06b6d433' : 'none',
+          opacity: hasShield ? 1 : 0.45,
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 18, lineHeight: 1 }}>{hasShield ? '🛡️' : '🔓'}</span>
+          <div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, color: hasShield ? '#06b6d4' : '#475569', letterSpacing: '0.14em', lineHeight: 1 }}>
+              ELO SHIELD
+            </div>
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 14, letterSpacing: '0.04em', lineHeight: 1, color: hasShield ? '#22d3ee' : '#334155', textShadow: hasShield ? '0 0 8px #22d3ee55' : 'none' }}>
+              {hasShield ? 'ACTIVE' : 'NONE'}
+            </div>
+          </div>
+        </div>
       </div>
 
       {showManageModal && (

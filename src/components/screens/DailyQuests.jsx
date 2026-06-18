@@ -439,21 +439,6 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
         </div>
       )}
 
-      {/* ── Fixed diamond counter ──────────────────────────────────────────── */}
-      <div style={{
-        position: 'fixed', bottom: 80, left: 16, zIndex: 45,
-        background: 'linear-gradient(135deg,#2a1a4a,#1a0a2a)',
-        border: '2px solid #fbbf24', borderRadius: 12,
-        padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8,
-        boxShadow: '0 0 20px #fbbf2444', pointerEvents: 'none',
-      }}>
-        <div style={{ fontSize: 26 }}>💎</div>
-        <div>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#fbbf24', letterSpacing: '0.12em' }}>DIAMONDS</div>
-          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 20, color: '#fbbf24', lineHeight: 1, textShadow: '0 0 10px #fbbf2466' }}>{totalDiamonds}</div>
-        </div>
-      </div>
-
       {/* ── Billboard + lever wrapper ─────────────────────────────────────── */}
       <div style={{ position: 'relative', marginRight: 28 }}>
 
