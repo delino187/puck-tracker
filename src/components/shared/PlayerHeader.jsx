@@ -120,55 +120,65 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
         )}
       </div>
 
-      {/* ── Currency strip — diamonds + ELO shield, visible on every tab ─────── */}
+      {/* ── Floating currency widgets — pinned to left edge, stacked vertically ── */}
       <div style={{
-        background: 'var(--nav-bg)',
-        borderBottom: 'var(--nav-border)',
-        padding: '5px 12px',
-        display: 'flex', alignItems: 'center', gap: 8,
+        position: 'fixed', left: 8, top: '50%',
+        transform: 'translateY(-50%)',
+        zIndex: 200,
+        display: 'flex', flexDirection: 'column', gap: 8,
+        pointerEvents: 'none',
       }}>
-        {/* 💎 Diamond box */}
+        {/* 💎 Diamonds — always in DOM */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 7,
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
           background: 'linear-gradient(135deg,#2a1a4a,#1a0a2a)',
           border: '2px solid #fbbf24',
-          borderRadius: 10, padding: '5px 11px',
-          boxShadow: '0 0 14px #fbbf2433',
-          flexShrink: 0,
+          borderRadius: 12, padding: '8px 10px',
+          boxShadow: '0 0 18px #fbbf2455',
+          minWidth: 52, textAlign: 'center',
         }}>
-          <span style={{ fontSize: 18, lineHeight: 1 }}>💎</span>
-          <div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, color: '#fbbf24', letterSpacing: '0.14em', lineHeight: 1 }}>
-              DIAMONDS
-            </div>
-            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: '#fbbf24', lineHeight: 1, textShadow: '0 0 10px #fbbf2466' }}>
-              {diamonds.toLocaleString()}
-            </div>
+          <span style={{ fontSize: 22, lineHeight: 1 }}>💎</span>
+          <div style={{
+            fontFamily: "'Bangers',sans-serif", fontSize: 18,
+            color: '#fbbf24', lineHeight: 1,
+            textShadow: '0 0 12px #fbbf2466', marginTop: 3,
+          }}>
+            {diamonds.toLocaleString()}
+          </div>
+          <div style={{
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 7,
+            color: '#fbbf24', letterSpacing: '0.14em', lineHeight: 1, marginTop: 2,
+          }}>
+            DIAMONDS
           </div>
         </div>
 
-        {/* 🛡️ ELO Shield box */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 7,
-          background: hasShield
-            ? 'linear-gradient(135deg,#050d1a,#091828)'
-            : 'rgba(15,23,42,0.45)',
-          border: `2px solid ${hasShield ? '#06b6d4' : '#1e293b'}`,
-          borderRadius: 10, padding: '5px 11px',
-          boxShadow: hasShield ? '0 0 14px #06b6d433' : 'none',
-          opacity: hasShield ? 1 : 0.45,
-          flexShrink: 0,
-        }}>
-          <span style={{ fontSize: 18, lineHeight: 1 }}>{hasShield ? '🛡️' : '🔓'}</span>
-          <div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, color: hasShield ? '#06b6d4' : '#475569', letterSpacing: '0.14em', lineHeight: 1 }}>
+        {/* 🛡️ ELO Shield — only rendered when active; completely absent otherwise */}
+        {hasShield && (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+            background: 'linear-gradient(135deg,#050d1a,#091828)',
+            border: '2px solid #06b6d4',
+            borderRadius: 12, padding: '8px 10px',
+            boxShadow: '0 0 18px #06b6d455',
+            minWidth: 52, textAlign: 'center',
+          }}>
+            <span style={{ fontSize: 22, lineHeight: 1 }}>🛡️</span>
+            <div style={{
+              fontFamily: "'Bangers',sans-serif", fontSize: 14,
+              color: '#22d3ee', letterSpacing: '0.04em', lineHeight: 1,
+              textShadow: '0 0 8px #22d3ee66', marginTop: 3,
+            }}>
+              ACTIVE
+            </div>
+            <div style={{
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 7,
+              color: '#06b6d4', letterSpacing: '0.12em', lineHeight: 1, marginTop: 2,
+            }}>
               ELO SHIELD
             </div>
-            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 14, letterSpacing: '0.04em', lineHeight: 1, color: hasShield ? '#22d3ee' : '#334155', textShadow: hasShield ? '0 0 8px #22d3ee55' : 'none' }}>
-              {hasShield ? 'ACTIVE' : 'NONE'}
-            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {showManageModal && (
