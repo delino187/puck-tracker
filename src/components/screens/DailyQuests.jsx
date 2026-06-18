@@ -31,9 +31,9 @@ const QUEST_POOL = {
 
 // ── Weekly quest pool — fixed high-volume grinding challenges ────────────────
 const WEEKLY_QUEST_POOL = [
-  { id: 'wq_shots500', text: 'Log 500 Total Shots in Target Practice Mode this Week',      reward: 250, icon: '🏒' },
-  { id: 'wq_acc85x5',  text: 'Hit 85% Accuracy across 5 different Sessions this Week',     reward: 150, icon: '🔥' },
-  { id: 'wq_back150',  text: 'Log 150 Backhand Shots in Target Practice Mode this Week',   reward: 100, icon: '🎯' },
+  { id: 'wq_shots500', text: 'Log 500 Total Shots in Target Practice Mode this Week',    reward: 250, icon: '🏒', tier: 'red'    },
+  { id: 'wq_acc85x5',  text: 'Hit 85% Accuracy across 5 different Sessions this Week',   reward: 150, icon: '🔥', tier: 'common' },
+  { id: 'wq_back150',  text: 'Log 150 Backhand Shots in Target Practice Mode this Week', reward: 100, icon: '🎯', tier: 'red'    },
 ]
 
 // ── Prize wheel segments ──────────────────────────────────────────────────────
@@ -427,6 +427,7 @@ const TIER_COLORS = {
   rare:      { border: '#3b82f6', glow: '#3b82f6' },
   epic:      { border: '#a855f7', glow: '#a855f7' },
   legendary: { border: '#fbbf24', glow: '#fbbf24' },
+  red:       { border: '#ef4444', glow: '#ef4444' },
 }
 
 function timeUntilReset() {
@@ -816,6 +817,7 @@ export default function DailyQuests({
     const prog = computeWeeklyQuestProgress(q.text, sessions, player.id)
     return { ...q, currentProgress: prog.current, targetProgress: prog.target, completed: prog.current >= prog.target }
   })
+  const allWeeklyClaimed = displayWeeklyQuests.length > 0 && displayWeeklyQuests.every(q => q.claimed)
 
   function handleSpin() {
     if (!spinAvailable || spinning) return
@@ -1032,51 +1034,14 @@ export default function DailyQuests({
           WEEKLY QUESTS
       ══════════════════════════════════════════════════════════════════ */}
 
-      {/* ── Visual separator ──────────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '32px 0 24px' }}>
-        <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg,transparent,#06b6d4,transparent)' }} />
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#06b6d4', letterSpacing: '0.2em' }}>● ● ●</div>
-        <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg,transparent,#06b6d4,transparent)' }} />
+      {/* ── Red separator ─────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '32px 0 20px' }}>
+        <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg,transparent,#ef4444,transparent)' }} />
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#ef4444', letterSpacing: '0.2em' }}>● ● ●</div>
+        <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg,transparent,#ef4444,transparent)' }} />
       </div>
 
-      {/* ── Weekly Quests arcade header card ─────────────────────────────── */}
-      <div style={{
-        background: 'linear-gradient(135deg,#030b14,#061826)',
-        border: '4px solid #06b6d4', borderRadius: 20,
-        padding: '22px 18px 16px', marginBottom: 16,
-        boxShadow: '0 0 40px #06b6d444, inset 0 0 20px #06b6d411',
-        position: 'relative', overflow: 'hidden',
-      }}>
-        {[{ left: 14 }, { right: 14, animationDelay: '0.75s' }].map((pos, i) => (
-          <div key={i} style={{
-            position: 'absolute', top: 10, ...pos,
-            width: 20, height: 20, borderRadius: '50%',
-            background: 'radial-gradient(circle,#67e8f9,#06b6d4)',
-            boxShadow: '0 0 16px #06b6d4, 0 0 36px #06b6d466',
-            animation: 'shimmer 1.5s ease-in-out infinite',
-            animationDelay: pos.animationDelay || '0s',
-          }} />
-        ))}
-        <div style={{
-          fontFamily: "'Bangers',sans-serif", fontSize: 40, color: '#06b6d4',
-          textAlign: 'center', letterSpacing: '0.1em',
-          textShadow: '0 0 28px #06b6d466, 0 2px 0 #0e4a5a',
-          fontStyle: 'italic', lineHeight: 1,
-        }}>
-          WEEKLY QUESTS 📆
-        </div>
-        <div style={{
-          background: '#030b14', border: '2px solid #06b6d4',
-          borderRadius: 20, padding: '7px 16px',
-          textAlign: 'center', marginTop: 10,
-          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12,
-          fontWeight: 800, color: '#22d3ee', letterSpacing: '0.18em',
-        }}>
-          🗓️ RESETS IN: {wDays} DAYS {wHours} HOURS
-        </div>
-      </div>
-
-      {/* ── Weekly slot machine cabinet ───────────────────────────────────── */}
+      {/* ── Weekly Bonus Spin slot machine — above the main quest card ─── */}
       <WeeklySlotMachine
         weeklySpinAvailable={weeklySpinAvailable}
         onWin={(prize, rect) => {
@@ -1085,93 +1050,87 @@ export default function DailyQuests({
         }}
       />
 
-      {/* Weekly quest rows */}
-      {displayWeeklyQuests.length === 0 ? (
-        <div style={{ background: 'var(--card-bg)', border: 'var(--card-border)', borderRadius: 12, padding: '20px', textAlign: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-muted)' }}>
-          Weekly quests loading…
+      {/* ── Main weekly quests cabinet — mirrors Daily Quests card exactly ── */}
+      <div style={{
+        background: 'linear-gradient(135deg,#0a0508,#1a0a10)',
+        border: '4px solid #ef4444', borderRadius: 20,
+        padding: '32px 18px 20px', marginBottom: 20,
+        boxShadow: '0 0 40px #ef444444, inset 0 0 20px #ef444411',
+        position: 'relative', overflow: 'visible',
+      }}>
+
+        {/* Red corner orbs — identical placement to Daily gold orbs */}
+        {[{ left: 14 }, { right: 14, animationDelay: '0.75s' }].map((pos, i) => (
+          <div key={i} style={{
+            position: 'absolute', top: 10, ...pos,
+            width: 22, height: 22, borderRadius: '50%',
+            background: 'radial-gradient(circle,#fca5a5,#ef4444)',
+            boxShadow: '0 0 18px #ef4444, 0 0 40px #ef444466',
+            animation: 'shimmer 1.5s ease-in-out infinite',
+            animationDelay: pos.animationDelay || '0s',
+          }} />
+        ))}
+
+        {/* Title — identical Bangers/size/color as DAILY QUESTS */}
+        <div style={{
+          fontFamily: "'Bangers',sans-serif", fontSize: 42, color: '#fbbf24',
+          textAlign: 'center', letterSpacing: '0.08em',
+          textShadow: '0 0 30px #fbbf2466, 0 2px 0 #7a5a00',
+          marginBottom: 10, lineHeight: 1,
+        }}>
+          WEEKLY QUESTS 📆
         </div>
-      ) : displayWeeklyQuests.map((quest, idx) => {
-        const pct = quest.targetProgress > 0
-          ? Math.min(100, Math.round((quest.currentProgress / quest.targetProgress) * 100))
-          : 0
-        const isClaimable = quest.completed && !quest.claimed
 
-        return (
-          <div
-            key={quest.id || idx}
-            style={{
-              background: quest.claimed
-                ? 'rgba(15,23,42,0.4)'
-                : isClaimable
-                  ? 'linear-gradient(135deg,#1a2e1a,#0d1f0d)'
-                  : 'var(--card-bg)',
-              border: quest.claimed
-                ? '1px solid #1e293b'
-                : isClaimable
-                  ? '2px solid #22c55e'
-                  : '1px solid #334155',
-              borderRadius: 14, padding: '14px 16px', marginBottom: 10,
-              opacity: quest.claimed ? 0.55 : 1,
-              boxShadow: isClaimable ? '0 0 16px #22c55e22' : 'none',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                  <span style={{ fontSize: 16 }}>{quest.icon || '📆'}</span>
-                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: quest.claimed ? '#475569' : 'var(--text-1)', lineHeight: 1.3 }}>
-                    {quest.text}
-                  </span>
-                </div>
-                {/* Progress fraction */}
-                {!quest.claimed && (
-                  <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: quest.completed ? '#4ade80' : '#22d3ee', letterSpacing: '0.04em', lineHeight: 1 }}>
-                    {quest.currentProgress ?? 0} / {quest.targetProgress ?? '?'}
-                  </div>
-                )}
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color: '#fbbf24', letterSpacing: '0.05em' }}>
-                  +{quest.reward} 💎
-                </div>
-              </div>
-            </div>
+        {/* Reset countdown — red pill matching Daily's gold pill */}
+        <div style={{
+          background: '#140203', border: '2px solid #ef4444',
+          borderRadius: 20, padding: '8px 16px',
+          textAlign: 'center', marginBottom: 18,
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12,
+          fontWeight: 700, color: '#fca5a5', letterSpacing: '0.14em',
+        }}>
+          🗓️ RESETS IN: {wDays} DAYS {wHours} HOURS
+        </div>
 
-            {/* Progress bar */}
-            {!quest.claimed && (
-              <div style={{ background: '#1e293b', borderRadius: 6, height: 6, overflow: 'hidden', marginBottom: 10 }}>
-                <div style={{
-                  height: '100%', borderRadius: 6,
-                  background: quest.completed
-                    ? 'linear-gradient(90deg,#22c55e,#4ade80)'
-                    : 'linear-gradient(90deg,#06b6d4,#22d3ee)',
-                  width: `${pct}%`,
-                  transition: 'width 0.4s ease',
-                }} />
-              </div>
-            )}
-
-            {/* Claim / status */}
-            {quest.claimed ? (
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#475569', letterSpacing: '0.1em' }}>
-                ✅ CLAIMED
-              </div>
-            ) : isClaimable ? (
-              <button
-                className="claim-pulse"
-                onClick={e => handleClaimWeekly(idx, e.currentTarget.getBoundingClientRect())}
-                style={{ width: '100%', padding: '10px', borderRadius: 10, fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em', color: '#fbbf24', cursor: 'pointer', background: 'linear-gradient(135deg,#1a2e00,#0d1800)', border: '2px solid #fbbf24', boxShadow: '0 0 14px #fbbf2444' }}
-              >
-                ✨ TAP TO CLAIM!
-              </button>
-            ) : (
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: '#475569', letterSpacing: '0.1em' }}>
-                {pct}% COMPLETE
-              </div>
-            )}
+        {/* Quest rows — reuse QuestRow for full visual/font parity with Daily */}
+        {displayWeeklyQuests.length === 0 ? (
+          <div style={{ textAlign: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#475569', padding: '20px 0' }}>
+            Weekly quests loading…
           </div>
-        )
-      })}
+        ) : displayWeeklyQuests.map((quest, idx) => (
+          <QuestRow
+            key={quest.id || idx}
+            quest={quest}
+            progress={{ current: quest.currentProgress ?? 0, target: quest.targetProgress ?? 1 }}
+            isSpinning={false}
+            shuffleText=""
+            onNavigate={onNavigate}
+            onClaim={rect => handleClaimWeekly(idx, rect)}
+          />
+        ))}
+
+        {/* Footer locked bar — mirrors Daily's bottom button in red */}
+        <button
+          disabled
+          style={{
+            width: '100%',
+            background: allWeeklyClaimed
+              ? 'linear-gradient(135deg,#14532d,#166534)'
+              : '#1e0a0a',
+            color:  allWeeklyClaimed ? '#4ade80' : '#6b2020',
+            border: allWeeklyClaimed ? '2px solid #22c55e' : '2px solid #3d1010',
+            borderRadius: 12, padding: '14px',
+            fontFamily: "'Bangers',sans-serif", fontSize: 20, fontWeight: 700,
+            letterSpacing: '0.08em', cursor: 'not-allowed',
+            boxShadow: allWeeklyClaimed ? '0 0 16px #22c55e44' : 'none',
+            transition: 'all 0.3s',
+          }}
+        >
+          {allWeeklyClaimed
+            ? '✅ ALL WEEKLY QUESTS COMPLETE!'
+            : `🔒 QUESTS LOCKED — RESETS IN ${wDays}D ${wHours}H`}
+        </button>
+      </div>
 
     </div>
   )
