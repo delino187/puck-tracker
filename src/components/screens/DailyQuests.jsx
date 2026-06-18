@@ -4,18 +4,18 @@ import { computeQuestProgress, parseQuestTarget, parseQuestSuffix } from '../../
 // ── Quest pool — strictly achievable within 24 hours ─────────────────────────
 const QUEST_POOL = {
   volume: [
-    { text: 'Log 25 Total Shots Today',   tier: 'common',    reward: 10,  icon: '🏒' },
-    { text: 'Log 50 Total Shots Today',   tier: 'rare',      reward: 25,  icon: '🏒' },
-    { text: 'Log 100 Total Shots Today',  tier: 'epic',      reward: 50,  icon: '🏒' },
-    { text: 'Log 30 Wrist Shots Today',   tier: 'common',    reward: 10,  icon: '🎯' },
-    { text: 'Log 75 Shots Before Dinner', tier: 'rare',      reward: 25,  icon: '🏒' },
+    { text: 'Log 25 Total Shots in Target Practice Mode',   tier: 'common',    reward: 10,  icon: '🏒' },
+    { text: 'Log 50 Total Shots in Target Practice Mode',   tier: 'rare',      reward: 25,  icon: '🏒' },
+    { text: 'Log 100 Total Shots in Target Practice Mode',  tier: 'epic',      reward: 50,  icon: '🏒' },
+    { text: 'Log 30 Wrist Shots in Target Practice Mode',   tier: 'common',    reward: 10,  icon: '🎯' },
+    { text: 'Log 75 Shots in Target Practice Mode Today',   tier: 'rare',      reward: 25,  icon: '🏒' },
   ],
   quality: [
-    { text: 'Hit 70% Accuracy in a Session', tier: 'common', reward: 10, icon: '📊' },
-    { text: 'Hit 75% Accuracy in a Session', tier: 'rare',   reward: 25, icon: '📈' },
-    { text: 'Hit 80% Accuracy in a Session', tier: 'epic',   reward: 50, icon: '🔥' },
-    { text: 'Nail a Perfect 10/10 Set',      tier: 'epic',   reward: 50, icon: '💯' },
-    { text: 'Score 8+ Hits in Any Zone',     tier: 'rare',   reward: 25, icon: '🎯' },
+    { text: 'Hit 70% Accuracy in a Target Practice Session', tier: 'common', reward: 10, icon: '📊' },
+    { text: 'Hit 75% Accuracy in a Target Practice Session', tier: 'rare',   reward: 25, icon: '📈' },
+    { text: 'Hit 80% Accuracy in a Target Practice Session', tier: 'epic',   reward: 50, icon: '🔥' },
+    { text: 'Nail a Perfect 10/10 Set in Target Practice',   tier: 'epic',   reward: 50, icon: '💯' },
+    { text: 'Score 8+ Hits in Any Zone in Target Practice',  tier: 'rare',   reward: 25, icon: '🎯' },
   ],
   social: [
     { text: 'Issue a Versus Challenge Today',  tier: 'common',    reward: 10,  icon: '📣' },
@@ -68,8 +68,8 @@ function timeUntilReset() {
 }
 
 function questTab(text) {
-  if (/P-U-C-K|Versus/i.test(text))                return 'games'
-  if (/Shots|Accuracy|Log|Session|Set/i.test(text)) return 'session'
+  if (/P-U-C-K|Versus/i.test(text))                         return 'games'
+  if (/Shots|Accuracy|Log|Session|Set|Practice/i.test(text)) return 'session'
   return null
 }
 
@@ -157,26 +157,28 @@ function QuestRow({ quest, progress, isSpinning, shuffleText, onNavigate }) {
             {isSpinning ? '⏳ ROLLING...' : isDone ? '✅ COMPLETE!' : '⬜ INCOMPLETE'}
           </div>
 
-          {/* Live counter — right next to the badge */}
-          {!isSpinning && !isPlaceholder && progress && (
+          {/* Live counter — right next to the badge; falls back to stored values */}
+          {!isSpinning && !isPlaceholder && (progress || quest.targetProgress) && (
             <span style={{
               fontFamily: "'Bangers',sans-serif",
-              fontSize: 17,
+              fontSize: 18,
               letterSpacing: '0.05em',
               lineHeight: 1,
-              color: isDone ? '#fbbf24' : '#22d3ee',
-              textShadow: isDone ? '0 0 10px #fbbf2444' : '0 0 8px #22d3ee44',
+              color: isDone ? '#fbbf24' : '#4ade80',
+              textShadow: isDone ? '0 0 10px #fbbf2444' : '0 0 8px #4ade8044',
             }}>
               {isDone
                 ? '✨ COMPLETED'
-                : `${progress.current}${sfx} / ${progress.target}${sfx}`}
+                : progress
+                  ? `${progress.current}${sfx} / ${progress.target}${sfx}`
+                  : `${quest.currentProgress || 0} / ${quest.targetProgress}`}
             </span>
           )}
         </div>
 
         {tabTarget && !isSpinning && !isDone && (
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 700, color: '#22d3ee', marginTop: 4, letterSpacing: '0.1em' }}>
-            TAP TO GO →
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#fbbf24', marginTop: 5, letterSpacing: '0.1em' }}>
+            {tabTarget === 'session' ? '🏒 TAP → TARGET PRACTICE' : '🎮 TAP → GAMES TAB'}
           </div>
         )}
       </div>
