@@ -75,16 +75,18 @@ export function computeQuestProgress(text, sessions) {
 
 /**
  * Given the current player and the final sessions array (after the session
- * has been fully recorded), returns updated quest objects and how many
- * diamonds were newly earned.
+ * has been fully recorded), updates `currentProgress`, `targetProgress`, and
+ * `completed` on each quest object.
+ *
+ * Diamonds are NOT awarded here — rewards are manual (tap-to-claim).
  *
  * Rules:
  *  - Only runs if the player spun quests today.
- *  - Quests already marked `completed` are skipped (no double-reward).
- *  - For each newly-completed quest, `reward` diamonds are awarded once.
+ *  - Quests already `claimed` are fully settled — skip them entirely.
+ *  - Quests already `completed` (but unclaimed) get their progress refreshed
+ *    in case the player kept shooting after completing.
  *
- * Returns null when there is nothing to update (no quests today, or all
- * quests were already complete before this session).
+ * Returns null when there is nothing to update.
  */
 export function applyQuestProgress(player, sessions) {
   const today  = new Date().toDateString()
@@ -92,23 +94,22 @@ export function applyQuestProgress(player, sessions) {
 
   if (player.last_quest_spin !== today || !quests.length) return null
 
-  let diamondsEarned = 0
   const updatedQuests = quests.map(q => {
-    if (q.completed) return q   // already rewarded — skip
+    if (q.claimed) return q   // fully settled — never touch again
 
     const prog    = computeQuestProgress(q.text, sessions)
     const target  = q.targetProgress ?? prog.target
     const current = prog.current
     const nowDone = current >= target
 
-    if (nowDone) diamondsEarned += (q.reward || 0)
-
     return { ...q, currentProgress: current, targetProgress: target, completed: nowDone }
   })
 
   // Nothing changed — avoid a spurious Firestore write
-  const changed = updatedQuests.some((q, i) => q.completed !== quests[i].completed)
-  if (!changed && diamondsEarned === 0) return null
+  const changed = updatedQuests.some((q, i) =>
+    q.completed !== quests[i].completed || q.currentProgress !== quests[i].currentProgress
+  )
+  if (!changed) return null
 
-  return { updatedQuests, diamondsEarned }
+  return { updatedQuests }
 }

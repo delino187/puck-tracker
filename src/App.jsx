@@ -267,28 +267,31 @@ export default function App() {
     const hits  = aSess.sets.reduce((a, s) => a + s.hits, 0)
     play('confetti')
 
-    // ── Quest progress + diamond reward ────────────────────────────────────
-    // applyQuestProgress uses the same sessions array that includes this
-    // session's sets (already committed via handleLogSet/handleLogAll), so
-    // progress is always evaluated against the FULL finished session.
+    // ── Quest progress — mark completed, no auto-reward (tap-to-claim) ────
     const questResult = aPlayer ? applyQuestProgress(aPlayer, st.sessions) : null
-    const earned      = questResult?.diamondsEarned ?? 0
+
+    // Count newly-completed quests for the celebration subtitle
+    const newlyDone = questResult
+      ? questResult.updatedQuests.filter((q, i) =>
+          q.completed && !(aPlayer.daily_quests?.[i]?.completed)
+        ).length
+      : 0
 
     setCeleb({
       emoji: '💪',
       title: 'Session Done!',
-      subtitle: earned > 0
-        ? `${shots} shots · ${shots > 0 ? (hits / shots * 100).toFixed(0) : 0}% acc · +${earned} 💎 quest reward!`
+      subtitle: newlyDone > 0
+        ? `${shots} shots · ${shots > 0 ? (hits / shots * 100).toFixed(0) : 0}% acc · ${newlyDone} quest${newlyDone > 1 ? 's' : ''} ready to claim! 💎`
         : `${shots} shots · ${shots > 0 ? (hits / shots * 100).toFixed(0) : 0}% accuracy`,
     })
 
-    // Single upd() so quest flags + diamond balance land in one Firestore write
+    // Single upd() — quest completion flags only, no diamond change yet
     upd({
       activeSessionId: null,
       ...(questResult ? {
         players: st.players.map(p =>
           p.id === aPlayer.id
-            ? { ...p, daily_quests: questResult.updatedQuests, diamonds: (p.diamonds || 0) + earned }
+            ? { ...p, daily_quests: questResult.updatedQuests }
             : p
         ),
       } : {}),
@@ -724,6 +727,25 @@ export default function App() {
                     if (aPlayer.hasEloShield) return
                     upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, hasEloShield: true } : p) })
                   }
+                }}
+                onClaimQuest={(questIndex) => {
+                  const quests = aPlayer.daily_quests || []
+                  const quest  = quests[questIndex]
+                  if (!quest || quest.claimed || !quest.completed) return
+                  // Atomic: add diamonds + mark claimed in one Firestore write
+                  upd({
+                    players: st.players.map(p =>
+                      p.id === aPlayer.id
+                        ? {
+                            ...p,
+                            diamonds:     (p.diamonds || 0) + (quest.reward || 0),
+                            daily_quests: quests.map((q, i) =>
+                              i === questIndex ? { ...q, claimed: true } : q
+                            ),
+                          }
+                        : p
+                    ),
+                  })
                 }}
               />
               <div style={{ marginTop: 20 }}>

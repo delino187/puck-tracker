@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { computeQuestProgress, parseQuestTarget, parseQuestSuffix } from '../../utils/questHelpers.js'
+import { playCashRegister } from '../../utils/arcadeSounds.js'
 
 // ── Quest pool — strictly achievable within 24 hours ─────────────────────────
 const QUEST_POOL = {
@@ -43,6 +44,7 @@ function pickQuests() {
     targetProgress:  parseQuestTarget(q.text),
     currentProgress: 0,
     completed:       false,
+    claimed:         false,
     suffix:          parseQuestSuffix(q.text),
   })
   return [
@@ -78,96 +80,126 @@ function questTab(text) {
 const getQuestProgress = (text, sessions) => computeQuestProgress(text, sessions)
 
 // ── Quest row ─────────────────────────────────────────────────────────────────
-function QuestRow({ quest, progress, isSpinning, shuffleText, onNavigate }) {
+function QuestRow({ quest, progress, isSpinning, shuffleText, onNavigate, onClaim }) {
   const tc          = TIER_COLORS[quest.tier] || TIER_COLORS.common
   const label       = isSpinning ? shuffleText : quest.text
   const tabTarget   = questTab(label)
   const isPlaceholder = quest.reward === '?'
-  // quest.completed is the authoritative stored state; progress is the live computed value.
-  // Either being true is enough to show the completed UI.
-  const isDone = quest.completed || (!isPlaceholder && progress ? progress.current >= progress.target : false)
-  const sfx    = progress?.suffix || quest.suffix || ''
+
+  const isDone      = quest.completed || (!isPlaceholder && progress ? progress.current >= progress.target : false)
+  const isClaimed   = quest.claimed || false
+  const isClaimable = isDone && !isClaimed && !isPlaceholder && !isSpinning
+  const sfx         = progress?.suffix || quest.suffix || ''
+
+  function handleClick(e) {
+    if (isClaimable) {
+      onClaim?.(e.currentTarget.getBoundingClientRect())
+    } else if (tabTarget && !isSpinning) {
+      onNavigate(tabTarget)
+    }
+  }
+
+  // Card chrome adapts to state
+  const cardBg     = isClaimable ? 'linear-gradient(135deg,#1c0e00,#2d1500)'
+                   : isClaimed   ? 'linear-gradient(135deg,#091a0a,#0c200d)'
+                   : isDone      ? 'linear-gradient(135deg,#091a0a,#0c200d)'
+                   :               'linear-gradient(135deg,#0f0c1a,#1a0f20)'
+  const cardBorder = isClaimable ? '#fbbf24'
+                   : isClaimed   ? '#22c55e'
+                   : isDone      ? '#22c55e'
+                   :               tc.border
+  const cardShadow = isClaimable ? '0 0 26px #fbbf2444'
+                   : isClaimed   ? '0 0 22px #22c55e33'
+                   : isDone      ? '0 0 22px #22c55e33'
+                   :               `0 0 18px ${tc.glow}44`
 
   return (
     <div
-      onClick={() => { if (tabTarget && !isSpinning) onNavigate(tabTarget) }}
+      onClick={handleClick}
       style={{
-        background: isDone
-          ? 'linear-gradient(135deg,#091a0a,#0c200d)'
-          : 'linear-gradient(135deg,#0f0c1a,#1a0f20)',
-        border: `3px solid ${isDone ? '#22c55e' : tc.border}`,
-        borderRadius: 14,
-        padding: '14px 16px',
-        marginBottom: 10,
-        display: 'grid',
-        gridTemplateColumns: '52px 1fr 72px',
-        gap: 12,
+        background: cardBg,
+        border: `3px solid ${cardBorder}`,
+        borderRadius: 14, padding: '14px 16px', marginBottom: 10,
+        display: 'grid', gridTemplateColumns: '52px 1fr 72px', gap: 12,
         alignItems: 'center',
-        boxShadow: isDone ? '0 0 22px #22c55e33' : `0 0 18px ${tc.glow}44`,
-        cursor: tabTarget && !isSpinning ? 'pointer' : 'default',
+        boxShadow: cardShadow,
+        cursor: (isClaimable || (tabTarget && !isSpinning)) ? 'pointer' : 'default',
         transition: 'transform 0.15s, box-shadow 0.15s',
       }}
-      onMouseEnter={e => { if (tabTarget && !isSpinning) { e.currentTarget.style.transform = 'scale(1.01)'; e.currentTarget.style.boxShadow = isDone ? '0 0 32px #22c55e55' : `0 0 30px ${tc.glow}66` } }}
-      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = isDone ? '0 0 22px #22c55e33' : `0 0 18px ${tc.glow}44` }}
+      onMouseEnter={e => {
+        if (isClaimable) { e.currentTarget.style.transform = 'scale(1.015)'; e.currentTarget.style.boxShadow = '0 0 40px #fbbf2466' }
+        else if (tabTarget && !isSpinning) { e.currentTarget.style.transform = 'scale(1.01)'; e.currentTarget.style.boxShadow = `0 0 30px ${cardBorder}66` }
+      }}
+      onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = cardShadow }}
     >
       {/* Left: hex icon */}
       <div style={{
         width: 52, height: 52, flexShrink: 0,
         clipPath: 'polygon(30% 0%,70% 0%,100% 50%,70% 100%,30% 100%,0% 50%)',
-        background: isDone
-          ? 'linear-gradient(135deg,#14532d66,#22c55e22)'
+        background: isClaimable ? 'linear-gradient(135deg,#92400e66,#fbbf2422)'
+          : isDone ? 'linear-gradient(135deg,#14532d66,#22c55e22)'
           : `linear-gradient(135deg,${tc.glow}33,${tc.glow}11)`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 24,
-        transition: 'font-size 0.06s',
+        fontSize: 24, transition: 'font-size 0.06s',
       }}>
         {isSpinning ? '⚡' : quest.icon}
       </div>
 
       {/* Center */}
       <div>
-        {/* Quest title — always bright white against the dark card */}
+        {/* Quest title */}
         <div style={{
           fontFamily: "'Barlow Condensed',sans-serif",
-          fontSize: isSpinning ? 13 : 15,
-          fontWeight: 800,
-          color: isSpinning ? tc.border : isDone ? '#4ade80' : '#ffffff',
-          letterSpacing: '0.06em',
-          transition: 'color 0.06s',
-          minHeight: 18,
-          lineHeight: 1.2,
+          fontSize: isSpinning ? 13 : 15, fontWeight: 800,
+          color: isSpinning ? tc.border
+            : isClaimable   ? '#fef3c7'
+            : isClaimed     ? '#4ade80'
+            : isDone        ? '#4ade80'
+            :                 '#ffffff',
+          letterSpacing: '0.06em', transition: 'color 0.06s', minHeight: 18, lineHeight: 1.2,
         }}>
           {label}
         </div>
 
-        {/* Status badge + counter on the same row */}
+        {/* Status badge + counter */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
           {/* Status badge */}
-          <div style={{
-            display: 'inline-block',
-            padding: '3px 9px', borderRadius: 5,
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
-            letterSpacing: '0.12em',
-            background: isDone ? '#14532d' : '#0c1a26',
-            color:      isDone ? '#4ade80' : isSpinning ? '#475569' : '#22d3ee',
-            border:     `1px solid ${isDone ? '#22c55e66' : isSpinning ? '#1e293b' : '#0e749066'}`,
-            boxShadow:  isDone ? '0 0 8px #22c55e44' : isSpinning ? 'none' : '0 0 6px #22d3ee22',
-            transition: 'all 0.06s',
-          }}>
-            {isSpinning ? '⏳ ROLLING...' : isDone ? '✅ COMPLETE!' : '⬜ INCOMPLETE'}
+          <div
+            className={isClaimable ? 'claim-pulse' : ''}
+            style={{
+              display: 'inline-block', padding: '3px 9px', borderRadius: 5,
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
+              letterSpacing: '0.12em',
+              background: isClaimed   ? '#14532d'
+                : isClaimable         ? '#92400e'
+                : isDone              ? '#14532d'
+                : isSpinning          ? '#0c1a26'
+                :                       '#0c1a26',
+              color: isClaimed   ? '#4ade80'
+                : isClaimable    ? '#fbbf24'
+                : isDone         ? '#4ade80'
+                : isSpinning     ? '#475569'
+                :                  '#22d3ee',
+              border: `1px solid ${isClaimed ? '#22c55e66' : isClaimable ? '#f59e0b' : isDone ? '#22c55e66' : isSpinning ? '#1e293b' : '#0e749066'}`,
+              boxShadow: isClaimed ? '0 0 8px #22c55e44' : isDone && !isClaimable ? '0 0 8px #22c55e44' : isSpinning ? 'none' : '0 0 6px #22d3ee22',
+              transition: 'all 0.06s',
+            }}
+          >
+            {isSpinning   ? '⏳ ROLLING...'
+             : isClaimed  ? '✅ CLAIMED!'
+             : isClaimable? '✨ TAP TO CLAIM!'
+             : isDone     ? '✅ COMPLETE!'
+             :              '⬜ INCOMPLETE'}
           </div>
 
-          {/* Live counter — right next to the badge; falls back to stored values */}
+          {/* Live counter */}
           {!isSpinning && !isPlaceholder && (progress || quest.targetProgress) && (
             <span style={{
-              fontFamily: "'Bangers',sans-serif",
-              fontSize: 18,
-              letterSpacing: '0.05em',
-              lineHeight: 1,
-              color: isDone ? '#fbbf24' : '#4ade80',
-              textShadow: isDone ? '0 0 10px #fbbf2444' : '0 0 8px #4ade8044',
+              fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.05em', lineHeight: 1,
+              color: isClaimed ? '#4ade80' : isClaimable ? '#fbbf24' : isDone ? '#fbbf24' : '#4ade80',
+              textShadow: (isClaimed || isDone) ? '0 0 10px #fbbf2444' : '0 0 8px #4ade8044',
             }}>
-              {isDone
+              {(isClaimed || isDone)
                 ? '✨ COMPLETED'
                 : progress
                   ? `${progress.current}${sfx} / ${progress.target}${sfx}`
@@ -176,17 +208,24 @@ function QuestRow({ quest, progress, isSpinning, shuffleText, onNavigate }) {
           )}
         </div>
 
-        {tabTarget && !isSpinning && !isDone && (
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#fbbf24', marginTop: 5, letterSpacing: '0.1em' }}>
-            {tabTarget === 'session' ? '🏒 TAP → TARGET PRACTICE' : '🎮 TAP → GAMES TAB'}
-          </div>
+        {/* Nav hint / claim reward hint */}
+        {!isSpinning && !isClaimed && (
+          isClaimable ? (
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#fbbf24', marginTop: 5, letterSpacing: '0.1em' }}>
+              💎 +{quest.reward} DIAMONDS READY TO COLLECT
+            </div>
+          ) : !isDone && tabTarget && (
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#fbbf24', marginTop: 5, letterSpacing: '0.1em' }}>
+              {tabTarget === 'session' ? '🏒 TAP → TARGET PRACTICE' : '🎮 TAP → GAMES TAB'}
+            </div>
+          )
         )}
       </div>
 
       {/* Right: diamond reward */}
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 20, animation: 'diamondPulse 2s ease-in-out infinite', marginBottom: 2 }}>💎</div>
-        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color: '#f1f5f9', letterSpacing: '0.04em' }}>
+      <div style={{ textAlign: 'center', opacity: isClaimed ? 0.35 : 1 }}>
+        <div style={{ fontSize: 20, animation: isClaimable ? 'diamondPulse 0.8s ease-in-out infinite' : 'diamondPulse 2s ease-in-out infinite', marginBottom: 2 }}>💎</div>
+        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color: isClaimable ? '#fbbf24' : '#f1f5f9', letterSpacing: '0.04em' }}>
           +{quest.reward}
         </div>
       </div>
@@ -253,15 +292,61 @@ function StadiumLever({ disabled, onSpin, isSpinning }) {
 const SHIELD_COST = 100
 const FREEZE_COST = 50
 
-export default function DailyQuests({ player, sessions = [], onNavigate, onDiamondEarn, onSpinComplete, onPurchaseItem }) {
-  const [spinning,       setSpinning]       = useState(false)
-  const [currentQuests,  setCurrentQuests]  = useState(
+export default function DailyQuests({ player, sessions = [], onNavigate, onDiamondEarn, onSpinComplete, onPurchaseItem, onClaimQuest }) {
+  const [spinning,      setSpinning]      = useState(false)
+  const [currentQuests, setCurrentQuests] = useState(
     player.daily_quests?.length ? player.daily_quests : []
   )
-  // Three independent shuffle strings, one per row
-  const [shuffleTexts,  setShuffleTexts]   = useState(['','',''])
+  const [shuffleTexts, setShuffleTexts] = useState(['','',''])
+  const [burst,        setBurst]        = useState(null)   // diamond particle array
   const intervalRef  = useRef(null)
   const spinAudioRef = useRef(null)
+
+  // Sync completed/claimed flags written by the session-end path back into
+  // local display state without triggering during the spin animation.
+  const questStateKey = (player.daily_quests || [])
+    .map(q => `${q.completed ? 1 : 0}${q.claimed ? 1 : 0}${q.currentProgress || 0}`)
+    .join(',')
+  useEffect(() => {
+    if (spinning || !player.daily_quests?.length) return
+    setCurrentQuests(player.daily_quests)
+  }, [questStateKey]) // eslint-disable-line
+
+  function fireBurst(rect) {
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top  + rect.height / 2
+    const particles = Array.from({ length: 16 }, (_, i) => {
+      const angle = (i / 16) * 2 * Math.PI + (Math.random() * 0.4 - 0.2)
+      const dist  = 55 + Math.random() * 75
+      return {
+        id:    i,
+        left:  cx,
+        top:   cy,
+        dx:    Math.round(Math.cos(angle) * dist),
+        dy:    Math.round(Math.sin(angle) * dist - 35),  // bias upward
+        delay: (Math.random() * 0.18).toFixed(2),
+        size:  Math.round(18 + Math.random() * 12),
+      }
+    })
+    setBurst(particles)
+    setTimeout(() => setBurst(null), 1400)
+  }
+
+  function handleClaim(questIndex, rect) {
+    const quest = currentQuests[questIndex]
+    if (!quest?.completed || quest.claimed) return
+
+    // Optimistic local update — instant visual feedback
+    setCurrentQuests(prev =>
+      prev.map((q, i) => i === questIndex ? { ...q, claimed: true } : q)
+    )
+
+    playCashRegister()
+    fireBurst(rect)
+
+    // Persist: award diamonds + mark claimed in Firestore via parent
+    onClaimQuest?.(questIndex)
+  }
 
   const today         = new Date().toDateString()
   const spinAvailable = player.last_quest_spin !== today
@@ -330,6 +415,29 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
         @keyframes shimmer      { 0%,100%{ opacity:1 } 50%{ opacity:0.6 } }
         @keyframes diamondPulse { 0%,100%{ opacity:1; transform:scale(1) } 50%{ opacity:0.7; transform:scale(1.14) } }
       `}</style>
+
+      {/* ── Diamond burst particles ────────────────────────────────────────── */}
+      {burst && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 900, pointerEvents: 'none' }}>
+          {burst.map(p => (
+            <div
+              key={p.id}
+              style={{
+                position: 'fixed',
+                left: p.left,
+                top:  p.top,
+                fontSize: p.size,
+                lineHeight: 1,
+                '--dx': `${p.dx}px`,
+                '--dy': `${p.dy}px`,
+                animation: `diamondBurst 1.2s ease-out ${p.delay}s both`,
+              }}
+            >
+              💎
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Fixed diamond counter ──────────────────────────────────────────── */}
       <div style={{
@@ -415,6 +523,7 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
               isSpinning={spinning}
               shuffleText={shuffleTexts[i] || SHUFFLE_POOL[0]}
               onNavigate={onNavigate}
+              onClaim={rect => handleClaim(i, rect)}
             />
           ))}
 

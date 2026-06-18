@@ -58,3 +58,24 @@ export function playScoreSound(hits) {
   if (hits <= 4)  return playPing()
   return playGoalHorn()
 }
+
+/**
+ * Classic cash-register cha-ching — fires when a quest reward is claimed.
+ * "Cha" = quick ascending strike; "Ching" = bright sustained ring + coin jingle.
+ */
+export function playCashRegister() {
+  try {
+    const ctx = makeCtx()
+    // "Cha" — sharp drawer strike
+    tone(900,  0.07, 'square',   0.20, ctx)
+    setTimeout(() => tone(1100, 0.06, 'square',   0.17, ctx), 65)
+    // "Ching" — bright metallic ring
+    setTimeout(() => tone(2200, 0.04, 'square',   0.22, ctx), 125)
+    setTimeout(() => tone(1760, 0.30, 'sine',     0.28, ctx), 135)
+    setTimeout(() => tone(2640, 0.12, 'triangle', 0.14, ctx), 190)
+    // Coin jingle decay
+    setTimeout(() => tone(2200, 0.10, 'triangle', 0.11, ctx), 290)
+    setTimeout(() => tone(1980, 0.10, 'triangle', 0.08, ctx), 360)
+    setTimeout(() => ctx.close(), 900)
+  } catch {}
+}

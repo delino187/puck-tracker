@@ -102,6 +102,31 @@ select { -webkit-appearance: none; }
 }
 .score-tap { animation: scoreTap 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 
+/* ── Diamond burst particle — uses --dx/--dy CSS vars set inline ─────────── */
+@keyframes diamondBurst {
+  0%   { transform: translate(0, 0) scale(1.4); opacity: 1; }
+  65%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0.1); opacity: 0; }
+}
+
+/* ── Quest claim badge pulse ─────────────────────────────────────────────── */
+@keyframes claimPulse {
+  0%, 100% {
+    background: #92400e;
+    box-shadow: 0 0 8px rgba(251,191,36,0.55), 0 0 0 0 rgba(251,191,36,0);
+    color: #fbbf24;
+  }
+  50% {
+    background: #b45309;
+    box-shadow: 0 0 22px rgba(251,191,36,0.9), 0 0 0 5px rgba(251,191,36,0.15);
+    color: #fef3c7;
+  }
+}
+.claim-pulse {
+  animation: claimPulse 1.0s ease-in-out infinite;
+  border: 1px solid #f59e0b !important;
+}
+
 /* ── Arcade cyan glow border — Tier 1 streak (0-4 days) ─────────────────── */
 .arcade-glow {
   box-shadow:
