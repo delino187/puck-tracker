@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Flame, Users } from 'lucide-react'
 import { playerStats } from '../utils/stats.js'
+import storeMusicUrl from '../../public/store-music.mp3'
 
 const FREEZE_COST    = 50
 const SHIELD_COST    = 100
@@ -148,6 +149,35 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
   const canChangePfp     = player.canChangePfp     || false
   const [showLowBalance, setShowLowBalance] = useState(false)
 
+  // ── Store background music ────────────────────────────────────────────────
+  const bgMusicRef = useRef(null)
+  const mutedRef   = useRef(localStorage.getItem('appAudioMuted') === 'true')
+  const [musicMuted, setMusicMuted] = useState(mutedRef.current)
+
+  useEffect(() => {
+    const audio = new Audio(storeMusicUrl)
+    audio.loop   = true
+    audio.volume = 0.22
+    bgMusicRef.current = audio
+    if (!mutedRef.current) {
+      audio.play().catch(() => {
+        const resume = () => { audio.play().catch(() => {}); window.removeEventListener('click', resume) }
+        window.addEventListener('click', resume)
+      })
+    }
+    return () => { audio.pause(); audio.currentTime = 0; bgMusicRef.current = null }
+  }, []) // eslint-disable-line
+
+  function handleMuteToggle() {
+    const nowMuted = !mutedRef.current
+    mutedRef.current = nowMuted
+    setMusicMuted(nowMuted)
+    try { localStorage.setItem('appAudioMuted', String(nowMuted)) } catch {}
+    const audio = bgMusicRef.current
+    if (!audio) return
+    if (nowMuted) { audio.pause() } else { audio.play().catch(() => {}) }
+  }
+
   const streakBoard = [...players]
     .map(p => { const s = playerStats(p, sessions); return { ...p, streak: s.streak } })
     .filter(p => p.streak > 0)
@@ -155,6 +185,30 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
 
   return (
     <div style={{ padding: '14px 14px 80px' }}>
+
+      {/* ── Tab header: label + music mute toggle ─────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.2em' }}>
+          PRO SHOP
+        </div>
+        <button
+          onClick={handleMuteToggle}
+          title={musicMuted ? 'Unmute store music' : 'Mute store music'}
+          style={{
+            background: musicMuted ? 'rgba(15,23,42,0.7)' : 'rgba(251,191,36,0.12)',
+            border: `1px solid ${musicMuted ? '#334155' : '#fbbf2444'}`,
+            borderRadius: 8, padding: '4px 9px', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 4,
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9,
+            fontWeight: 800, letterSpacing: '0.1em',
+            color: musicMuted ? '#475569' : '#fbbf24',
+            transition: 'all 0.15s',
+          }}
+        >
+          <span>{musicMuted ? '🔇' : '🎵'}</span>
+          <span>{musicMuted ? 'OFF' : 'ON'}</span>
+        </button>
+      </div>
 
       {/* ── Low-balance modal ─────────────────────────────────────────────── */}
       {showLowBalance && (

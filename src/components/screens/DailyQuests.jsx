@@ -680,8 +680,8 @@ export default function DailyQuests({
   const intervalRef  = useRef(null)
   const spinAudioRef = useRef(null)
   const bgMusicRef   = useRef(null)
-  const mutedRef     = useRef(false)
-  const [musicMuted, setMusicMuted] = useState(false)
+  const mutedRef     = useRef(localStorage.getItem('appAudioMuted') === 'true')
+  const [musicMuted, setMusicMuted] = useState(mutedRef.current)
 
   // ── Quest tab background music ────────────────────────────────────────────
   // Single persistent Audio instance stored in a ref. Attempts immediate play
@@ -707,8 +707,8 @@ export default function DailyQuests({
     // Persistent window listener — retries on every click until playing
     window.addEventListener('click', playAudio)
 
-    // Attempt immediate play (works when user has previously interacted)
-    playAudio()
+    // Attempt immediate play only if not muted globally
+    if (!mutedRef.current) playAudio()
 
     return () => {
       window.removeEventListener('click', playAudio)
@@ -718,18 +718,15 @@ export default function DailyQuests({
     }
   }, []) // eslint-disable-line
 
-  // Toggle: pause for real when muted, resume play when unmuted
+  // Toggle: pause for real when muted, resume play when unmuted; sync global key
   function handleMuteToggle() {
     const nowMuted = !mutedRef.current
     mutedRef.current = nowMuted
     setMusicMuted(nowMuted)
+    try { localStorage.setItem('appAudioMuted', String(nowMuted)) } catch {}
     const audio = bgMusicRef.current
     if (!audio) return
-    if (nowMuted) {
-      audio.pause()
-    } else {
-      audio.play().catch(() => {})
-    }
+    if (nowMuted) { audio.pause() } else { audio.play().catch(() => {}) }
   }
 
   // Sync completed/claimed flags written by the session-end path back into

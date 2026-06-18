@@ -12,6 +12,15 @@ export default function ChallengesTab({
   onAcceptChallenge,
 }) {
   const [showTips, setShowTips] = useState(false)
+  const [audioMuted, setAudioMuted] = useState(
+    () => localStorage.getItem('appAudioMuted') === 'true'
+  )
+
+  function handleMuteToggle() {
+    const nowMuted = !audioMuted
+    setAudioMuted(nowMuted)
+    try { localStorage.setItem('appAudioMuted', String(nowMuted)) } catch {}
+  }
 
   const incoming  = peerChallenges.filter(c => c.receiverId   === player.id && c.status === 'pending')
   const outgoing  = peerChallenges.filter(c => c.challengerId === player.id && c.status === 'pending')
@@ -33,6 +42,23 @@ export default function ChallengesTab({
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={handleMuteToggle}
+            title={audioMuted ? 'Unmute audio' : 'Mute audio'}
+            style={{
+              background: audioMuted ? 'rgba(15,23,42,0.7)' : 'rgba(168,85,247,0.12)',
+              border: `1px solid ${audioMuted ? '#334155' : '#a855f744'}`,
+              borderRadius: 8, padding: '4px 9px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 4,
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9,
+              fontWeight: 800, letterSpacing: '0.1em',
+              color: audioMuted ? '#475569' : '#a855f7',
+              transition: 'all 0.15s',
+            }}
+          >
+            <span>{audioMuted ? '🔇' : '🎵'}</span>
+            <span>{audioMuted ? 'OFF' : 'ON'}</span>
+          </button>
           <button
             onClick={() => setShowTips(true)}
             style={{ background: 'transparent', border: '1px solid #334155', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: '#64748b', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11 }}

@@ -1,5 +1,9 @@
 // Synthesized arcade sounds via Web Audio API — no external files required.
 
+function isGloballyMuted() {
+  try { return localStorage.getItem('appAudioMuted') === 'true' } catch { return false }
+}
+
 function tone(freq, dur, type = 'sine', vol = 0.25, ctx) {
   const osc  = ctx.createOscillator()
   const gain = ctx.createGain()
@@ -54,6 +58,7 @@ function playGoalHorn() {
  * 0–2 → buzz  |  3–4 → ping  |  5 → goal horn
  */
 export function playScoreSound(hits) {
+  if (isGloballyMuted()) return
   if (hits <= 2)  return playBuzz()
   if (hits <= 4)  return playPing()
   return playGoalHorn()
@@ -64,6 +69,7 @@ export function playScoreSound(hits) {
  * "Cha" = quick ascending strike; "Ching" = bright sustained ring + coin jingle.
  */
 export function playCashRegister() {
+  if (isGloballyMuted()) return
   try {
     const ctx = makeCtx()
     // "Cha" — sharp drawer strike
