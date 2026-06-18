@@ -307,26 +307,58 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
   const intervalRef  = useRef(null)
   const spinAudioRef = useRef(null)
   const bgMusicRef   = useRef(null)
+  const mutedRef     = useRef(false)          // ref so closure callbacks see latest value
   const [musicMuted, setMusicMuted] = useState(false)
 
-  // ── Quest tab background music — play on mount, stop & reset on unmount ──
+  // ── Quest tab background music ────────────────────────────────────────────
+  // 1. Create and store the Audio instance on mount.
+  // 2. Attempt immediate autoplay (works if user has previously interacted).
+  // 3. If the browser blocks it, register a one-time document click listener
+  //    that retries play() the moment the user first touches anything.
+  // 4. Full cleanup on tab leave: pause, reset, remove the pending listener.
   useEffect(() => {
     const audio = new Audio('/audio/quest-tab-music.mp3')
     audio.loop   = true
     audio.volume = 0.75
     bgMusicRef.current = audio
-    audio.play().catch(() => {})   // silently ignore autoplay block
+
+    function tryPlay() {
+      if (!mutedRef.current) audio.play().catch(() => {})
+    }
+
+    function handleFirstClick() {
+      if (bgMusicRef.current?.paused && !mutedRef.current) {
+        bgMusicRef.current.play().catch(() => {})
+      }
+      document.removeEventListener('click', handleFirstClick)
+    }
+
+    // Attempt immediate play; if blocked, wait for first click
+    audio.play().catch(() => {
+      document.addEventListener('click', handleFirstClick)
+    })
+
     return () => {
       audio.pause()
       audio.currentTime = 0
       bgMusicRef.current = null
+      document.removeEventListener('click', handleFirstClick)
     }
-  }, [])   // empty deps — fires exactly on tab enter / tab leave
+  }, []) // eslint-disable-line
 
-  // Keep audio muted state in sync with the toggle
-  useEffect(() => {
-    if (bgMusicRef.current) bgMusicRef.current.volume = musicMuted ? 0 : 0.75
-  }, [musicMuted])
+  // Toggle: pause for real when muted, resume play when unmuted
+  function handleMuteToggle() {
+    const nowMuted = !mutedRef.current
+    mutedRef.current = nowMuted
+    setMusicMuted(nowMuted)
+    const audio = bgMusicRef.current
+    if (!audio) return
+    if (nowMuted) {
+      audio.pause()
+    } else {
+      audio.play().catch(() => {})
+    }
+  }
 
   // Sync completed/claimed flags written by the session-end path back into
   // local display state without triggering during the spin animation.
@@ -442,26 +474,30 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
         @keyframes diamondPulse { 0%,100%{ opacity:1; transform:scale(1) } 50%{ opacity:0.7; transform:scale(1.14) } }
       `}</style>
 
-      {/* ── Music mute toggle ────────────────────────────────────────────────── */}
-      <button
-        onClick={() => setMusicMuted(m => !m)}
-        title={musicMuted ? 'Unmute quest music' : 'Mute quest music'}
-        style={{
-          position: 'absolute', top: 16, right: 16, zIndex: 10,
-          background: musicMuted ? 'rgba(15,23,42,0.7)' : 'rgba(251,191,36,0.15)',
-          border: `1px solid ${musicMuted ? '#334155' : '#fbbf2455'}`,
-          borderRadius: 8, padding: '5px 8px',
-          cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: 4,
-          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9,
-          fontWeight: 800, letterSpacing: '0.1em',
-          color: musicMuted ? '#475569' : '#fbbf24',
-          transition: 'all 0.15s',
-        }}
-      >
-        {musicMuted ? '🔇' : '🎵'}
-        <span>{musicMuted ? 'OFF' : 'ON'}</span>
-      </button>
+      {/* ── Tab header row: label + music toggle (outside the gold frame) ─── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.2em' }}>
+          DAILY QUESTS
+        </div>
+        <button
+          onClick={handleMuteToggle}
+          title={musicMuted ? 'Unmute quest music' : 'Mute quest music'}
+          style={{
+            background: musicMuted ? 'rgba(15,23,42,0.7)' : 'rgba(251,191,36,0.12)',
+            border: `1px solid ${musicMuted ? '#334155' : '#fbbf2444'}`,
+            borderRadius: 8, padding: '4px 9px',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 4,
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9,
+            fontWeight: 800, letterSpacing: '0.1em',
+            color: musicMuted ? '#475569' : '#fbbf24',
+            transition: 'all 0.15s',
+          }}
+        >
+          <span>{musicMuted ? '🔇' : '🎵'}</span>
+          <span>{musicMuted ? 'OFF' : 'ON'}</span>
+        </button>
+      </div>
 
       {/* ── Diamond burst particles ────────────────────────────────────────── */}
       {burst && (
