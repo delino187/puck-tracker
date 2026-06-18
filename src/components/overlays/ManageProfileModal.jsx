@@ -101,10 +101,10 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onClo
         {/* ── Avatar with camera overlay ────────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 20 }}>
           <div style={{ position: 'relative', display: 'inline-flex' }}>
-            <Avatar player={player} size={88} className="arcade-glow" style={{ borderRadius: '50%' }} />
+            <Avatar player={player} size={88} className="arcade-glow" glowActive={!!player.hasBorderGlow} style={{ borderRadius: '50%' }} />
 
-            {/* Camera overlay button — opens confirmation step */}
-            {step === 'view' && (
+            {/* Camera overlay — unlocked only after purchasing Custom PFP in the store */}
+            {step === 'view' && player.canChangePfp && (
               <button
                 onClick={() => setStep('confirm')}
                 title="Change profile picture"
@@ -120,6 +120,23 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onClo
               </button>
             )}
 
+            {/* Lock overlay — shown when PFP change is not yet unlocked */}
+            {step === 'view' && !player.canChangePfp && (
+              <div
+                title="Unlock Custom PFP in the Store for 50 💎"
+                style={{
+                  position: 'absolute', bottom: 0, right: 0,
+                  width: 28, height: 28, borderRadius: '50%',
+                  background: '#1e293b', border: '2px solid #334155',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 13, cursor: 'default',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                }}
+              >
+                🔒
+              </div>
+            )}
+
             {/* Upload spinner overlay */}
             {step === 'uploading' && (
               <div style={{
@@ -133,6 +150,11 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onClo
           </div>
 
           <div style={{ textAlign: 'center' }}>
+            {!player.canChangePfp && (
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: '0.12em', marginBottom: 4 }}>
+                🔒 UNLOCK CUSTOM PFP IN THE STORE (50 💎)
+              </div>
+            )}
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.05em', color: '#f1f5f9', lineHeight: 1.1 }}>
               {player.name}
               {player.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{player.jerseyNum}</span> : null}

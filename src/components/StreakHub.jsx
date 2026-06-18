@@ -2,31 +2,52 @@ import { useState } from 'react'
 import { Flame, Users } from 'lucide-react'
 import { playerStats } from '../utils/stats.js'
 
-const FREEZE_COST = 50
-const SHIELD_COST = 100
+const FREEZE_COST    = 50
+const SHIELD_COST    = 100
+const ELO_RESET_COST = 200
+const GLOW_COST      = 150
+const PFP_COST       = 50
+const BASE_ELO       = 1000
 
 // ── Individual showcase card inside the stall grid ────────────────────────────
-function ItemCard({ emoji, name, desc, tag, cost, canBuy, isOwned, owned, onBuy, onInsufficientFunds }) {
+function ItemCard({ emoji, name, desc, tag, cost, canBuy, isOwned, owned, onBuy, onInsufficientFunds, isEquipped, onEquip }) {
+  // Three mutually exclusive states when owned:
+  //   isOwned + onEquip → equippable toggle (border glow)
+  //   isOwned only      → permanently consumed (shield, pfp, etc.)
+  const showEquipToggle = isOwned && typeof onEquip === 'function'
+
   return (
     <div style={{
       background: 'linear-gradient(180deg,#fef9ee,#fef3c7)',
-      border: '3px solid #d97706',
+      border: `3px solid ${isOwned ? '#22c55e' : '#d97706'}`,
       borderRadius: 18,
       padding: '14px 8px 10px',
       textAlign: 'center',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.9)',
+      boxShadow: isOwned
+        ? '0 4px 12px rgba(0,0,0,0.35), 0 0 14px #22c55e44, inset 0 1px 0 rgba(255,255,255,0.9)'
+        : '0 4px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.9)',
       position: 'relative',
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
     }}>
-      {/* Optional status badge (top-right) */}
-      {isOwned && (
+      {/* Status badge (top-right) */}
+      {isOwned && !showEquipToggle && (
         <div style={{
           position: 'absolute', top: -8, right: -8,
           background: '#22c55e', border: '2px solid #15803d',
           borderRadius: 20, padding: '1px 7px',
           fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
           color: '#fff', letterSpacing: '0.08em',
-        }}>ACTIVE</div>
+        }}>OWNED</div>
+      )}
+      {showEquipToggle && (
+        <div style={{
+          position: 'absolute', top: -8, right: -8,
+          background: isEquipped ? '#22c55e' : '#6b7280',
+          border: `2px solid ${isEquipped ? '#15803d' : '#4b5563'}`,
+          borderRadius: 20, padding: '1px 7px',
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
+          color: '#fff', letterSpacing: '0.08em',
+        }}>{isEquipped ? 'ON' : 'OFF'}</div>
       )}
       {tag && !isOwned && (
         <div style={{
@@ -53,48 +74,78 @@ function ItemCard({ emoji, name, desc, tag, cost, canBuy, isOwned, owned, onBuy,
         {desc}
       </div>
 
-      {/* Owned count */}
+      {/* Owned count / status label */}
       <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: owned > 0 || isOwned ? '#15803d' : '#94a3b8', letterSpacing: '0.06em' }}>
-        {isOwned ? '✅ EQUIPPED' : `x${owned} owned`}
+        {showEquipToggle
+          ? (isEquipped ? '✅ EQUIPPED' : '⬜ UNEQUIPPED')
+          : isOwned
+            ? '✅ OWNED'
+            : `x${owned} owned`}
       </div>
 
-      {/* Buy / can't-afford / owned pill button */}
-      <button
-        disabled={isOwned}
-        onClick={isOwned ? undefined : canBuy ? onBuy : onInsufficientFunds}
-        style={{
-          width: '100%', marginTop: 4,
-          background: isOwned
-            ? '#6b7280'
-            : canBuy
-              ? 'linear-gradient(180deg,#4ade80,#16a34a)'
-              : 'linear-gradient(180deg,#ef4444,#b91c1c)',
-          border: isOwned
-            ? '2px solid #4b5563'
-            : canBuy
-              ? '2px solid #15803d'
-              : '2px solid #7f1d1d',
-          borderRadius: 20, padding: '7px 6px',
-          fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.06em',
-          color: '#fff',
-          cursor: isOwned ? 'not-allowed' : 'pointer',
-          boxShadow: canBuy ? '0 3px 0 #15803d, 0 0 10px #4ade8055' : 'none',
-          textShadow: '0 1px 2px rgba(0,0,0,0.35)',
-          transition: 'transform 0.1s',
-        }}
-        onMouseDown={e => { if (!isOwned) e.currentTarget.style.transform = 'scale(0.96)' }}
-        onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
-      >
-        {isOwned ? '— MAX —' : canBuy ? `${cost} 💎` : 'NEED MORE 💎'}
-      </button>
+      {/* CTA button — equip toggle, buy, or can't-afford */}
+      {showEquipToggle ? (
+        <button
+          onClick={onEquip}
+          style={{
+            width: '100%', marginTop: 4,
+            background: isEquipped
+              ? 'linear-gradient(180deg,#6b7280,#4b5563)'
+              : 'linear-gradient(180deg,#a855f7,#7c3aed)',
+            border: isEquipped ? '2px solid #374151' : '2px solid #6d28d9',
+            borderRadius: 20, padding: '7px 6px',
+            fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.06em',
+            color: '#fff', cursor: 'pointer',
+            boxShadow: isEquipped ? 'none' : '0 3px 0 #6d28d9, 0 0 12px #a855f755',
+            textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+            transition: 'transform 0.1s',
+          }}
+          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.96)' }}
+          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+        >
+          {isEquipped ? 'UNEQUIP' : '✨ EQUIP'}
+        </button>
+      ) : (
+        <button
+          disabled={isOwned}
+          onClick={isOwned ? undefined : canBuy ? onBuy : onInsufficientFunds}
+          style={{
+            width: '100%', marginTop: 4,
+            background: isOwned
+              ? '#6b7280'
+              : canBuy
+                ? 'linear-gradient(180deg,#4ade80,#16a34a)'
+                : 'linear-gradient(180deg,#ef4444,#b91c1c)',
+            border: isOwned
+              ? '2px solid #4b5563'
+              : canBuy
+                ? '2px solid #15803d'
+                : '2px solid #7f1d1d',
+            borderRadius: 20, padding: '7px 6px',
+            fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.06em',
+            color: '#fff',
+            cursor: isOwned ? 'not-allowed' : 'pointer',
+            boxShadow: canBuy && !isOwned ? '0 3px 0 #15803d, 0 0 10px #4ade8055' : 'none',
+            textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+            transition: 'transform 0.1s',
+          }}
+          onMouseDown={e => { if (!isOwned) e.currentTarget.style.transform = 'scale(0.96)' }}
+          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+        >
+          {isOwned ? '— MAX —' : canBuy ? `${cost} 💎` : 'NEED MORE 💎'}
+        </button>
+      )}
     </div>
   )
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function StreakHub({ player, stats, sessions, players, onPurchaseItem, onNavigate }) {
-  const totalDiamonds   = player.diamonds    || 0
-  const hasEloShield    = player.hasEloShield || false
+  const totalDiamonds    = player.diamonds         || 0
+  const hasEloShield     = player.hasEloShield     || false
+  const boughtBorderGlow = player.boughtBorderGlow || false
+  const hasBorderGlow    = player.hasBorderGlow    || false
+  const canChangePfp     = player.canChangePfp     || false
   const [showLowBalance, setShowLowBalance] = useState(false)
 
   const streakBoard = [...players]
@@ -254,6 +305,8 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
             boxShadow: 'inset 0 3px 10px rgba(0,0,0,0.5)',
           }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+
+              {/* ── Row 1: Core protections ──────────────────────────────── */}
               <ItemCard
                 emoji="🧊"
                 name="Streak Freeze"
@@ -274,9 +327,52 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
                 owned={hasEloShield ? 1 : 0}
                 canBuy={!hasEloShield && totalDiamonds >= SHIELD_COST}
                 isOwned={hasEloShield}
-                onBuy={() => { if (!hasEloShield && totalDiamonds >= SHIELD_COST) onPurchaseItem?.('eloShield', SHIELD_COST) }}
+                onBuy={() => onPurchaseItem?.('eloShield', SHIELD_COST)}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
+
+              {/* ── Row 2: Competitive + cosmetic ────────────────────────── */}
+              <ItemCard
+                emoji="📈"
+                name="ELO RESET"
+                desc="Instantly reset your competitive rating back to the baseline starting ELO rank"
+                tag="NEW"
+                cost={ELO_RESET_COST}
+                owned={0}
+                canBuy={totalDiamonds >= ELO_RESET_COST}
+                isOwned={false}
+                onBuy={() => onPurchaseItem?.('eloReset', ELO_RESET_COST)}
+                onInsufficientFunds={() => setShowLowBalance(true)}
+              />
+              <ItemCard
+                emoji="✨"
+                name="NEON BORDER GLOW"
+                desc="Flashing premium neon animated border aura on your profile picture"
+                tag={boughtBorderGlow ? undefined : 'NEW'}
+                cost={GLOW_COST}
+                owned={boughtBorderGlow ? 1 : 0}
+                canBuy={!boughtBorderGlow && totalDiamonds >= GLOW_COST}
+                isOwned={boughtBorderGlow}
+                isEquipped={hasBorderGlow}
+                onEquip={boughtBorderGlow ? () => onPurchaseItem?.('toggleBorderGlow', 0) : undefined}
+                onBuy={() => onPurchaseItem?.('borderGlow', GLOW_COST)}
+                onInsufficientFunds={() => setShowLowBalance(true)}
+              />
+
+              {/* ── Row 3: Profile unlock (centred via auto-placement) ────── */}
+              <ItemCard
+                emoji="🎭"
+                name="CUSTOM PFP"
+                desc="Unlock the ability to set a custom profile avatar image in your profile settings"
+                tag={canChangePfp ? undefined : 'NEW'}
+                cost={PFP_COST}
+                owned={canChangePfp ? 1 : 0}
+                canBuy={!canChangePfp && totalDiamonds >= PFP_COST}
+                isOwned={canChangePfp}
+                onBuy={() => onPurchaseItem?.('unlockPfp', PFP_COST)}
+                onInsufficientFunds={() => setShowLowBalance(true)}
+              />
+
             </div>
           </div>
         </div>

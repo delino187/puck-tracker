@@ -757,6 +757,16 @@ export default function App() {
                 } else if (itemId === 'eloShield') {
                   if (aPlayer.hasEloShield) return
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, hasEloShield: true } : p) })
+                } else if (itemId === 'eloReset') {
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, elo: 1000 } : p) })
+                } else if (itemId === 'borderGlow') {
+                  if (aPlayer.boughtBorderGlow) return
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, boughtBorderGlow: true, hasBorderGlow: true } : p) })
+                } else if (itemId === 'toggleBorderGlow') {
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, hasBorderGlow: !p.hasBorderGlow } : p) })
+                } else if (itemId === 'unlockPfp') {
+                  if (aPlayer.canChangePfp) return
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, canChangePfp: true } : p) })
                 }
               }}
             />

@@ -1,14 +1,15 @@
 // Circular player avatar — shows photoURL image or first-initial fallback.
-export default function Avatar({ player, size = 28, style = {}, className = '' }) {
-  const initial = player?.name?.[0]?.toUpperCase() ?? '?'
+export default function Avatar({ player, size = 28, style = {}, className = '', glowActive = false }) {
+  const initial  = player?.name?.[0]?.toUpperCase() ?? '?'
   const fontSize = Math.round(size * 0.42)
+  const glowClass = glowActive ? ' neon-border-glow' : ''
 
   if (player?.photoURL) {
     return (
       <img
         src={player.photoURL}
         alt={player?.name ?? ''}
-        className={className}
+        className={className + glowClass}
         style={{
           width: size, height: size,
           borderRadius: '50%',
@@ -22,7 +23,7 @@ export default function Avatar({ player, size = 28, style = {}, className = '' }
 
   return (
     <div
-      className={className}
+      className={className + glowClass}
       style={{
         width: size, height: size,
         borderRadius: '50%',

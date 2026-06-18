@@ -127,6 +127,18 @@ select { -webkit-appearance: none; }
   border: 1px solid #f59e0b !important;
 }
 
+/* ── Neon Profile Border Glow — premium store cosmetic ──────────────────── */
+@keyframes neonBorderGlow {
+  0%   { box-shadow: 0 0 8px 3px #a855f7, 0 0 18px 5px #7c3aed55; border-color: #a855f7; }
+  33%  { box-shadow: 0 0 10px 3px #06b6d4, 0 0 22px 6px #0891b255; border-color: #06b6d4; }
+  66%  { box-shadow: 0 0 10px 3px #ec4899, 0 0 22px 6px #db277755; border-color: #ec4899; }
+  100% { box-shadow: 0 0 8px 3px #a855f7, 0 0 18px 5px #7c3aed55; border-color: #a855f7; }
+}
+.neon-border-glow {
+  animation: neonBorderGlow 2.4s ease-in-out infinite !important;
+  border: 2px solid #a855f7 !important;
+}
+
 /* ── Arcade cyan glow border — Tier 1 streak (0-4 days) ─────────────────── */
 .arcade-glow {
   box-shadow:
