@@ -18,7 +18,8 @@ import StreakHub        from './components/StreakHub.jsx'
 import DailyQuests      from './components/screens/DailyQuests.jsx'
 import TeamLeaderboards from './components/TeamLeaderboards.jsx'
 import Leaderboard      from './components/screens/Leaderboard.jsx'
-import { updateStreak } from './utils/streakService.js'
+import { updateStreak }      from './utils/streakService.js'
+import { applyQuestProgress } from './utils/questHelpers.js'
 import GoalHeatmap      from './components/GoalHeatmap.jsx'
 import BadgeGrid        from './components/BadgeGrid.jsx'
 import RanksTab         from './components/RanksTab.jsx'
@@ -265,12 +266,34 @@ export default function App() {
     const shots = aSess.sets.length * 10
     const hits  = aSess.sets.reduce((a, s) => a + s.hits, 0)
     play('confetti')
+
+    // ── Quest progress + diamond reward ────────────────────────────────────
+    // applyQuestProgress uses the same sessions array that includes this
+    // session's sets (already committed via handleLogSet/handleLogAll), so
+    // progress is always evaluated against the FULL finished session.
+    const questResult = aPlayer ? applyQuestProgress(aPlayer, st.sessions) : null
+    const earned      = questResult?.diamondsEarned ?? 0
+
     setCeleb({
       emoji: '💪',
       title: 'Session Done!',
-      subtitle: `${shots} shots · ${shots > 0 ? (hits / shots * 100).toFixed(0) : 0}% accuracy`,
+      subtitle: earned > 0
+        ? `${shots} shots · ${shots > 0 ? (hits / shots * 100).toFixed(0) : 0}% acc · +${earned} 💎 quest reward!`
+        : `${shots} shots · ${shots > 0 ? (hits / shots * 100).toFixed(0) : 0}% accuracy`,
     })
-    upd({ activeSessionId: null })
+
+    // Single upd() so quest flags + diamond balance land in one Firestore write
+    upd({
+      activeSessionId: null,
+      ...(questResult ? {
+        players: st.players.map(p =>
+          p.id === aPlayer.id
+            ? { ...p, daily_quests: questResult.updatedQuests, diamonds: (p.diamonds || 0) + earned }
+            : p
+        ),
+      } : {}),
+    })
+
     setTab('dashboard')
     // Persist streak to Firestore; fire-and-forget so it never blocks the UI
     if (aPlayer) updateStreak(aPlayer.id).catch(() => {})

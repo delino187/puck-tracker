@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { computeQuestProgress, parseQuestTarget, parseQuestSuffix } from '../../utils/questHelpers.js'
 
 // ── Quest pool — strictly achievable within 24 hours ─────────────────────────
 const QUEST_POOL = {
@@ -36,11 +37,18 @@ const SHUFFLE_POOL = [
 ]
 
 function pickQuests() {
-  const pick = arr => arr[Math.floor(Math.random() * arr.length)]
+  const pick  = arr => arr[Math.floor(Math.random() * arr.length)]
+  const stamp = q => ({
+    ...q,
+    targetProgress:  parseQuestTarget(q.text),
+    currentProgress: 0,
+    completed:       false,
+    suffix:          parseQuestSuffix(q.text),
+  })
   return [
-    pick(QUEST_POOL.volume),
-    pick(QUEST_POOL.quality),
-    pick(QUEST_POOL.social),
+    stamp(pick(QUEST_POOL.volume)),
+    stamp(pick(QUEST_POOL.quality)),
+    stamp(pick(QUEST_POOL.social)),
   ]
 }
 
@@ -65,51 +73,9 @@ function questTab(text) {
   return null
 }
 
-/**
- * Calculates live progress for a quest based on today's session data.
- * Returns { current, target, suffix? } where suffix is '%' for accuracy quests.
- * Binary / social quests that can't be auto-tracked return { current: 0, target: 1 }.
- */
-function getQuestProgress(text, sessions) {
-  const today     = new Date().toDateString()
-  const todaySets = sessions
-    .filter(s => new Date(s.date).toDateString() === today)
-    .flatMap(s => s.sets)
-  const todayShots = todaySets.length * 10
-
-  // "Log N Total Shots Today" / "Log N Wrist Shots Today" / "Log N Shots Before Dinner"
-  if (/Log (\d+)/i.test(text)) {
-    const target = parseInt(text.match(/\d+/)[0])
-    return { current: todayShots, target }
-  }
-
-  // "Hit N% Accuracy in a Session"
-  if (/Hit (\d+)%/i.test(text)) {
-    const target   = parseInt(text.match(/\d+/)[0])
-    const bestAcc  = sessions
-      .filter(s => new Date(s.date).toDateString() === today)
-      .reduce((best, s) => {
-        const shots = s.sets.length * 10
-        if (!shots) return best
-        return Math.max(best, Math.round(s.sets.reduce((a, x) => a + x.hits, 0) / shots * 100))
-      }, 0)
-    return { current: bestAcc, target, suffix: '%' }
-  }
-
-  // "Nail a Perfect 10/10 Set"
-  if (/Perfect 10/i.test(text)) {
-    return { current: todaySets.some(s => s.hits === 10) ? 1 : 0, target: 1 }
-  }
-
-  // "Score 8+ Hits in Any Zone"
-  if (/8\+ Hits/i.test(text)) {
-    const best = todaySets.reduce((max, s) => Math.max(max, s.hits), 0)
-    return { current: best, target: 8 }
-  }
-
-  // Social / binary quests — can't auto-track without peerChallenges/puckGames data
-  return { current: 0, target: 1 }
-}
+// Thin wrapper — delegates to the shared helper so display and reward logic
+// always use the same computation.
+const getQuestProgress = (text, sessions) => computeQuestProgress(text, sessions)
 
 // ── Quest row ─────────────────────────────────────────────────────────────────
 function QuestRow({ quest, progress, isSpinning, shuffleText, onNavigate }) {
@@ -117,8 +83,10 @@ function QuestRow({ quest, progress, isSpinning, shuffleText, onNavigate }) {
   const label       = isSpinning ? shuffleText : quest.text
   const tabTarget   = questTab(label)
   const isPlaceholder = quest.reward === '?'
-  const isDone      = !isPlaceholder && progress ? progress.current >= progress.target : false
-  const sfx         = progress?.suffix || ''
+  // quest.completed is the authoritative stored state; progress is the live computed value.
+  // Either being true is enough to show the completed UI.
+  const isDone = quest.completed || (!isPlaceholder && progress ? progress.current >= progress.target : false)
+  const sfx    = progress?.suffix || quest.suffix || ''
 
   return (
     <div
