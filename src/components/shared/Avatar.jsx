@@ -1,43 +1,24 @@
-// Circular player avatar — shows photoURL image or first-initial fallback.
-export default function Avatar({ player, size = 28, style = {}, className = '', glowActive = false }) {
-  const initial  = player?.name?.[0]?.toUpperCase() ?? '?'
-  const fontSize = Math.round(size * 0.42)
-  const glowClass = glowActive ? ' neon-border-glow' : ''
+const DEFAULT_PFP = '/default-profile-pic.png'
 
-  if (player?.photoURL) {
-    return (
-      <img
-        src={player.photoURL}
-        alt={player?.name ?? ''}
-        className={className + glowClass}
-        style={{
-          width: size, height: size,
-          borderRadius: '50%',
-          objectFit: 'cover',
-          flexShrink: 0,
-          ...style,
-        }}
-      />
-    )
-  }
+// Circular player avatar.
+// Shows a custom photoURL only when canChangePfp is true and a URL is set.
+// All other cases fall back to the shared default-profile-pic silhouette.
+export default function Avatar({ player, size = 28, style = {}, className = '', glowActive = false }) {
+  const glowClass = glowActive ? ' neon-border-glow' : ''
+  const src = (player?.canChangePfp && player?.photoURL) ? player.photoURL : DEFAULT_PFP
 
   return (
-    <div
+    <img
+      src={src}
+      alt={player?.name ?? ''}
       className={className + glowClass}
       style={{
         width: size, height: size,
         borderRadius: '50%',
-        background: '#1e3a5f',
-        border: '1px solid #3b82f644',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        objectFit: 'cover',
         flexShrink: 0,
-        fontFamily: "'Bangers',sans-serif",
-        fontSize,
-        color: '#60a5fa',
         ...style,
       }}
-    >
-      {initial}
-    </div>
+    />
   )
 }

@@ -126,11 +126,12 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onClo
                 title="Unlock Custom PFP in the Store for 50 💎"
                 style={{
                   position: 'absolute', bottom: 0, right: 0,
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: '#1e293b', border: '2px solid #334155',
+                  width: 30, height: 30, borderRadius: '50%',
+                  background: 'linear-gradient(135deg,#1e293b,#0f172a)',
+                  border: '2px solid #475569',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, cursor: 'default',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.5)',
+                  fontSize: 14, cursor: 'default',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
                 }}
               >
                 🔒
@@ -151,8 +152,17 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onClo
 
           <div style={{ textAlign: 'center' }}>
             {!player.canChangePfp && (
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: '0.12em', marginBottom: 4 }}>
-                🔒 UNLOCK CUSTOM PFP IN THE STORE (50 💎)
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: 'rgba(15,23,42,0.85)',
+                border: '1px solid #334155',
+                borderRadius: 24, padding: '5px 14px',
+                marginBottom: 8,
+                fontFamily: "'Barlow Condensed',sans-serif",
+                fontSize: 10, fontWeight: 800,
+                color: '#94a3b8', letterSpacing: '0.12em',
+              }}>
+                🔓 UNLOCK CUSTOM PFPs IN THE STORE
               </div>
             )}
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.05em', color: '#f1f5f9', lineHeight: 1.1 }}>

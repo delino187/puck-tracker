@@ -43,13 +43,13 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
           title="Manage your profile"
           style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 }}
         >
-          {player.photoURL ? (
-            <Avatar player={player} size={40} className={getStreakAuraClass(stats.streak || 0)} glowActive={!!player.hasBorderGlow} style={{ borderRadius: '50%' }} />
-          ) : (
-            <div className={`${getStreakAuraClass(stats.streak || 0)}${player.hasBorderGlow ? ' neon-border-glow' : ''}`} style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: cur.bg }}>
-              <img src={cur.img} alt={cur.name} className="rounded-full object-cover" style={{ width: '100%', height: '100%', transform: 'scale(1.1)' }} />
-            </div>
-          )}
+          <Avatar
+            player={player}
+            size={40}
+            className={getStreakAuraClass(stats.streak || 0)}
+            glowActive={!!player.hasBorderGlow}
+            style={{ borderRadius: '50%' }}
+          />
         </button>
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
