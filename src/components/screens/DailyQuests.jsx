@@ -307,12 +307,13 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
   const intervalRef  = useRef(null)
   const spinAudioRef = useRef(null)
   const bgMusicRef   = useRef(null)
+  const [musicMuted, setMusicMuted] = useState(false)
 
   // ── Quest tab background music — play on mount, stop & reset on unmount ──
   useEffect(() => {
     const audio = new Audio('/audio/quest-tab-music.mp3')
     audio.loop   = true
-    audio.volume = 0.25
+    audio.volume = 0.75
     bgMusicRef.current = audio
     audio.play().catch(() => {})   // silently ignore autoplay block
     return () => {
@@ -321,6 +322,11 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
       bgMusicRef.current = null
     }
   }, [])   // empty deps — fires exactly on tab enter / tab leave
+
+  // Keep audio muted state in sync with the toggle
+  useEffect(() => {
+    if (bgMusicRef.current) bgMusicRef.current.volume = musicMuted ? 0 : 0.75
+  }, [musicMuted])
 
   // Sync completed/claimed flags written by the session-end path back into
   // local display state without triggering during the spin animation.
@@ -435,6 +441,27 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
         @keyframes shimmer      { 0%,100%{ opacity:1 } 50%{ opacity:0.6 } }
         @keyframes diamondPulse { 0%,100%{ opacity:1; transform:scale(1) } 50%{ opacity:0.7; transform:scale(1.14) } }
       `}</style>
+
+      {/* ── Music mute toggle ────────────────────────────────────────────────── */}
+      <button
+        onClick={() => setMusicMuted(m => !m)}
+        title={musicMuted ? 'Unmute quest music' : 'Mute quest music'}
+        style={{
+          position: 'absolute', top: 16, right: 16, zIndex: 10,
+          background: musicMuted ? 'rgba(15,23,42,0.7)' : 'rgba(251,191,36,0.15)',
+          border: `1px solid ${musicMuted ? '#334155' : '#fbbf2455'}`,
+          borderRadius: 8, padding: '5px 8px',
+          cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 4,
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9,
+          fontWeight: 800, letterSpacing: '0.1em',
+          color: musicMuted ? '#475569' : '#fbbf24',
+          transition: 'all 0.15s',
+        }}
+      >
+        {musicMuted ? '🔇' : '🎵'}
+        <span>{musicMuted ? 'OFF' : 'ON'}</span>
+      </button>
 
       {/* ── Diamond burst particles ────────────────────────────────────────── */}
       {burst && (
