@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { AlertCircle, Plus, Lock } from 'lucide-react'
 
 import { loadSt, saveSt, DEFAULT_STATE } from './utils/storage.js'
-import { playerStats, newId }            from './utils/stats.js'
+import { playerStats, newId, getWeekStart } from './utils/stats.js'
 import { BADGES }                        from './constants/badges.js'
 import { useAudio }                      from './hooks/useAudio.js'
 import { useTheme }                      from './hooks/useTheme.js'
@@ -722,16 +722,23 @@ export default function App() {
                 upd({
                   players: st.players.map(p =>
                     p.id === aPlayer.id
-                      ? {
-                          ...p,
-                          diamonds:     (p.diamonds || 0) + (quest.reward || 0),
-                          daily_quests: quests.map((q, i) =>
-                            i === questIndex ? { ...q, claimed: true } : q
-                          ),
-                        }
+                      ? { ...p, diamonds: (p.diamonds || 0) + (quest.reward || 0), daily_quests: quests.map((q, i) => i === questIndex ? { ...q, claimed: true } : q) }
                       : p
                   ),
                 })
+              }}
+              onInitWeeklyQuests={(newQuests) => {
+                upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, weekly_quests: newQuests, last_weekly_quest_pick: getWeekStart().toDateString() } : p) })
+              }}
+              onClaimWeeklyQuest={(questIndex, reward) => {
+                const quests = aPlayer.weekly_quests || []
+                upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: (p.diamonds || 0) + reward, weekly_quests: quests.map((q, i) => i === questIndex ? { ...q, claimed: true, completed: true } : q) } : p) })
+              }}
+              onWeeklySpinComplete={(prize) => {
+                const updates = { lastWeeklySpin: new Date().toISOString() }
+                if (prize.diamonds) updates.diamonds = (aPlayer.diamonds || 0) + prize.diamonds
+                if (prize.eloShield && !aPlayer.hasEloShield) updates.hasEloShield = true
+                upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, ...updates } : p) })
               }}
             />
           )}

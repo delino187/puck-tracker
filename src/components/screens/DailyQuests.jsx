@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { computeQuestProgress, parseQuestTarget, parseQuestSuffix } from '../../utils/questHelpers.js'
 import { playCashRegister } from '../../utils/arcadeSounds.js'
+import { getWeekStart } from '../../utils/stats.js'
 
 // ── Quest pool — strictly achievable within 24 hours ─────────────────────────
 const QUEST_POOL = {
@@ -25,6 +26,165 @@ const QUEST_POOL = {
     { text: 'Accept an Incoming Challenge',    tier: 'common',    reward: 10,  icon: '🤝' },
     { text: 'Beat a Friend at P-U-C-K Today', tier: 'legendary', reward: 150, icon: '🏆' },
   ],
+}
+
+// ── Weekly quest pool — high-volume multi-session challenges ─────────────────
+const WEEKLY_QUEST_POOL = [
+  { id: 'wq1', text: 'Log 500 Total Shots in Target Practice this Week',    reward: 250, icon: '🏒' },
+  { id: 'wq2', text: 'Log 300 Total Shots in Target Practice this Week',    reward: 150, icon: '🏒' },
+  { id: 'wq3', text: 'Complete 7 Training Sessions this Week',              reward: 125, icon: '📅' },
+  { id: 'wq4', text: 'Complete 5 Training Sessions this Week',              reward: 75,  icon: '📅' },
+  { id: 'wq5', text: 'Hit 75% Accuracy across 3 Sessions this Week',        reward: 175, icon: '📊' },
+  { id: 'wq6', text: 'Hit 85% Accuracy across 5 Sessions this Week',        reward: 250, icon: '🔥' },
+  { id: 'wq7', text: 'Log 200 Shots in a Single Day this Week',             reward: 200, icon: '💥' },
+  { id: 'wq8', text: 'Log 50 Sets in Target Practice this Week',            reward: 100, icon: '🎯' },
+  { id: 'wq9', text: 'Hit 80% Accuracy across 5 Sessions this Week',        reward: 200, icon: '🔥' },
+]
+
+// ── Prize wheel segments ──────────────────────────────────────────────────────
+const WHEEL_PRIZES = [
+  { label: '50 💎',       diamonds: 50,  color: '#22c55e' },
+  { label: '100 💎',      diamonds: 100, color: '#3b82f6' },
+  { label: '75 💎',       diamonds: 75,  color: '#10b981' },
+  { label: '150 💎',      diamonds: 150, color: '#a855f7' },
+  { label: '50 💎',       diamonds: 50,  color: '#22c55e' },
+  { label: '200 💎',      diamonds: 200, color: '#f59e0b' },
+  { label: '100 💎',      diamonds: 100, color: '#3b82f6' },
+  { label: '🛡️ SHIELD!',  eloShield: true, color: '#06b6d4' },
+]
+
+function pickWeeklyQuests() {
+  const shuffled = [...WEEKLY_QUEST_POOL].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, 3).map(q => ({ ...q, currentProgress: 0, completed: false, claimed: false }))
+}
+
+function computeWeeklyQuestProgress(text, sessions, playerId) {
+  const ws           = getWeekStart()
+  const weekSessions = sessions.filter(s => s.playerId === playerId && new Date(s.date) >= ws)
+  const weekSets     = weekSessions.flatMap(s => s.sets)
+  const weekShots    = weekSets.length * 10
+
+  if (/Log (\d+) Total Shots/i.test(text)) {
+    const target = parseInt(text.match(/\d+/)[0])
+    return { current: Math.min(weekShots, target), target }
+  }
+  const accAcross = text.match(/Hit (\d+)% Accuracy across (\d+) Sessions/i)
+  if (accAcross) {
+    const minAcc = parseInt(accAcross[1]), target = parseInt(accAcross[2])
+    const current = weekSessions.filter(s => {
+      const shots = s.sets.length * 10
+      if (!shots) return false
+      return s.sets.reduce((a, x) => a + x.hits, 0) / shots * 100 >= minAcc
+    }).length
+    return { current: Math.min(current, target), target }
+  }
+  const sessMatch = text.match(/Complete (\d+) Training Sessions/i)
+  if (sessMatch) { const t = parseInt(sessMatch[1]); return { current: Math.min(weekSessions.length, t), target: t } }
+  const setsMatch = text.match(/Log (\d+) Sets/i)
+  if (setsMatch) { const t = parseInt(setsMatch[1]); return { current: Math.min(weekSets.length, t), target: t } }
+  const dayMatch  = text.match(/Log (\d+) Shots in a Single Day/i)
+  if (dayMatch) {
+    const target = parseInt(dayMatch[1])
+    const byDay  = {}
+    weekSessions.forEach(s => { const d = new Date(s.date).toDateString(); byDay[d] = (byDay[d] || 0) + s.sets.length * 10 })
+    const best = Math.max(0, ...Object.values(byDay))
+    return { current: Math.min(best, target), target }
+  }
+  return { current: 0, target: 1 }
+}
+
+function timeUntilWeekReset() {
+  const next = new Date(getWeekStart()); next.setDate(next.getDate() + 7)
+  const diff = next - Date.now()
+  if (diff <= 0) return { days: 0, hours: 0 }
+  return { days: Math.floor(diff / 86400000), hours: Math.floor((diff % 86400000) / 3600000) }
+}
+
+// ── Prize wheel modal sub-component ─────────────────────────────────────────
+function WheelModal({ onResult, onClose }) {
+  const [angle,    setAngle]    = useState(0)
+  const [spinning, setSpinning] = useState(false)
+  const [result,   setResult]   = useState(null)
+  const N       = WHEEL_PRIZES.length
+  const segSize = 360 / N
+
+  function spin() {
+    if (spinning || result) return
+    const idx        = Math.floor(Math.random() * N)
+    const finalAngle = -(5 * 360 + idx * segSize + segSize / 2)
+    setAngle(finalAngle)
+    setSpinning(true)
+    setTimeout(() => { setSpinning(false); setResult(WHEEL_PRIZES[idx]) }, 4500)
+  }
+
+  const conicGrad = WHEEL_PRIZES.map((p, i) =>
+    `${p.color} ${i * segSize}deg ${(i + 1) * segSize}deg`
+  ).join(', ')
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px' }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ background: 'linear-gradient(180deg,#1a0a2a,#2d1050)', border: '4px solid #fbbf24', borderRadius: 26, padding: '28px 20px 24px', textAlign: 'center', maxWidth: 340, width: '100%', boxShadow: '0 0 70px #fbbf2444' }}
+      >
+        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 28, letterSpacing: '0.1em', color: '#fbbf24', textShadow: '2px 2px 0 #78350f', marginBottom: 6 }}>
+          🎰 WEEKLY BONUS SPIN
+        </div>
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#a78bfa', letterSpacing: '0.12em', marginBottom: 18 }}>
+          ONE SPIN PER WEEK — WIN BIG PRIZES
+        </div>
+
+        {/* Wheel */}
+        <div style={{ position: 'relative', width: 220, height: 220, margin: '0 auto 16px' }}>
+          {/* Pointer */}
+          <div style={{ position: 'absolute', top: -14, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '11px solid transparent', borderRight: '11px solid transparent', borderTop: '22px solid #fbbf24', zIndex: 10, filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} />
+          {/* Rotating wheel */}
+          <div style={{ width: 220, height: 220, borderRadius: '50%', background: `conic-gradient(from 0deg, ${conicGrad})`, transform: `rotate(${angle}deg)`, transition: spinning ? 'transform 4.5s cubic-bezier(0.15, 0.85, 0.2, 1)' : 'none', border: '4px solid #fbbf24', boxShadow: '0 0 30px #fbbf2444, inset 0 0 20px rgba(0,0,0,0.3)' }} />
+          {/* Center hub */}
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 46, height: 46, borderRadius: '50%', background: 'linear-gradient(135deg,#1e293b,#0f172a)', border: '3px solid #fbbf24', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 9, color: '#fbbf24', letterSpacing: '0.06em' }}>
+            SPIN
+          </div>
+        </div>
+
+        {/* Prize legend */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginBottom: 18 }}>
+          {WHEEL_PRIZES.filter((p, i, a) => a.findIndex(x => x.label === p.label) === i).map(p => (
+            <span key={p.label} style={{ background: p.color, color: '#fff', borderRadius: 10, padding: '2px 8px', fontFamily: "'Bangers',sans-serif", fontSize: 12, letterSpacing: '0.05em' }}>{p.label}</span>
+          ))}
+        </div>
+
+        {/* Result reveal */}
+        {result && !spinning && (
+          <div style={{ background: 'rgba(251,191,36,0.1)', border: '2px solid #fbbf24', borderRadius: 14, padding: '10px 14px', marginBottom: 14 }}>
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 24, color: '#fbbf24', letterSpacing: '0.08em' }}>
+              🎉 YOU WON: {result.label}
+            </div>
+          </div>
+        )}
+
+        {/* Action button */}
+        {!result ? (
+          <button
+            onClick={spin}
+            disabled={spinning}
+            style={{ width: '100%', padding: '14px', background: spinning ? '#374151' : 'linear-gradient(180deg,#fbbf24,#d97706)', border: spinning ? '2px solid #4b5563' : '3px solid #92400e', borderRadius: 28, fontFamily: "'Bangers',sans-serif", fontSize: 22, color: spinning ? '#9ca3af' : '#1a0a00', cursor: spinning ? 'not-allowed' : 'pointer', boxShadow: spinning ? 'none' : '0 4px 0 #92400e, 0 0 20px #fbbf2455' }}
+          >
+            {spinning ? '🌀 SPINNING...' : '🎰 SPIN NOW!'}
+          </button>
+        ) : (
+          <button
+            onClick={() => { onResult(result); onClose() }}
+            style={{ width: '100%', padding: '14px', background: 'linear-gradient(180deg,#4ade80,#16a34a)', border: '3px solid #15803d', borderRadius: 28, fontFamily: "'Bangers',sans-serif", fontSize: 22, color: '#fff', cursor: 'pointer', boxShadow: '0 4px 0 #15803d, 0 0 20px #4ade8055' }}
+          >
+            CLAIM IT! 🎉
+          </button>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // Fast dummy text for the shuffle blur — gives the slot-machine feel
@@ -294,17 +454,25 @@ function StadiumLever({ disabled, onSpin, isSpinning }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function DailyQuests({ player, sessions = [], onNavigate, onDiamondEarn, onSpinComplete, onClaimQuest }) {
+export default function DailyQuests({
+  player, sessions = [], onNavigate, onDiamondEarn, onSpinComplete, onClaimQuest,
+  onClaimWeeklyQuest, onWeeklySpinComplete, onInitWeeklyQuests,
+}) {
   const [spinning,      setSpinning]      = useState(false)
   const [currentQuests, setCurrentQuests] = useState(
     player.daily_quests?.length ? player.daily_quests : []
   )
   const [shuffleTexts, setShuffleTexts] = useState(['','',''])
-  const [burst,        setBurst]        = useState(null)   // diamond particle array
+  const [burst,        setBurst]        = useState(null)
+
+  // ── Weekly quest state ────────────────────────────────────────────────────
+  const [weeklyQuests,   setWeeklyQuests]   = useState(player.weekly_quests || [])
+  const [showWheelModal, setShowWheelModal] = useState(false)
+
   const intervalRef  = useRef(null)
   const spinAudioRef = useRef(null)
   const bgMusicRef   = useRef(null)
-  const mutedRef     = useRef(false)          // ref so closure callbacks see latest value
+  const mutedRef     = useRef(false)
   const [musicMuted, setMusicMuted] = useState(false)
 
   // ── Quest tab background music ────────────────────────────────────────────
@@ -366,6 +534,24 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
     setCurrentQuests(player.daily_quests)
   }, [questStateKey]) // eslint-disable-line
 
+  // ── Auto-init weekly quests on new week ────────────────────────────────────
+  useEffect(() => {
+    const weekStart = getWeekStart().toDateString()
+    if (player.last_weekly_quest_pick !== weekStart) {
+      const newQ = pickWeeklyQuests()
+      setWeeklyQuests(newQ)
+      onInitWeeklyQuests?.(newQ)
+    }
+  }, []) // eslint-disable-line
+
+  // Sync weekly quests from parent (e.g. after claim persisted to Firestore)
+  const weeklyQuestStateKey = (player.weekly_quests || [])
+    .map(q => `${q.completed ? 1 : 0}${q.claimed ? 1 : 0}`)
+    .join(',')
+  useEffect(() => {
+    if (player.weekly_quests?.length) setWeeklyQuests(player.weekly_quests)
+  }, [weeklyQuestStateKey]) // eslint-disable-line
+
   function fireBurst(rect) {
     const cx = rect.left + rect.width / 2
     const cy = rect.top  + rect.height / 2
@@ -402,9 +588,27 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
     onClaimQuest?.(questIndex)
   }
 
-  const today         = new Date().toDateString()
-  const spinAvailable = player.last_quest_spin !== today
-  const { h, m }      = timeUntilReset()
+  function handleClaimWeekly(questIndex, rect) {
+    const quest = displayWeeklyQuests[questIndex]
+    if (!quest?.completed || quest.claimed) return
+    setWeeklyQuests(prev => prev.map((q, i) => i === questIndex ? { ...q, claimed: true } : q))
+    playCashRegister()
+    fireBurst(rect)
+    onClaimWeeklyQuest?.(questIndex, quest.reward)
+  }
+
+  const today              = new Date().toDateString()
+  const spinAvailable      = player.last_quest_spin !== today
+  const { h, m }           = timeUntilReset()
+  const weeklySpinAvailable = !player.lastWeeklySpin || new Date(player.lastWeeklySpin) < getWeekStart()
+  const { days: wDays, hours: wHours } = timeUntilWeekReset()
+
+  // Compute live weekly progress from sessions (pure, recalculated each render)
+  const displayWeeklyQuests = weeklyQuests.map(q => {
+    if (q.claimed) return q
+    const prog = computeWeeklyQuestProgress(q.text, sessions, player.id)
+    return { ...q, currentProgress: prog.current, targetProgress: prog.target, completed: prog.current >= prog.target }
+  })
 
   function handleSpin() {
     if (!spinAvailable || spinning) return
@@ -612,6 +816,158 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
           </button>
         </div>
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          WEEKLY QUESTS
+      ══════════════════════════════════════════════════════════════════ */}
+
+      {/* Prize wheel modal */}
+      {showWheelModal && (
+        <WheelModal
+          onResult={prize => {
+            fireBurst({ left: window.innerWidth / 2 - 50, top: window.innerHeight / 2 - 80, width: 100, height: 10 })
+            playCashRegister()
+            onWeeklySpinComplete?.(prize)
+          }}
+          onClose={() => setShowWheelModal(false)}
+        />
+      )}
+
+      {/* Section header */}
+      <div style={{ marginTop: 28, marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.08em', color: '#f1f5f9', lineHeight: 1 }}>
+            WEEKLY QUESTS 📆
+          </div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#22d3ee', letterSpacing: '0.14em', marginTop: 3 }}>
+            RESETS IN: {wDays}d {wHours}h
+          </div>
+        </div>
+      </div>
+
+      {/* Weekly Bonus Spin card */}
+      <div style={{
+        background: weeklySpinAvailable
+          ? 'linear-gradient(135deg,#2d1050,#1a0a2a)'
+          : 'rgba(15,23,42,0.6)',
+        border: `2px solid ${weeklySpinAvailable ? '#a855f7' : '#1e293b'}`,
+        borderRadius: 16, padding: '14px 16px', marginBottom: 14,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+        boxShadow: weeklySpinAvailable ? '0 0 24px #a855f733' : 'none',
+      }}>
+        <div>
+          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: weeklySpinAvailable ? '#e879f9' : '#475569', letterSpacing: '0.07em', lineHeight: 1 }}>
+            🎰 WEEKLY BONUS SPIN
+          </div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: weeklySpinAvailable ? '#d8b4fe' : '#334155', letterSpacing: '0.08em', marginTop: 3 }}>
+            {weeklySpinAvailable ? 'Win 50–200 💎 or an ELO Shield!' : '🔒 SPUN THIS WEEK'}
+          </div>
+        </div>
+        <button
+          disabled={!weeklySpinAvailable}
+          onClick={() => weeklySpinAvailable && setShowWheelModal(true)}
+          style={{
+            flexShrink: 0,
+            background: weeklySpinAvailable ? 'linear-gradient(135deg,#7c3aed,#a855f7)' : '#1e293b',
+            border: weeklySpinAvailable ? 'none' : '1px solid #334155',
+            borderRadius: 12, padding: '8px 14px',
+            fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.06em',
+            color: weeklySpinAvailable ? '#fff' : '#475569',
+            cursor: weeklySpinAvailable ? 'pointer' : 'not-allowed',
+            boxShadow: weeklySpinAvailable ? '0 0 16px #a855f755' : 'none',
+          }}
+        >
+          {weeklySpinAvailable ? 'SPIN!' : '—'}
+        </button>
+      </div>
+
+      {/* Weekly quest rows */}
+      {displayWeeklyQuests.length === 0 ? (
+        <div style={{ background: 'var(--card-bg)', border: 'var(--card-border)', borderRadius: 12, padding: '20px', textAlign: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-muted)' }}>
+          Weekly quests loading…
+        </div>
+      ) : displayWeeklyQuests.map((quest, idx) => {
+        const pct = quest.targetProgress > 0
+          ? Math.min(100, Math.round((quest.currentProgress / quest.targetProgress) * 100))
+          : 0
+        const isClaimable = quest.completed && !quest.claimed
+
+        return (
+          <div
+            key={quest.id || idx}
+            style={{
+              background: quest.claimed
+                ? 'rgba(15,23,42,0.4)'
+                : isClaimable
+                  ? 'linear-gradient(135deg,#1a2e1a,#0d1f0d)'
+                  : 'var(--card-bg)',
+              border: quest.claimed
+                ? '1px solid #1e293b'
+                : isClaimable
+                  ? '2px solid #22c55e'
+                  : '1px solid #334155',
+              borderRadius: 14, padding: '14px 16px', marginBottom: 10,
+              opacity: quest.claimed ? 0.55 : 1,
+              boxShadow: isClaimable ? '0 0 16px #22c55e22' : 'none',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 16 }}>{quest.icon || '📆'}</span>
+                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: quest.claimed ? '#475569' : 'var(--text-1)', lineHeight: 1.3 }}>
+                    {quest.text}
+                  </span>
+                </div>
+                {/* Progress fraction */}
+                {!quest.claimed && (
+                  <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: quest.completed ? '#4ade80' : '#22d3ee', letterSpacing: '0.04em', lineHeight: 1 }}>
+                    {quest.currentProgress ?? 0} / {quest.targetProgress ?? '?'}
+                  </div>
+                )}
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color: '#fbbf24', letterSpacing: '0.05em' }}>
+                  +{quest.reward} 💎
+                </div>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            {!quest.claimed && (
+              <div style={{ background: '#1e293b', borderRadius: 6, height: 6, overflow: 'hidden', marginBottom: 10 }}>
+                <div style={{
+                  height: '100%', borderRadius: 6,
+                  background: quest.completed
+                    ? 'linear-gradient(90deg,#22c55e,#4ade80)'
+                    : 'linear-gradient(90deg,#06b6d4,#22d3ee)',
+                  width: `${pct}%`,
+                  transition: 'width 0.4s ease',
+                }} />
+              </div>
+            )}
+
+            {/* Claim / status */}
+            {quest.claimed ? (
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#475569', letterSpacing: '0.1em' }}>
+                ✅ CLAIMED
+              </div>
+            ) : isClaimable ? (
+              <button
+                className="claim-pulse"
+                onClick={e => handleClaimWeekly(idx, e.currentTarget.getBoundingClientRect())}
+                style={{ width: '100%', padding: '8px', borderRadius: 10, fontFamily: "'Bangers',sans-serif", fontSize: 16, letterSpacing: '0.06em', color: '#fbbf24', cursor: 'pointer' }}
+              >
+                ✨ TAP TO CLAIM!
+              </button>
+            ) : (
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: '#475569', letterSpacing: '0.1em' }}>
+                {pct}% COMPLETE
+              </div>
+            )}
+          </div>
+        )
+      })}
 
     </div>
   )
