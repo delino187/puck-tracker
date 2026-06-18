@@ -98,302 +98,6 @@ function timeUntilWeekReset() {
   return { days: Math.floor(diff / 86400000), hours: Math.floor((diff % 86400000) / 3600000) }
 }
 
-// ── Weekly slot machine — inline reel cabinet with mechanical lever ──────────
-function WeeklySlotMachine({ weeklySpinAvailable, onWin }) {
-  const N = WHEEL_PRIZES.length
-  const [displayIdx,  setDisplayIdx]  = useState(0)
-  const [spinning,    setSpinning]    = useState(false)
-  const [winPrize,    setWinPrize]    = useState(null)
-  const [leverPulled, setLeverPulled] = useState(false)
-  const timerRef = useRef(null)
-  const reelRef  = useRef(null)
-
-  useEffect(() => () => clearTimeout(timerRef.current), [])
-
-  function handlePull() {
-    if (!weeklySpinAvailable || spinning) return
-    setLeverPulled(true)
-    setTimeout(() => setLeverPulled(false), 600)
-
-    const winIdx = Math.floor(Math.random() * N)
-    setSpinning(true)
-    setWinPrize(null)
-
-    let tick = 0
-    let idx  = 0
-    const FAST = 22, SLOW = 14, TOTAL = FAST + SLOW
-
-    function step() {
-      tick++
-      idx = (idx + 1) % N
-      setDisplayIdx(idx)
-
-      let delay
-      if (tick < FAST) {
-        delay = 58
-      } else if (tick < TOTAL) {
-        const t = (tick - FAST) / SLOW
-        delay = 58 + t * t * 310
-      } else {
-        setDisplayIdx(winIdx)
-        setSpinning(false)
-        const prize = WHEEL_PRIZES[winIdx]
-        setWinPrize(prize)
-        playCashRegister()
-        onWin?.(prize, reelRef.current?.getBoundingClientRect())
-        return
-      }
-      timerRef.current = setTimeout(step, delay)
-    }
-    timerRef.current = setTimeout(step, 58)
-  }
-
-  const item     = WHEEL_PRIZES[displayIdx]
-  const prevItem = WHEEL_PRIZES[(displayIdx - 1 + N) % N]
-  const nextItem = WHEEL_PRIZES[(displayIdx + 1) % N]
-  const isLocked = !weeklySpinAvailable
-  const canPull  = weeklySpinAvailable && !spinning
-
-  return (
-    <div style={{ position: 'relative', marginRight: 32, marginBottom: 14 }}>
-
-      {/* ── Mechanical lever ───────────────────────────────────────────────── */}
-      <div
-        onClick={handlePull}
-        title={isLocked ? 'Spun this week' : spinning ? 'Spinning…' : 'Pull to spin!'}
-        style={{
-          position: 'absolute', right: -32, top: '50%',
-          transform: 'translateY(-50%)', zIndex: 50,
-          cursor: canPull ? 'pointer' : 'not-allowed',
-          userSelect: 'none',
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-        }}
-      >
-        {/* Mount bracket */}
-        <div style={{
-          width: 20, height: 52,
-          background: isLocked
-            ? 'linear-gradient(90deg,#3a3a3a,#1e1e1e,#3a3a3a)'
-            : 'linear-gradient(90deg,#5a1a1a,#2e0a0a,#5a1a1a)',
-          borderRadius: 10,
-          border: `2px solid ${isLocked ? '#111' : '#3d0a0a'}`,
-          boxShadow: '0 2px 8px #0008',
-        }} />
-        {/* Arm + ball */}
-        <div style={{
-          width: 12, height: 72, marginTop: -12,
-          transformOrigin: 'top center',
-          transform: `rotate(${isLocked ? 36 : leverPulled ? 40 : 0}deg)`,
-          transition: 'transform 0.5s cubic-bezier(0.34,1.56,0.64,1)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center',
-        }}>
-          <div style={{
-            width: 8, height: 54,
-            background: isLocked
-              ? 'linear-gradient(90deg,#444,#222,#444)'
-              : 'linear-gradient(90deg,#cc2222,#880000,#cc2222)',
-            borderRadius: 4,
-            border: `1px solid ${isLocked ? '#1a1a1a' : '#5a0000'}`,
-          }} />
-          <div style={{
-            width: 32, height: 32, borderRadius: '50%',
-            background: isLocked
-              ? 'radial-gradient(circle at 32% 28%,#555,#333)'
-              : 'radial-gradient(circle at 32% 28%,#ff6060,#cc0000)',
-            border: isLocked ? '2px solid #222' : '2px solid #880000',
-            boxShadow: isLocked
-              ? '0 1px 4px #0006, inset -2px -2px 4px rgba(0,0,0,0.4)'
-              : '0 0 22px #ff000099, 0 0 44px #ff000055, inset -3px -3px 5px rgba(0,0,0,0.5)',
-            marginTop: -4, flexShrink: 0,
-            animation: canPull ? 'redBallPulse 1s ease-in-out infinite' : 'none',
-          }} />
-        </div>
-      </div>
-
-      {/* ── Cabinet shell ──────────────────────────────────────────────────── */}
-      <div style={{
-        background: isLocked
-          ? 'linear-gradient(180deg,#0d0d0d,#111,#0d0d0d)'
-          : 'linear-gradient(180deg,#180404,#2a0808,#180404)',
-        border: `4px solid ${isLocked ? '#374151' : '#ef4444'}`,
-        borderRadius: 20,
-        padding: '20px 18px 18px',
-        position: 'relative', overflow: 'hidden',
-        animation: canPull ? 'redNeonPulse 1.8s ease-in-out infinite' : 'none',
-        boxShadow: canPull
-          ? '0 0 32px #ef444444, inset 0 0 16px #ef444411'
-          : 'none',
-      }}>
-
-        {/* Corner orbs — only when available */}
-        {canPull && [{ left: 14 }, { right: 14, animationDelay: '0.75s' }].map((pos, i) => (
-          <div key={i} style={{
-            position: 'absolute', top: 10, ...pos,
-            width: 18, height: 18, borderRadius: '50%',
-            background: 'radial-gradient(circle,#fca5a5,#ef4444)',
-            boxShadow: '0 0 12px #ef4444, 0 0 28px #ef444466',
-            animation: 'shimmer 1.5s ease-in-out infinite',
-            animationDelay: pos.animationDelay || '0s',
-          }} />
-        ))}
-
-        {/* Header label */}
-        <div style={{
-          fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.09em',
-          color: isLocked ? '#4b5563' : '#fca5a5',
-          textAlign: 'center', lineHeight: 1, marginBottom: 6,
-          textShadow: isLocked ? 'none' : '0 0 18px #ef444466',
-        }}>
-          🎰 WEEKLY BONUS SPIN
-        </div>
-        <div style={{
-          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
-          letterSpacing: '0.16em', textAlign: 'center', marginBottom: 14,
-          color: isLocked ? '#374151' : '#ef4444',
-        }}>
-          {isLocked ? 'ONE SPIN PER WEEK' : 'WIN 50–200 💎 OR AN ELO SHIELD!'}
-        </div>
-
-        {/* ── Reel viewport ────────────────────────────────────────────────── */}
-        <div ref={reelRef} style={{
-          background: '#020202',
-          border: `3px solid ${isLocked ? '#1f2937' : '#ef4444'}`,
-          borderRadius: 10, height: 164, overflow: 'hidden',
-          position: 'relative',
-          boxShadow: isLocked
-            ? 'inset 0 0 14px #00000088'
-            : 'inset 0 0 20px #0a0000, 0 0 10px #ef444422',
-        }}>
-
-          {/* CRT scanlines */}
-          <div style={{
-            position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none',
-            background: 'repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.09) 3px,rgba(0,0,0,0.09) 4px)',
-          }} />
-
-          {/* Center-row selector bracket */}
-          <div style={{
-            position: 'absolute', left: 8, right: 8,
-            top: '50%', transform: 'translateY(-50%)',
-            height: 60, borderRadius: 6, zIndex: 11, pointerEvents: 'none',
-            border: `2px solid ${isLocked ? '#37415155' : '#ef444466'}`,
-            boxShadow: isLocked ? 'none' : '0 0 12px #ef444433',
-          }} />
-
-          {/* Reel column: prev | center | next */}
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-
-            {/* Top ghost */}
-            <div style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: spinning ? 0.12 : 0.28, filter: 'blur(2px)',
-              fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.06em',
-              color: isLocked ? '#374151' : prevItem.color, pointerEvents: 'none',
-            }}>
-              {prevItem.label}
-            </div>
-
-            {/* Center slot — key forces CSS animation on every tick */}
-            <div style={{
-              height: 60, flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              overflow: 'hidden',
-            }}>
-              <div
-                key={displayIdx}
-                style={{
-                  fontFamily: "'Bangers',sans-serif",
-                  fontSize: spinning ? 26 : 34,
-                  letterSpacing: '0.1em',
-                  color: isLocked ? '#374151' : item.color,
-                  textShadow: (!isLocked && !spinning)
-                    ? `0 0 24px ${item.color}99, 0 0 8px ${item.color}66`
-                    : 'none',
-                  animation: spinning
-                    ? 'reelSlideIn 0.07s ease-out'
-                    : winPrize ? 'winPrizePop 0.38s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
-                  transition: 'font-size 0.18s',
-                }}
-              >
-                {item.label}
-              </div>
-            </div>
-
-            {/* Bottom ghost */}
-            <div style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              opacity: spinning ? 0.12 : 0.28, filter: 'blur(2px)',
-              fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.06em',
-              color: isLocked ? '#374151' : nextItem.color, pointerEvents: 'none',
-            }}>
-              {nextItem.label}
-            </div>
-          </div>
-
-          {/* Locked overlay */}
-          {isLocked && (
-            <div style={{
-              position: 'absolute', inset: 0, zIndex: 20,
-              background: 'rgba(0,0,0,0.83)',
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', gap: 8,
-            }}>
-              <div style={{
-                background: 'linear-gradient(135deg,#7f1d1d,#991b1b)',
-                border: '2px solid #ef4444', borderRadius: 8,
-                padding: '9px 18px',
-                fontFamily: "'Bangers',sans-serif", fontSize: 17, letterSpacing: '0.1em',
-                color: '#fca5a5', textAlign: 'center',
-                boxShadow: '0 0 20px #ef444455',
-              }}>
-                🛡️ CABINET LOCKED
-              </div>
-              <div style={{
-                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
-                color: '#6b7280', letterSpacing: '0.14em',
-              }}>
-                SPUN THIS WEEK
-              </div>
-            </div>
-          )}
-
-          {/* Win radial glow */}
-          {winPrize && !spinning && (
-            <div style={{
-              position: 'absolute', inset: 0, zIndex: 12, pointerEvents: 'none',
-              background: `radial-gradient(circle at 50% 50%,${winPrize.color}33,transparent 72%)`,
-              animation: 'shimmer 1.2s ease-in-out infinite',
-            }} />
-          )}
-        </div>
-
-        {/* Win announcement */}
-        {winPrize && !spinning && (
-          <div style={{
-            marginTop: 12, textAlign: 'center',
-            fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.08em',
-            color: '#fbbf24', textShadow: '0 0 18px #fbbf2466',
-            animation: 'shimmer 1.2s ease-in-out infinite',
-          }}>
-            🎉 YOU WON: {winPrize.label}
-          </div>
-        )}
-
-        {/* Pull prompt — only when idle + available */}
-        {!winPrize && !spinning && canPull && (
-          <div style={{
-            marginTop: 10, textAlign: 'center',
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
-            color: '#ef4444', letterSpacing: '0.16em',
-            animation: 'shimmer 1s ease-in-out infinite',
-          }}>
-            ← PULL LEVER TO SPIN! 🚀
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 // Fast dummy text for the shuffle blur — gives the slot-machine feel
 const SHUFFLE_POOL = [
@@ -677,6 +381,16 @@ export default function DailyQuests({
   // ── Weekly quest state ────────────────────────────────────────────────────
   const [weeklyQuests, setWeeklyQuests] = useState(player.weekly_quests || [])
 
+  // ── Weekly slot machine state (inlined — renders inside the red cabinet) ──
+  const SLOT_N = WHEEL_PRIZES.length
+  const [slotIdx,         setSlotIdx]         = useState(0)
+  const [slotSpinning,    setSlotSpinning]    = useState(false)
+  const [slotWin,         setSlotWin]         = useState(null)
+  const [slotLeverPulled, setSlotLeverPulled] = useState(false)
+  const slotTimerRef = useRef(null)
+  const slotReelRef  = useRef(null)
+  useEffect(() => () => clearTimeout(slotTimerRef.current), []) // eslint-disable-line
+
   const intervalRef  = useRef(null)
   const spinAudioRef = useRef(null)
   const bgMusicRef   = useRef(null)
@@ -690,7 +404,7 @@ export default function DailyQuests({
   // unmount: listener removed, track paused, timeline reset.
   useEffect(() => {
     const audio = new Audio(questMusicUrl)
-    audio.loop   = true
+    audio.loop   = false
     audio.volume = 0.25
     bgMusicRef.current = audio
 
@@ -802,6 +516,33 @@ export default function DailyQuests({
     onClaimWeeklyQuest?.(questIndex, quest.reward)
   }
 
+  function handleWeeklyPull() {
+    if (!weeklySpinAvailable || slotSpinning) return
+    setSlotLeverPulled(true)
+    setTimeout(() => setSlotLeverPulled(false), 600)
+    const winIdx = Math.floor(Math.random() * SLOT_N)
+    setSlotSpinning(true)
+    setSlotWin(null)
+    let tick = 0, idx = 0
+    const FAST = 22, SLOW = 14, TOTAL = FAST + SLOW
+    function step() {
+      tick++; idx = (idx + 1) % SLOT_N; setSlotIdx(idx)
+      let delay
+      if (tick < FAST) { delay = 58 }
+      else if (tick < TOTAL) { const t = (tick - FAST) / SLOW; delay = 58 + t * t * 310 }
+      else {
+        setSlotIdx(winIdx); setSlotSpinning(false)
+        const prize = WHEEL_PRIZES[winIdx]; setSlotWin(prize)
+        playCashRegister()
+        if (slotReelRef.current) fireBurst(slotReelRef.current.getBoundingClientRect())
+        onWeeklySpinComplete?.(prize)
+        return
+      }
+      slotTimerRef.current = setTimeout(step, delay)
+    }
+    slotTimerRef.current = setTimeout(step, 58)
+  }
+
   const today              = new Date().toDateString()
   const spinAvailable      = player.last_quest_spin !== today
   const { h, m }           = timeUntilReset()
@@ -814,7 +555,12 @@ export default function DailyQuests({
     const prog = computeWeeklyQuestProgress(q.text, sessions, player.id)
     return { ...q, currentProgress: prog.current, targetProgress: prog.target, completed: prog.current >= prog.target }
   })
-  const allWeeklyClaimed = displayWeeklyQuests.length > 0 && displayWeeklyQuests.every(q => q.claimed)
+  const allWeeklyClaimed  = displayWeeklyQuests.length > 0 && displayWeeklyQuests.every(q => q.claimed)
+  const isWeeklyLocked    = !weeklySpinAvailable
+  const slotCanPull       = weeklySpinAvailable && !slotSpinning
+  const slotItem          = WHEEL_PRIZES[slotIdx]
+  const slotPrevItem      = WHEEL_PRIZES[(slotIdx - 1 + SLOT_N) % SLOT_N]
+  const slotNextItem      = WHEEL_PRIZES[(slotIdx + 1) % SLOT_N]
 
   function handleSpin() {
     if (!spinAvailable || spinning) return
@@ -1038,95 +784,257 @@ export default function DailyQuests({
         <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg,transparent,#ef4444,transparent)' }} />
       </div>
 
-      {/* ── Weekly Bonus Spin slot machine — above the main quest card ─── */}
-      <WeeklySlotMachine
-        weeklySpinAvailable={weeklySpinAvailable}
-        onWin={(prize, rect) => {
-          if (rect) fireBurst(rect)
-          onWeeklySpinComplete?.(prize)
-        }}
-      />
+      {/* ── Single unified red cabinet — lever on right edge, slot inside ── */}
+      <div style={{ position: 'relative', marginRight: 32 }}>
 
-      {/* ── Main weekly quests cabinet — mirrors Daily Quests card exactly ── */}
-      <div style={{
-        background: 'linear-gradient(135deg,#0a0508,#1a0a10)',
-        border: '4px solid #ef4444', borderRadius: 20,
-        padding: '32px 18px 20px', marginBottom: 20,
-        boxShadow: '0 0 40px #ef444444, inset 0 0 20px #ef444411',
-        position: 'relative', overflow: 'visible',
-      }}>
-
-        {/* Red corner orbs — identical placement to Daily gold orbs */}
-        {[{ left: 14 }, { right: 14, animationDelay: '0.75s' }].map((pos, i) => (
-          <div key={i} style={{
-            position: 'absolute', top: 10, ...pos,
-            width: 22, height: 22, borderRadius: '50%',
-            background: 'radial-gradient(circle,#fca5a5,#ef4444)',
-            boxShadow: '0 0 18px #ef4444, 0 0 40px #ef444466',
-            animation: 'shimmer 1.5s ease-in-out infinite',
-            animationDelay: pos.animationDelay || '0s',
-          }} />
-        ))}
-
-        {/* Title — identical Bangers/size/color as DAILY QUESTS */}
-        <div style={{
-          fontFamily: "'Bangers',sans-serif", fontSize: 42, color: '#fbbf24',
-          textAlign: 'center', letterSpacing: '0.08em',
-          textShadow: '0 0 30px #fbbf2466, 0 2px 0 #7a5a00',
-          marginBottom: 10, lineHeight: 1,
-        }}>
-          WEEKLY QUESTS 📆
-        </div>
-
-        {/* Reset countdown — red pill matching Daily's gold pill */}
-        <div style={{
-          background: '#140203', border: '2px solid #ef4444',
-          borderRadius: 20, padding: '8px 16px',
-          textAlign: 'center', marginBottom: 18,
-          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12,
-          fontWeight: 700, color: '#fca5a5', letterSpacing: '0.14em',
-        }}>
-          🗓️ RESETS IN: {wDays} DAYS {wHours} HOURS
-        </div>
-
-        {/* Quest rows — reuse QuestRow for full visual/font parity with Daily */}
-        {displayWeeklyQuests.length === 0 ? (
-          <div style={{ textAlign: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#475569', padding: '20px 0' }}>
-            Weekly quests loading…
-          </div>
-        ) : displayWeeklyQuests.map((quest, idx) => (
-          <QuestRow
-            key={quest.id || idx}
-            quest={quest}
-            progress={{ current: quest.currentProgress ?? 0, target: quest.targetProgress ?? 1 }}
-            isSpinning={false}
-            shuffleText=""
-            onNavigate={onNavigate}
-            onClaim={rect => handleClaimWeekly(idx, rect)}
-          />
-        ))}
-
-        {/* Footer locked bar — mirrors Daily's bottom button in red */}
-        <button
-          disabled
+        {/* ── Mechanical lever — mirrors Daily's gold lever, in red ──────── */}
+        <div
+          onClick={handleWeeklyPull}
+          title={isWeeklyLocked ? 'Spun this week' : slotSpinning ? 'Spinning…' : 'Pull to spin!'}
           style={{
-            width: '100%',
-            background: allWeeklyClaimed
-              ? 'linear-gradient(135deg,#14532d,#166534)'
-              : '#1e0a0a',
-            color:  allWeeklyClaimed ? '#4ade80' : '#6b2020',
-            border: allWeeklyClaimed ? '2px solid #22c55e' : '2px solid #3d1010',
-            borderRadius: 12, padding: '14px',
-            fontFamily: "'Bangers',sans-serif", fontSize: 20, fontWeight: 700,
-            letterSpacing: '0.08em', cursor: 'not-allowed',
-            boxShadow: allWeeklyClaimed ? '0 0 16px #22c55e44' : 'none',
-            transition: 'all 0.3s',
+            position: 'absolute', right: -32, top: '50%',
+            transform: 'translateY(-50%)', zIndex: 50,
+            cursor: slotCanPull ? 'pointer' : 'not-allowed',
+            userSelect: 'none',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
           }}
         >
-          {allWeeklyClaimed
-            ? '✅ ALL WEEKLY QUESTS COMPLETE!'
-            : `🔒 QUESTS LOCKED — RESETS IN ${wDays}D ${wHours}H`}
-        </button>
+          <div style={{
+            width: 20, height: 52,
+            background: isWeeklyLocked
+              ? 'linear-gradient(90deg,#3a3a3a,#1e1e1e,#3a3a3a)'
+              : 'linear-gradient(90deg,#5a1a1a,#2e0a0a,#5a1a1a)',
+            borderRadius: 10,
+            border: `2px solid ${isWeeklyLocked ? '#111' : '#3d0a0a'}`,
+            boxShadow: '0 2px 8px #0008',
+          }} />
+          <div style={{
+            width: 12, height: 72, marginTop: -12,
+            transformOrigin: 'top center',
+            transform: `rotate(${isWeeklyLocked ? 36 : slotLeverPulled ? 40 : 0}deg)`,
+            transition: 'transform 0.5s cubic-bezier(0.34,1.56,0.64,1)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
+          }}>
+            <div style={{
+              width: 8, height: 54,
+              background: isWeeklyLocked
+                ? 'linear-gradient(90deg,#444,#222,#444)'
+                : 'linear-gradient(90deg,#cc2222,#880000,#cc2222)',
+              borderRadius: 4,
+              border: `1px solid ${isWeeklyLocked ? '#1a1a1a' : '#5a0000'}`,
+            }} />
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%',
+              background: isWeeklyLocked
+                ? 'radial-gradient(circle at 32% 28%,#555,#333)'
+                : 'radial-gradient(circle at 32% 28%,#ff6060,#cc0000)',
+              border: isWeeklyLocked ? '2px solid #222' : '2px solid #880000',
+              boxShadow: isWeeklyLocked
+                ? '0 1px 4px #0006, inset -2px -2px 4px rgba(0,0,0,0.4)'
+                : '0 0 22px #ff000099, 0 0 44px #ff000055, inset -3px -3px 5px rgba(0,0,0,0.5)',
+              marginTop: -4, flexShrink: 0,
+              animation: slotCanPull ? 'redBallPulse 1s ease-in-out infinite' : 'none',
+            }} />
+          </div>
+        </div>
+
+        {/* ── Red cabinet shell ───────────────────────────────────────────── */}
+        <div style={{
+          background: 'linear-gradient(135deg,#0a0508,#1a0a10)',
+          border: '4px solid #ef4444', borderRadius: 20,
+          padding: '32px 18px 20px', marginBottom: 20,
+          boxShadow: '0 0 40px #ef444444, inset 0 0 20px #ef444411',
+          position: 'relative', overflow: 'visible',
+        }}>
+
+          {/* Red corner orbs */}
+          {[{ left: 14 }, { right: 14, animationDelay: '0.75s' }].map((pos, i) => (
+            <div key={i} style={{
+              position: 'absolute', top: 10, ...pos,
+              width: 22, height: 22, borderRadius: '50%',
+              background: 'radial-gradient(circle,#fca5a5,#ef4444)',
+              boxShadow: '0 0 18px #ef4444, 0 0 40px #ef444466',
+              animation: 'shimmer 1.5s ease-in-out infinite',
+              animationDelay: pos.animationDelay || '0s',
+            }} />
+          ))}
+
+          {/* Title — same Bangers/42px/gold spec as DAILY QUESTS */}
+          <div style={{
+            fontFamily: "'Bangers',sans-serif", fontSize: 42, color: '#fbbf24',
+            textAlign: 'center', letterSpacing: '0.08em',
+            textShadow: '0 0 30px #fbbf2466, 0 2px 0 #7a5a00',
+            marginBottom: 10, lineHeight: 1,
+          }}>
+            WEEKLY QUESTS 📆
+          </div>
+
+          {/* Reset pill — red, matches Daily gold pill structure */}
+          <div style={{
+            background: '#140203', border: '2px solid #ef4444',
+            borderRadius: 20, padding: '8px 16px',
+            textAlign: 'center', marginBottom: 18,
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12,
+            fontWeight: 700, color: '#fca5a5', letterSpacing: '0.14em',
+          }}>
+            🗓️ RESETS IN: {wDays} DAYS {wHours} HOURS
+          </div>
+
+          {/* ── Embedded slot machine reel ───────────────────────────────── */}
+          <div style={{ marginBottom: 18 }}>
+            <div style={{
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
+              letterSpacing: '0.16em', textAlign: 'center', marginBottom: 10,
+              color: isWeeklyLocked ? '#4b5563' : '#ef4444',
+            }}>
+              {isWeeklyLocked ? 'ONE SPIN PER WEEK' : '🎰 WEEKLY BONUS SPIN — WIN 50–200 💎 OR AN ELO SHIELD!'}
+            </div>
+
+            <div ref={slotReelRef} style={{
+              background: '#020202',
+              border: `3px solid ${isWeeklyLocked ? '#1f2937' : '#ef4444'}`,
+              borderRadius: 10, height: 152, overflow: 'hidden', position: 'relative',
+              boxShadow: isWeeklyLocked
+                ? 'inset 0 0 14px #00000088'
+                : 'inset 0 0 20px #0a0000, 0 0 10px #ef444422',
+            }}>
+              {/* CRT scanlines */}
+              <div style={{
+                position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none',
+                background: 'repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.09) 3px,rgba(0,0,0,0.09) 4px)',
+              }} />
+              {/* Selector bracket */}
+              <div style={{
+                position: 'absolute', left: 8, right: 8,
+                top: '50%', transform: 'translateY(-50%)',
+                height: 58, borderRadius: 6, zIndex: 11, pointerEvents: 'none',
+                border: `2px solid ${isWeeklyLocked ? '#37415155' : '#ef444466'}`,
+                boxShadow: isWeeklyLocked ? 'none' : '0 0 12px #ef444433',
+              }} />
+              {/* Reel column */}
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <div style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  opacity: slotSpinning ? 0.12 : 0.28, filter: 'blur(2px)',
+                  fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em',
+                  color: isWeeklyLocked ? '#374151' : slotPrevItem.color, pointerEvents: 'none',
+                }}>
+                  {slotPrevItem.label}
+                </div>
+                <div style={{ height: 58, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <div
+                    key={slotIdx}
+                    style={{
+                      fontFamily: "'Bangers',sans-serif",
+                      fontSize: slotSpinning ? 24 : 32, letterSpacing: '0.1em',
+                      color: isWeeklyLocked ? '#374151' : slotItem.color,
+                      textShadow: (!isWeeklyLocked && !slotSpinning)
+                        ? `0 0 24px ${slotItem.color}99, 0 0 8px ${slotItem.color}66` : 'none',
+                      animation: slotSpinning
+                        ? 'reelSlideIn 0.07s ease-out'
+                        : slotWin ? 'winPrizePop 0.38s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
+                      transition: 'font-size 0.18s',
+                    }}
+                  >
+                    {slotItem.label}
+                  </div>
+                </div>
+                <div style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  opacity: slotSpinning ? 0.12 : 0.28, filter: 'blur(2px)',
+                  fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em',
+                  color: isWeeklyLocked ? '#374151' : slotNextItem.color, pointerEvents: 'none',
+                }}>
+                  {slotNextItem.label}
+                </div>
+              </div>
+              {/* Locked overlay */}
+              {isWeeklyLocked && (
+                <div style={{
+                  position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(0,0,0,0.83)',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}>
+                  <div style={{
+                    background: 'linear-gradient(135deg,#7f1d1d,#991b1b)',
+                    border: '2px solid #ef4444', borderRadius: 8, padding: '9px 18px',
+                    fontFamily: "'Bangers',sans-serif", fontSize: 17, letterSpacing: '0.1em',
+                    color: '#fca5a5', textAlign: 'center', boxShadow: '0 0 20px #ef444455',
+                  }}>
+                    🛡️ CABINET LOCKED — SPUN THIS WEEK
+                  </div>
+                </div>
+              )}
+              {/* Win radial glow */}
+              {slotWin && !slotSpinning && (
+                <div style={{
+                  position: 'absolute', inset: 0, zIndex: 12, pointerEvents: 'none',
+                  background: `radial-gradient(circle at 50% 50%,${slotWin.color}33,transparent 72%)`,
+                  animation: 'shimmer 1.2s ease-in-out infinite',
+                }} />
+              )}
+            </div>
+
+            {/* Win announcement */}
+            {slotWin && !slotSpinning && (
+              <div style={{
+                marginTop: 10, textAlign: 'center',
+                fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em',
+                color: '#fbbf24', textShadow: '0 0 18px #fbbf2466',
+                animation: 'shimmer 1.2s ease-in-out infinite',
+              }}>
+                🎉 YOU WON: {slotWin.label}
+              </div>
+            )}
+            {/* Pull prompt */}
+            {!slotWin && !slotSpinning && slotCanPull && (
+              <div style={{
+                marginTop: 8, textAlign: 'center',
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
+                color: '#ef4444', letterSpacing: '0.16em',
+                animation: 'shimmer 1s ease-in-out infinite',
+              }}>
+                ← PULL LEVER TO SPIN! 🚀
+              </div>
+            )}
+          </div>
+
+          {/* Quest rows */}
+          {displayWeeklyQuests.length === 0 ? (
+            <div style={{ textAlign: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#475569', padding: '20px 0' }}>
+              Weekly quests loading…
+            </div>
+          ) : displayWeeklyQuests.map((quest, idx) => (
+            <QuestRow
+              key={quest.id || idx}
+              quest={quest}
+              progress={{ current: quest.currentProgress ?? 0, target: quest.targetProgress ?? 1 }}
+              isSpinning={false}
+              shuffleText=""
+              onNavigate={onNavigate}
+              onClaim={rect => handleClaimWeekly(idx, rect)}
+            />
+          ))}
+
+          {/* Footer locked bar */}
+          <button
+            disabled
+            style={{
+              width: '100%',
+              background: allWeeklyClaimed ? 'linear-gradient(135deg,#14532d,#166534)' : '#1e0a0a',
+              color:  allWeeklyClaimed ? '#4ade80' : '#6b2020',
+              border: allWeeklyClaimed ? '2px solid #22c55e' : '2px solid #3d1010',
+              borderRadius: 12, padding: '14px',
+              fontFamily: "'Bangers',sans-serif", fontSize: 20, fontWeight: 700,
+              letterSpacing: '0.08em', cursor: 'not-allowed',
+              boxShadow: allWeeklyClaimed ? '0 0 16px #22c55e44' : 'none',
+              transition: 'all 0.3s',
+            }}
+          >
+            {allWeeklyClaimed
+              ? '✅ ALL WEEKLY QUESTS COMPLETE!'
+              : `🔒 QUESTS LOCKED — RESETS IN ${wDays}D ${wHours}H`}
+          </button>
+        </div>
       </div>
 
     </div>
