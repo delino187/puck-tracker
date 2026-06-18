@@ -3,10 +3,10 @@ import { Lock, CheckCircle, AlertCircle, Eye, EyeOff, Flame } from 'lucide-react
 import { getWeekStart, calcXP, getLevel } from '../../utils/stats.js'
 import { getPSessions, dayStreak } from '../../utils/badgeHelpers.js'
 import { C } from '../../styles.js'
-import { LEVELS } from '../../constants/levels.js'
 import { getStreakAuraClass } from '../../utils/streakAura.js'
 import Scaffold from '../shared/Scaffold.jsx'
 import LevelBadge from '../shared/LevelBadge.jsx'
+import Avatar from '../shared/Avatar.jsx'
 
 export default function PlayerSelectScreen({ players, sessions, onSelect, onBack }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null)
@@ -80,8 +80,6 @@ export default function PlayerSelectScreen({ players, sessions, onSelect, onBack
         const str      = dayStreak(p, sessions)
         const weekShots = pss.filter(s => new Date(s.date) >= ws).flatMap(s => s.sets).length * 10
 
-        const level = LEVELS[li] || LEVELS[0]
-
         return (
           <button
             key={p.id}
@@ -92,28 +90,14 @@ export default function PlayerSelectScreen({ players, sessions, onSelect, onBack
               display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
             }}
           >
-            {/* ── Avatar — photo or initial fallback with streak aura ─────── */}
-            {p.photoURL ? (
-              <img
-                src={p.photoURL}
-                alt={p.name}
-                className={getStreakAuraClass(str)}
-                style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-              />
-            ) : (
-              <div
-                className={getStreakAuraClass(str)}
-                style={{
-                  width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
-                  background: level.bg,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: "'Bangers',sans-serif", fontSize: 24, lineHeight: 1,
-                  color: level.color,
-                }}
-              >
-                {p.name[0]?.toUpperCase() ?? '?'}
-              </div>
-            )}
+            {/* ── Avatar — respects canChangePfp + onError fallback ─────── */}
+            <Avatar
+              player={p}
+              size={48}
+              className={getStreakAuraClass(str)}
+              glowActive={!!p.hasBorderGlow}
+              style={{ borderRadius: '50%', flexShrink: 0 }}
+            />
 
             {/* ── Name + level badge ────────────────────────────────────── */}
             <div style={{ flex: 1, minWidth: 0 }}>
