@@ -33,6 +33,7 @@ import BadgePopup           from './components/overlays/BadgePopup.jsx'
 import EpicCelebration     from './components/overlays/EpicCelebration.jsx'
 import CelebOverlay        from './components/overlays/CelebOverlay.jsx'
 import CoachMsgPopup       from './components/overlays/CoachMsgPopup.jsx'
+import StreakBrokenModal   from './components/overlays/StreakBrokenModal.jsx'
 import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
 import { loadChallengesForPlayer } from './services/peerChallengeService.js'
@@ -63,9 +64,12 @@ export default function App() {
   const [challengeScreen, setChallengeScreen]  = useState(null) // null | 'create' | { mode:'respond', challenge }
   const [puckGames,       setPuckGames]        = useState([])
 
-  const badgeQRef    = useRef([])
-  const epicAudioRef = useRef(null)
-  const dashAudioRef = useRef(null)
+  const [streakBrokenData, setStreakBrokenData] = useState(null)
+
+  const badgeQRef               = useRef([])
+  const epicAudioRef            = useRef(null)
+  const dashAudioRef            = useRef(null)
+  const streakInsuranceCheckedRef = useRef(null)
   const play         = useAudio()
   const { theme, toggleOutsideMode } = useTheme()
 
@@ -137,6 +141,46 @@ export default function App() {
       // Do NOT reset currentTime — so it resumes seamlessly when modal closes
     }
   }, [epicCeleb])
+
+  // ── Streak insurance: check on player load, once per broken streak ───────
+  useEffect(() => {
+    if (!st?.activePlayerId || !st) return
+    const p = st.players.find(pl => pl.id === st.activePlayerId)
+    if (!p) return
+    // Key prevents re-checking the same state twice (e.g. StrictMode double-invoke)
+    const key = `${p.id}_${p.lastActivity}`
+    if (streakInsuranceCheckedRef.current === key) return
+    streakInsuranceCheckedRef.current = key
+
+    const MS_36H   = 36 * 60 * 60 * 1000
+    const elapsed  = Date.now() - (p.lastActivity || 0)
+    if (p.streakCount > 0 && p.lastActivity && elapsed > MS_36H) {
+      setStreakBrokenData({ prevCount: p.streakCount })
+    }
+  }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleStreakRevive() {
+    const prev = streakBrokenData?.prevCount ?? 0
+    upd({
+      players: st.players.map(p =>
+        p.id === aPlayer?.id
+          ? { ...p, diamonds: Math.max(0, (p.diamonds || 0) - 50), streakCount: prev, lastActivity: Date.now() }
+          : p
+      ),
+    })
+    // Update ref key so the check doesn't re-fire with stale lastActivity
+    streakInsuranceCheckedRef.current = `${aPlayer?.id}_${Date.now()}`
+    setStreakBrokenData(null)
+  }
+
+  function handleStreakDecline() {
+    upd({
+      players: st.players.map(p =>
+        p.id === aPlayer?.id ? { ...p, streakCount: 0 } : p
+      ),
+    })
+    setStreakBrokenData(null)
+  }
 
   const upd = patch => setSt(prev => ({ ...prev, ...patch }))
 
@@ -463,6 +507,7 @@ export default function App() {
                   elo:            1000,
                   eloLastDelta:   0,
                   eloLastUpdated: null,
+                  hasEloShield:   false,
                   createdAt:      Date.now(),
                 }
                 upd({ players: [...st.players, p], view: 'coach' })
@@ -504,6 +549,15 @@ export default function App() {
           />
         )}
         {celeb && <CelebOverlay data={celeb} onClose={() => setCeleb(null)} />}
+
+        {streakBrokenData && (
+          <StreakBrokenModal
+            prevStreak={streakBrokenData.prevCount}
+            diamonds={aPlayer.diamonds || 0}
+            onRevive={handleStreakRevive}
+            onDecline={handleStreakDecline}
+          />
+        )}
 
         {dashMutePrompt && tab === 'dashboard' && (
           <div
@@ -637,6 +691,16 @@ export default function App() {
                 onNavigate={setTab}
                 onDiamondEarn={(amount) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: (p.diamonds || 0) + amount } : p) })}
                 onSpinComplete={(quests) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests } : p) })}
+                onPurchaseItem={(itemId, cost) => {
+                  const diamonds = aPlayer.diamonds || 0
+                  if (diamonds < cost) return
+                  if (itemId === 'streakFreeze') {
+                    upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) })
+                  } else if (itemId === 'eloShield') {
+                    if (aPlayer.hasEloShield) return
+                    upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, hasEloShield: true } : p) })
+                  }
+                }}
               />
               <div style={{ marginTop: 20 }}>
                 <StreakHub

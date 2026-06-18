@@ -3,6 +3,7 @@ import { db } from '../../firebase.js'
 import { collection, getDocs } from 'firebase/firestore'
 import { X } from 'lucide-react'
 import Avatar from '../shared/Avatar.jsx'
+import { getStreakAuraClass } from '../../utils/streakAura.js'
 
 const TEAM_ID  = 'team_main'
 const MS_24H   = 24 * 60 * 60 * 1000
@@ -103,7 +104,7 @@ export default function Leaderboard({ player, players }) {
             </div>
 
             {/* Avatar */}
-            <Avatar player={p} size={34} className={isMe ? 'arcade-glow' : ''} />
+            <Avatar player={p} size={34} className={getStreakAuraClass(p.streakCount || p.streak || 0)} />
 
             {/* Name + rank tier */}
             <div style={{ flex: 1, minWidth: 0 }}>

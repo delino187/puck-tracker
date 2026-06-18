@@ -5,6 +5,8 @@ import Avatar from '../shared/Avatar.jsx'
 import { BADGES } from '../../constants/badges.js'
 import { LEVELS } from '../../constants/levels.js'
 import { calcXP, getLevel } from '../../utils/stats.js'
+import { getStreakAuraClass } from '../../utils/streakAura.js'
+import { STREAK_EXCLUSIVE_BADGES } from '../../constants/streakBadges.js'
 
 const TEAM_ID = 'team_main'
 
@@ -51,7 +53,10 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
   const { totalHits, li } = computePlayerStats(player, sessions)
   const level              = LEVELS[li]
   const earnedIds          = Object.keys(player.earnedBadges || {})
-  const medals             = BADGES.filter(b => earnedIds.includes(b.id)).slice(0, 6)
+  const earnedMedals       = BADGES.filter(b => earnedIds.includes(b.id)).slice(0, 6)
+  const activeStreak       = player.streakCount || 0
+  const liveMedals         = STREAK_EXCLUSIVE_BADGES.filter(b => activeStreak >= b.minStreak)
+  const medals             = [...liveMedals, ...earnedMedals]
   const isSelf             = player.id === currentPlayer?.id
 
   useEffect(() => {
@@ -132,7 +137,7 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
 
         {/* ── Avatar + name + rank ──────────────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <Avatar player={player} size={80} className="arcade-glow" style={{ borderRadius: '50%' }} />
+          <Avatar player={player} size={80} className={getStreakAuraClass(player.streakCount || player.streak || 0)} style={{ borderRadius: '50%' }} />
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.05em', color: '#f1f5f9', lineHeight: 1.1 }}>
               {player.name}
@@ -179,24 +184,51 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, justifyItems: 'center', alignItems: 'center', width: '100%', maxWidth: '100%' }}>
               {medals.map(b => (
-                <div
-                  key={b.id}
-                  title={`${b.name} — ${b.desc}`}
-                  style={{
-                    background: b.innerBg || '#1e293b',
-                    borderRadius: '50%',
-                    padding: 3,
-                    boxShadow: '0 2px 10px rgba(0,0,0,0.6)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}
-                >
-                  {b.img ? (
-                    <div className="badge-circle">
-                      <img src={b.img} alt={b.name} />
-                    </div>
-                  ) : (
-                    <div style={{ width: 52, height: 52, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <b.Icon size={24} color={b.innerIcon || '#94a3b8'} />
+                <div key={b.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div
+                    title={`${b.name} — ${b.desc}`}
+                    style={{
+                      background: b.innerBg || '#1e293b',
+                      borderRadius: '50%',
+                      padding: 3,
+                      boxShadow: '0 2px 10px rgba(0,0,0,0.6)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      // Live badges pulse with their themed aura
+                      animation: b.live
+                        ? b.minStreak >= 30
+                          ? 'none'
+                          : 'fireAura 1.6s ease-in-out infinite'
+                        : 'none',
+                      border: b.live
+                        ? b.minStreak >= 30
+                          ? '2px solid #06b6d4'
+                          : '2px solid #f97316'
+                        : 'none',
+                    }}
+                    className={b.live && b.minStreak >= 30 ? 'arcade-glow' : ''}
+                  >
+                    {b.img ? (
+                      <div className="badge-circle">
+                        <img src={b.img} alt={b.name} />
+                      </div>
+                    ) : (
+                      <div style={{ width: 52, height: 52, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <b.Icon size={24} color={b.innerIcon || '#94a3b8'} />
+                      </div>
+                    )}
+                  </div>
+                  {b.live && (
+                    <div style={{
+                      marginTop: 3,
+                      background: b.minStreak >= 30 ? '#06b6d4' : '#f97316',
+                      borderRadius: 4,
+                      padding: '1px 5px',
+                      fontFamily: "'Barlow Condensed',sans-serif",
+                      fontSize: 7, fontWeight: 800,
+                      color: '#000', letterSpacing: '0.06em',
+                      lineHeight: 1.4,
+                    }}>
+                      LIVE
                     </div>
                   )}
                 </div>

@@ -5,6 +5,7 @@ import { useAppStore } from '../../store/useAppStore.js'
 import XPBar from './XPBar.jsx'
 import Avatar from './Avatar.jsx'
 import ManageProfileModal from '../overlays/ManageProfileModal.jsx'
+import { getStreakAuraClass } from '../../utils/streakAura.js'
 
 export default function PlayerHeader({ player, stats, onBack, theme, onThemeToggle, onStreakClick, onPhotoUpload }) {
   const cur    = LEVELS[stats.li]
@@ -40,9 +41,9 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
           style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0 }}
         >
           {player.photoURL ? (
-            <Avatar player={player} size={40} className="arcade-glow" style={{ borderRadius: '50%' }} />
+            <Avatar player={player} size={40} className={getStreakAuraClass(stats.streak || 0)} style={{ borderRadius: '50%' }} />
           ) : (
-            <div className="arcade-glow" style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: cur.bg }}>
+            <div className={getStreakAuraClass(stats.streak || 0)} style={{ width: 40, height: 40, borderRadius: '50%', overflow: 'hidden', background: cur.bg }}>
               <img src={cur.img} alt={cur.name} className="rounded-full object-cover" style={{ width: '100%', height: '100%', transform: 'scale(1.1)' }} />
             </div>
           )}

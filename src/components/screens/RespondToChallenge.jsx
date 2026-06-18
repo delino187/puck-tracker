@@ -29,6 +29,7 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
   const [done,       setDone]       = useState(false)
   const [won,        setWon]        = useState(false)
   const [showTips,   setShowTips]   = useState(false)
+  const [eloData,    setEloData]    = useState(null)
   const [tapPulse,   setTapPulse]   = useState(null)  // score button being animated
   const [bothPlaying, setBothPlaying] = useState(false)
   const fileInputRef  = useRef(null)
@@ -84,7 +85,9 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
       const videoUrl = await uploadChallengeVideo(videoFile, tempKey, 'receiver', setUploadProgress)
       const updated  = await respondToChallenge(challenge, myHits, videoUrl)
       logTechniqueShots(player.id, shotCount)
-      setWon(updated.winnerId === player.id)
+      const didWin = updated.winnerId === player.id
+      setWon(didWin)
+      if (updated.eloResult) setEloData(updated.eloResult)
       setDone(true)
       onSubmit({ challenge: updated })
     } catch (err) {
@@ -95,21 +98,72 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
 
   // ── Result ─────────────────────────────────────────────────────────────────
   if (done) {
+    const showElo          = !!eloData
+    const eloDelta         = eloData?.receiverDelta        ?? 0
+    const baseDelta        = eloData?.baseDelta             ?? 0
+    const streakBonus      = eloData?.streakBonus           ?? 0
+    const bonusPct         = eloData?.streakBonusPct        ?? 0
+    const shieldSaved      = eloData?.receiverShieldSaved   ?? false
+    const shieldConsumed   = eloData?.receiverShieldConsumed ?? false
+    const shieldBaseLoss   = eloData?.shieldBaseLoss        ?? 0   // raw loss (negative)
+
     return (
       <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center' }}>
-        <div style={{ fontSize: 64, marginBottom: 16 }}>{won ? '🏆' : '💪'}</div>
-        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 40, letterSpacing: '0.08em', color: won ? '#22c55e' : '#f59e0b', textShadow: `0 0 30px ${won ? '#22c55e55' : '#f59e0b55'}`, marginBottom: 10 }}>
-          {won ? 'SHOWDOWN WON!' : 'NICE EFFORT!'}
+        <div style={{ fontSize: 64, marginBottom: 16 }}>{won ? '🏆' : shieldSaved ? '🛡️' : '💪'}</div>
+        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 40, letterSpacing: '0.08em', color: won ? '#22c55e' : shieldSaved ? '#06b6d4' : '#f59e0b', textShadow: `0 0 30px ${won ? '#22c55e55' : shieldSaved ? '#06b6d455' : '#f59e0b55'}`, marginBottom: 10 }}>
+          {won ? 'SHOWDOWN WON!' : shieldSaved ? 'SHIELDED!' : 'NICE EFFORT!'}
         </div>
         <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 15, color: '#cbd5e1', marginBottom: 6 }}>
           {challenge.challengerName}: <strong style={{ color: '#f1f5f9' }}>{challenge.challengerHits}/{shotCount}</strong>
           {'  ·  '}
           You: <strong style={{ color: won ? '#22c55e' : '#f59e0b' }}>{myHits}/{shotCount}</strong>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#34d399', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, marginTop: 16, marginBottom: 32 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#34d399', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, marginTop: 16, marginBottom: showElo ? 16 : 32 }}>
           <CheckCircle size={15} /> +{shotCount} XP credited to your total
         </div>
-        <button onClick={onBack} style={{ ...C.btnP, background: won ? '#22c55e' : '#f59e0b', color: '#000', fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.08em' }}>
+
+        {showElo && (
+          <div style={{ background: 'rgba(15,23,42,0.8)', border: `1px solid ${shieldSaved ? '#06b6d444' : '#1e3a5f'}`, borderRadius: 14, padding: '16px 24px', marginBottom: 28, minWidth: 220 }}>
+            {won ? (
+              <>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#94a3b8', marginBottom: 6 }}>
+                  BASE ELO: +{baseDelta}
+                </div>
+                {streakBonus > 0 && (
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#fb923c', marginBottom: 6 }}>
+                    🔥 STREAK BONUS (+{bonusPct}%): +{streakBonus}
+                  </div>
+                )}
+                <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.06em', color: '#06b6d4', textShadow: '0 0 18px #06b6d488', lineHeight: 1.1 }}>
+                  TOTAL GAINED: +{eloDelta} ELO
+                </div>
+                {shieldConsumed && (
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.08em', marginTop: 10, borderTop: '1px solid #1e3a5f', paddingTop: 8 }}>
+                    🛡️ ELO Shield consumed.
+                  </div>
+                )}
+              </>
+            ) : shieldSaved ? (
+              <>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#7f1d1d', marginBottom: 6 }}>
+                  BASE LOSS: {shieldBaseLoss} ELO
+                </div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#06b6d4', textShadow: '0 0 10px #06b6d444', marginBottom: 6 }}>
+                  🛡️ ELO SHIELD ACTIVE: +{Math.abs(shieldBaseLoss)} BREAK
+                </div>
+                <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.06em', color: '#f1f5f9', lineHeight: 1.1 }}>
+                  TOTAL ADJUSTMENT: 0 ELO
+                </div>
+              </>
+            ) : (
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#f59e0b' }}>
+                ELO: {eloDelta}
+              </div>
+            )}
+          </div>
+        )}
+
+        <button onClick={onBack} style={{ ...C.btnP, background: won ? '#22c55e' : shieldSaved ? '#06b6d4' : '#f59e0b', color: '#000', fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.08em' }}>
           BACK TO VERSUS
         </button>
       </div>

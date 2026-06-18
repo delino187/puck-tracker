@@ -1,4 +1,4 @@
-import { Flame } from 'lucide-react'
+import { Flame, Star } from 'lucide-react'
 
 // Streak milestone badges — each maps to a physical image asset in
 // /src/assets/images/badges/. Unlock gate: allTimeStreakPB >= milestone.
@@ -26,6 +26,35 @@ export const STREAK_META = {
   60: { tier: 4, innerBg: 'linear-gradient(135deg,#422006,#b45309)', innerIcon: '#fef08a' },
   90: { tier: 4, innerBg: 'linear-gradient(135deg,#713f12,#eab308)', innerIcon: '#fef9c3' },
 }
+
+/**
+ * Live badges — visible ONLY while an active streak is above the threshold.
+ * They are NOT stored in earnedBadges; they vanish automatically if the streak breaks.
+ */
+export const STREAK_EXCLUSIVE_BADGES = [
+  {
+    id:        'live_7day',
+    name:      '7-Day Hot Streak',
+    desc:      'Active 7-day streak — vanishes the moment your streak breaks.',
+    minStreak: 7,
+    tier:      3,
+    live:      true,
+    innerBg:   'linear-gradient(135deg,#7c2d12,#ea580c)',
+    innerIcon: '#fed7aa',
+    Icon:      Flame,
+  },
+  {
+    id:        'live_30day',
+    name:      '30-Day Ice King',
+    desc:      'Ultra-rare live badge — active 30-day streak. Gone if the streak breaks.',
+    minStreak: 30,
+    tier:      5,
+    live:      true,
+    innerBg:   'linear-gradient(135deg,#0c4a6e,#0ea5e9)',
+    innerIcon: '#bae6fd',
+    Icon:      Star,
+  },
+]
 
 // Converts a STREAK_BADGE into a BadgeCircle/BadgePopup-compatible shape.
 // Both BadgeGrid and StreakHub use this so the circle styling is identical.

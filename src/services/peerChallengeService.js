@@ -92,6 +92,7 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
 
   // Atomic transaction: update ELO + totalWins for both players simultaneously.
   // outcome is always from the challenger's perspective (1 = challenger won).
+  let eloResult = null
   try {
     const teamRef = doc(db, 'teams', TEAM_ID)
     await runTransaction(db, async (tx) => {
@@ -103,33 +104,65 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
       const receiver   = players.find(p => p.id === challenge.receiverId)
       if (!challenger || !receiver) return
 
-      const ratingC   = challenger.elo ?? 1000
-      const ratingR   = receiver.elo   ?? 1000
-      const outcome   = winnerId === challenge.challengerId ? 1 : 0   // challenger perspective
+      const ratingC     = challenger.elo ?? 1000
+      const ratingR     = receiver.elo   ?? 1000
+      const outcome     = winnerId === challenge.challengerId ? 1 : 0
 
-      const { newRatingA, newRatingB, deltaA, deltaB } =
-        calculateNewRatings(ratingC, ratingR, outcome)
+      // Pass winner's active streak for Daily Heat multiplier
+      const winner       = winnerId === challenge.challengerId ? challenger : receiver
+      const winnerStreak = winner.streakCount || winner.streak || 0
+
+      const eloCalc = calculateNewRatings(ratingC, ratingR, outcome, winnerStreak)
+      const { deltaA, deltaB } = eloCalc
+
+      // ── ELO Shield — read BEFORE any writes (inside transaction read phase) ──
+      // Consumption is unconditional: the shield is expended whether the player
+      // wins or loses. Zeroing happens only if the shielded player lost.
+      const receiverHadShield   = receiver.hasEloShield   || false
+      const challengerHadShield = challenger.hasEloShield || false
+      const loserIsReceiver     = winnerId === challenge.challengerId
+
+      // Apply shield: zero out the losing side's delta only
+      const finalDeltaA = (!loserIsReceiver && challengerHadShield) ? 0 : deltaA
+      const finalDeltaB = (loserIsReceiver  && receiverHadShield)   ? 0 : deltaB
+
+      // Store breakdown for the victory screen
+      eloResult = {
+        receiverDelta:           finalDeltaB,
+        baseDelta:               eloCalc.baseDelta,
+        streakBonus:             eloCalc.streakBonus,
+        streakBonusPct:          eloCalc.streakBonusPct,
+        streakDays:              eloCalc.streakDays,
+        won:                     winnerId === challenge.receiverId,
+        // Shield metadata for the end-screen UI
+        receiverShieldSaved:     loserIsReceiver && receiverHadShield,
+        receiverShieldConsumed:  receiverHadShield,
+        shieldBaseLoss:          loserIsReceiver ? deltaB : 0,
+      }
 
       const now = Date.now()
-
       tx.update(teamRef, {
         players: players.map(p => {
           if (p.id === challenge.challengerId) {
             return {
               ...p,
-              elo:            newRatingA,
-              eloLastDelta:   deltaA,
+              elo:            ratingC + finalDeltaA,
+              eloLastDelta:   finalDeltaA,
               eloLastUpdated: now,
               totalWins:      (p.totalWins || 0) + (winnerId === p.id ? 1 : 0),
+              // Consume shield atomically — cannot be saved by closing the app
+              hasEloShield:   false,
             }
           }
           if (p.id === challenge.receiverId) {
             return {
               ...p,
-              elo:            newRatingB,
-              eloLastDelta:   deltaB,
+              elo:            ratingR + finalDeltaB,
+              eloLastDelta:   finalDeltaB,
               eloLastUpdated: now,
               totalWins:      (p.totalWins || 0) + (winnerId === p.id ? 1 : 0),
+              // Consume shield atomically — cannot be saved by closing the app
+              hasEloShield:   false,
             }
           }
           return p
@@ -140,7 +173,14 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
     console.error('[respondToChallenge] ELO transaction failed:', err)
   }
 
-  return { ...challenge, receiverHits, receiverVideo: videoUrl, winnerId, status: 'completed' }
+  return {
+    ...challenge,
+    receiverHits,
+    receiverVideo: videoUrl,
+    winnerId,
+    status: 'completed',
+    eloResult,   // breakdown for the victory screen
+  }
 }
 
 // ── Load ──────────────────────────────────────────────────────────────────────
