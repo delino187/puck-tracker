@@ -29,27 +29,34 @@ const QUEST_POOL = {
   ],
 }
 
-// ── Weekly quest pool — fixed high-volume grinding challenges ────────────────
+// ── Weekly quest pool — large pool for random 3-pick each week ──────────────
 const WEEKLY_QUEST_POOL = [
-  { id: 'wq_shots500', text: 'Log 500 Total Shots in Target Practice Mode this Week',    reward: 250, icon: '🏒', tier: 'red'    },
-  { id: 'wq_acc85x5',  text: 'Hit 85% Accuracy across 5 different Sessions this Week',   reward: 150, icon: '🔥', tier: 'common' },
-  { id: 'wq_back150',  text: 'Log 150 Backhand Shots in Target Practice Mode this Week', reward: 100, icon: '🎯', tier: 'red'    },
+  { id: 'wq_shots500', text: 'Log 500 Total Shots in Target Practice Mode this Week',       reward: 250, icon: '🏒', tier: 'red'    },
+  { id: 'wq_shots300', text: 'Log 300 Total Shots in Target Practice Mode this Week',       reward: 150, icon: '🏒', tier: 'red'    },
+  { id: 'wq_shots200', text: 'Log 200 Total Shots in Target Practice Mode this Week',       reward: 100, icon: '🏒', tier: 'red'    },
+  { id: 'wq_acc85x5',  text: 'Hit 85% Accuracy across 5 different Sessions this Week',      reward: 175, icon: '🔥', tier: 'common' },
+  { id: 'wq_acc80x3',  text: 'Hit 80% Accuracy across 3 different Sessions this Week',      reward: 100, icon: '📊', tier: 'common' },
+  { id: 'wq_acc75x5',  text: 'Hit 75% Accuracy across 5 different Sessions this Week',      reward: 125, icon: '📈', tier: 'common' },
+  { id: 'wq_back200',  text: 'Log 200 Backhand Shots in Target Practice Mode this Week',    reward: 125, icon: '🎯', tier: 'red'    },
+  { id: 'wq_back150',  text: 'Log 150 Backhand Shots in Target Practice Mode this Week',    reward: 100, icon: '🎯', tier: 'red'    },
+  { id: 'wq_sess7',    text: 'Complete 7 Training Sessions this Week',                       reward: 175, icon: '📅', tier: 'epic'   },
+  { id: 'wq_sess5',    text: 'Complete 5 Training Sessions this Week',                       reward: 100, icon: '📅', tier: 'epic'   },
+  { id: 'wq_shots400', text: 'Log 400 Total Shots in Target Practice Mode this Week',       reward: 200, icon: '🏒', tier: 'red'    },
+  { id: 'wq_acc90x3',  text: 'Hit 90% Accuracy across 3 different Sessions this Week',      reward: 150, icon: '💯', tier: 'common' },
 ]
 
-// ── Prize wheel segments ──────────────────────────────────────────────────────
-const WHEEL_PRIZES = [
-  { label: '50 💎',       diamonds: 50,  color: '#22c55e' },
-  { label: '100 💎',      diamonds: 100, color: '#3b82f6' },
-  { label: '75 💎',       diamonds: 75,  color: '#10b981' },
-  { label: '150 💎',      diamonds: 150, color: '#a855f7' },
-  { label: '50 💎',       diamonds: 50,  color: '#22c55e' },
-  { label: '200 💎',      diamonds: 200, color: '#f59e0b' },
-  { label: '100 💎',      diamonds: 100, color: '#3b82f6' },
-  { label: '🛡️ SHIELD!',  eloShield: true, color: '#06b6d4' },
+// ── Fast text for the quest-row shuffle blur ──────────────────────────────────
+const WEEKLY_SHUFFLE_POOL = [
+  'Log 500 Shots', 'Hit 90% Accuracy', 'Log 200 Backhands',
+  'Complete 7 Sessions', 'Log 300 Shots', '85% x5 Sessions',
+  'Log 150 Backhands', '80% x3 Sessions', 'Log 400 Shots',
+  'Complete 5 Sessions', '75% x5 Sessions', 'Log 100 Wristers',
+  'Hit 85% x5', 'Log 200 Shots', '90% x3 Sessions',
 ]
 
 function pickWeeklyQuests() {
-  return WEEKLY_QUEST_POOL.map(q => ({ ...q, currentProgress: 0, completed: false, claimed: false }))
+  const shuffled = [...WEEKLY_QUEST_POOL].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, 3).map(q => ({ ...q, currentProgress: 0, completed: false, claimed: false }))
 }
 
 function computeWeeklyQuestProgress(text, sessions, playerId) {
@@ -379,17 +386,16 @@ export default function DailyQuests({
   const [burst,        setBurst]        = useState(null)
 
   // ── Weekly quest state ────────────────────────────────────────────────────
-  const [weeklyQuests, setWeeklyQuests] = useState(player.weekly_quests || [])
-
-  // ── Weekly slot machine state (inlined — renders inside the red cabinet) ──
-  const SLOT_N = WHEEL_PRIZES.length
-  const [slotIdx,         setSlotIdx]         = useState(0)
-  const [slotSpinning,    setSlotSpinning]    = useState(false)
-  const [slotWin,         setSlotWin]         = useState(null)
-  const [slotLeverPulled, setSlotLeverPulled] = useState(false)
-  const slotTimerRef = useRef(null)
-  const slotReelRef  = useRef(null)
-  useEffect(() => () => clearTimeout(slotTimerRef.current), []) // eslint-disable-line
+  const [weeklyQuests,       setWeeklyQuests]       = useState(player.weekly_quests || [])
+  const [weeklyShuffleTexts, setWeeklyShuffleTexts] = useState(['', '', ''])
+  const [slotSpinning,       setSlotSpinning]       = useState(false)
+  const [slotLeverPulled,    setSlotLeverPulled]    = useState(false)
+  const slotTimerRef          = useRef(null)
+  const weeklyShuffleInterval = useRef(null)
+  useEffect(() => () => {
+    clearTimeout(slotTimerRef.current)
+    clearInterval(weeklyShuffleInterval.current)
+  }, []) // eslint-disable-line
 
   const intervalRef  = useRef(null)
   const spinAudioRef = useRef(null)
@@ -453,16 +459,6 @@ export default function DailyQuests({
     setCurrentQuests(player.daily_quests)
   }, [questStateKey]) // eslint-disable-line
 
-  // ── Auto-init weekly quests on new week ────────────────────────────────────
-  useEffect(() => {
-    const weekStart = getWeekStart().toDateString()
-    if (player.last_weekly_quest_pick !== weekStart) {
-      const newQ = pickWeeklyQuests()
-      setWeeklyQuests(newQ)
-      onInitWeeklyQuests?.(newQ)
-    }
-  }, []) // eslint-disable-line
-
   // Sync weekly quests from parent (e.g. after claim persisted to Firestore)
   const weeklyQuestStateKey = (player.weekly_quests || [])
     .map(q => `${q.completed ? 1 : 0}${q.claimed ? 1 : 0}`)
@@ -517,50 +513,62 @@ export default function DailyQuests({
   }
 
   function handleWeeklyPull() {
-    if (!weeklySpinAvailable || slotSpinning) return
+    if (isWeeklyLocked || slotSpinning) return
     setSlotLeverPulled(true)
     setTimeout(() => setSlotLeverPulled(false), 600)
-    const winIdx = Math.floor(Math.random() * SLOT_N)
+
+    const picked = pickWeeklyQuests()
     setSlotSpinning(true)
-    setSlotWin(null)
-    let tick = 0, idx = 0
-    const FAST = 22, SLOW = 14, TOTAL = FAST + SLOW
-    function step() {
-      tick++; idx = (idx + 1) % SLOT_N; setSlotIdx(idx)
-      let delay
-      if (tick < FAST) { delay = 58 }
-      else if (tick < TOTAL) { const t = (tick - FAST) / SLOW; delay = 58 + t * t * 310 }
-      else {
-        setSlotIdx(winIdx); setSlotSpinning(false)
-        const prize = WHEEL_PRIZES[winIdx]; setSlotWin(prize)
-        playCashRegister()
-        if (slotReelRef.current) fireBurst(slotReelRef.current.getBoundingClientRect())
-        onWeeklySpinComplete?.(prize)
-        return
-      }
-      slotTimerRef.current = setTimeout(step, delay)
-    }
-    slotTimerRef.current = setTimeout(step, 58)
+
+    // Spin audio — same pattern as Daily Quests
+    const spinAudio = new Audio('https://actions.google.com/sounds/v1/science_fiction/glitchy_digital_texture.ogg')
+    spinAudio.loop = true; spinAudio.volume = 0.3
+    spinAudio.play().catch(() => {})
+
+    // Fast shuffle on all 3 quest rows simultaneously
+    weeklyShuffleInterval.current = setInterval(() => {
+      setWeeklyShuffleTexts([
+        WEEKLY_SHUFFLE_POOL[Math.floor(Math.random() * WEEKLY_SHUFFLE_POOL.length)],
+        WEEKLY_SHUFFLE_POOL[Math.floor(Math.random() * WEEKLY_SHUFFLE_POOL.length)],
+        WEEKLY_SHUFFLE_POOL[Math.floor(Math.random() * WEEKLY_SHUFFLE_POOL.length)],
+      ])
+    }, 60)
+
+    // After 2.5s: stop shuffle, lock in picked quests, play win sound
+    slotTimerRef.current = setTimeout(() => {
+      clearInterval(weeklyShuffleInterval.current)
+      spinAudio.pause()
+
+      const lockAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+      lockAudio.volume = 0.6
+      lockAudio.play().catch(() => {})
+
+      setWeeklyQuests(picked)
+      setWeeklyShuffleTexts(['', '', ''])
+      setSlotSpinning(false)
+      // Persist to Firestore via parent — sets last_weekly_quest_pick to today
+      onInitWeeklyQuests?.(picked)
+    }, 2500)
   }
 
-  const today              = new Date().toDateString()
-  const spinAvailable      = player.last_quest_spin !== today
-  const { h, m }           = timeUntilReset()
-  const weeklySpinAvailable = !player.lastWeeklySpin || new Date(player.lastWeeklySpin) < getWeekStart()
+  const today          = new Date().toDateString()
+  const spinAvailable  = player.last_quest_spin !== today
+  const { h, m }       = timeUntilReset()
   const { days: wDays, hours: wHours } = timeUntilWeekReset()
 
-  // Compute live weekly progress from sessions (pure, recalculated each render)
-  const displayWeeklyQuests = weeklyQuests.map(q => {
-    if (q.claimed) return q
-    const prog = computeWeeklyQuestProgress(q.text, sessions, player.id)
-    return { ...q, currentProgress: prog.current, targetProgress: prog.target, completed: prog.current >= prog.target }
-  })
-  const allWeeklyClaimed  = displayWeeklyQuests.length > 0 && displayWeeklyQuests.every(q => q.claimed)
-  const isWeeklyLocked    = !weeklySpinAvailable
-  const slotCanPull       = weeklySpinAvailable && !slotSpinning
-  const slotItem          = WHEEL_PRIZES[slotIdx]
-  const slotPrevItem      = WHEEL_PRIZES[(slotIdx - 1 + SLOT_N) % SLOT_N]
-  const slotNextItem      = WHEEL_PRIZES[(slotIdx + 1) % SLOT_N]
+  // Weekly quests are "locked in" once the player has pulled the lever this week
+  const isWeeklyLocked = player.last_weekly_quest_pick === getWeekStart().toDateString()
+  const slotCanPull    = !isWeeklyLocked && !slotSpinning
+
+  // Only display stored quests if they're from this week
+  const displayWeeklyQuests = isWeeklyLocked
+    ? weeklyQuests.map(q => {
+        if (q.claimed) return q
+        const prog = computeWeeklyQuestProgress(q.text, sessions, player.id)
+        return { ...q, currentProgress: prog.current, targetProgress: prog.target, completed: prog.current >= prog.target }
+      })
+    : []
+  const allWeeklyClaimed = displayWeeklyQuests.length > 0 && displayWeeklyQuests.every(q => q.claimed)
 
   function handleSpin() {
     if (!spinAvailable || spinning) return
@@ -880,159 +888,82 @@ export default function DailyQuests({
             🗓️ RESETS IN: {wDays} DAYS {wHours} HOURS
           </div>
 
-          {/* ── Embedded slot machine reel ───────────────────────────────── */}
-          <div style={{ marginBottom: 18 }}>
+          {/* Spinning status banner — same as Daily "ROLLING YOUR QUESTS..." */}
+          {slotSpinning && (
             <div style={{
+              background: 'linear-gradient(90deg,#140203,#200408,#140203)',
+              border: '2px solid #ef4444', borderRadius: 10,
+              padding: '8px 14px', marginBottom: 12,
+              fontFamily: "'Bangers',sans-serif", fontSize: 16,
+              color: '#ef4444', letterSpacing: '0.12em', textAlign: 'center',
+              animation: 'shimmer 0.4s ease-in-out infinite',
+            }}>
+              🎰 ROLLING YOUR WEEKLY QUESTS...
+            </div>
+          )}
+
+          {/* Pull prompt — shown when unlocked and idle */}
+          {slotCanPull && (
+            <div style={{
+              marginBottom: 14, textAlign: 'center',
               fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
-              letterSpacing: '0.16em', textAlign: 'center', marginBottom: 10,
-              color: isWeeklyLocked ? '#4b5563' : '#ef4444',
+              color: '#ef4444', letterSpacing: '0.16em',
+              animation: 'shimmer 1s ease-in-out infinite',
             }}>
-              {isWeeklyLocked ? 'ONE SPIN PER WEEK' : '🎰 WEEKLY BONUS SPIN — WIN 50–200 💎 OR AN ELO SHIELD!'}
+              ← PULL LEVER TO GENERATE WEEKLY QUESTS! 🚀
             </div>
+          )}
 
-            <div ref={slotReelRef} style={{
-              background: '#020202',
-              border: `3px solid ${isWeeklyLocked ? '#1f2937' : '#ef4444'}`,
-              borderRadius: 10, height: 152, overflow: 'hidden', position: 'relative',
-              boxShadow: isWeeklyLocked
-                ? 'inset 0 0 14px #00000088'
-                : 'inset 0 0 20px #0a0000, 0 0 10px #ef444422',
-            }}>
-              {/* CRT scanlines */}
-              <div style={{
-                position: 'absolute', inset: 0, zIndex: 10, pointerEvents: 'none',
-                background: 'repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,0.09) 3px,rgba(0,0,0,0.09) 4px)',
-              }} />
-              {/* Selector bracket */}
-              <div style={{
-                position: 'absolute', left: 8, right: 8,
-                top: '50%', transform: 'translateY(-50%)',
-                height: 58, borderRadius: 6, zIndex: 11, pointerEvents: 'none',
-                border: `2px solid ${isWeeklyLocked ? '#37415155' : '#ef444466'}`,
-                boxShadow: isWeeklyLocked ? 'none' : '0 0 12px #ef444433',
-              }} />
-              {/* Reel column */}
-              <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <div style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  opacity: slotSpinning ? 0.12 : 0.28, filter: 'blur(2px)',
-                  fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em',
-                  color: isWeeklyLocked ? '#374151' : slotPrevItem.color, pointerEvents: 'none',
-                }}>
-                  {slotPrevItem.label}
-                </div>
-                <div style={{ height: 58, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  <div
-                    key={slotIdx}
-                    style={{
-                      fontFamily: "'Bangers',sans-serif",
-                      fontSize: slotSpinning ? 24 : 32, letterSpacing: '0.1em',
-                      color: isWeeklyLocked ? '#374151' : slotItem.color,
-                      textShadow: (!isWeeklyLocked && !slotSpinning)
-                        ? `0 0 24px ${slotItem.color}99, 0 0 8px ${slotItem.color}66` : 'none',
-                      animation: slotSpinning
-                        ? 'reelSlideIn 0.07s ease-out'
-                        : slotWin ? 'winPrizePop 0.38s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
-                      transition: 'font-size 0.18s',
-                    }}
-                  >
-                    {slotItem.label}
-                  </div>
-                </div>
-                <div style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  opacity: slotSpinning ? 0.12 : 0.28, filter: 'blur(2px)',
-                  fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em',
-                  color: isWeeklyLocked ? '#374151' : slotNextItem.color, pointerEvents: 'none',
-                }}>
-                  {slotNextItem.label}
-                </div>
-              </div>
-              {/* Locked overlay */}
-              {isWeeklyLocked && (
-                <div style={{
-                  position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(0,0,0,0.83)',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}>
-                  <div style={{
-                    background: 'linear-gradient(135deg,#7f1d1d,#991b1b)',
-                    border: '2px solid #ef4444', borderRadius: 8, padding: '9px 18px',
-                    fontFamily: "'Bangers',sans-serif", fontSize: 17, letterSpacing: '0.1em',
-                    color: '#fca5a5', textAlign: 'center', boxShadow: '0 0 20px #ef444455',
-                  }}>
-                    🛡️ CABINET LOCKED — SPUN THIS WEEK
-                  </div>
-                </div>
-              )}
-              {/* Win radial glow */}
-              {slotWin && !slotSpinning && (
-                <div style={{
-                  position: 'absolute', inset: 0, zIndex: 12, pointerEvents: 'none',
-                  background: `radial-gradient(circle at 50% 50%,${slotWin.color}33,transparent 72%)`,
-                  animation: 'shimmer 1.2s ease-in-out infinite',
-                }} />
-              )}
-            </div>
-
-            {/* Win announcement */}
-            {slotWin && !slotSpinning && (
-              <div style={{
-                marginTop: 10, textAlign: 'center',
-                fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em',
-                color: '#fbbf24', textShadow: '0 0 18px #fbbf2466',
-                animation: 'shimmer 1.2s ease-in-out infinite',
-              }}>
-                🎉 YOU WON: {slotWin.label}
-              </div>
-            )}
-            {/* Pull prompt */}
-            {!slotWin && !slotSpinning && slotCanPull && (
-              <div style={{
-                marginTop: 8, textAlign: 'center',
-                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
-                color: '#ef4444', letterSpacing: '0.16em',
-                animation: 'shimmer 1s ease-in-out infinite',
-              }}>
-                ← PULL LEVER TO SPIN! 🚀
-              </div>
-            )}
-          </div>
-
-          {/* Quest rows */}
-          {displayWeeklyQuests.length === 0 ? (
-            <div style={{ textAlign: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#475569', padding: '20px 0' }}>
-              Weekly quests loading…
-            </div>
-          ) : displayWeeklyQuests.map((quest, idx) => (
+          {/* Quest rows — 3 states: placeholder (not yet spun), shuffling, or locked-in */}
+          {(slotSpinning || !isWeeklyLocked
+            ? [0, 1, 2].map(i => ({ id: `wq-ph-${i}`, text: '— PULL THE LEVER —', tier: 'red', reward: '?', icon: '❓' }))
+            : displayWeeklyQuests
+          ).map((quest, idx) => (
             <QuestRow
               key={quest.id || idx}
               quest={quest}
-              progress={{ current: quest.currentProgress ?? 0, target: quest.targetProgress ?? 1 }}
-              isSpinning={false}
-              shuffleText=""
+              progress={isWeeklyLocked && !slotSpinning && quest.reward !== '?'
+                ? { current: quest.currentProgress ?? 0, target: quest.targetProgress ?? 1 }
+                : null}
+              isSpinning={slotSpinning}
+              shuffleText={weeklyShuffleTexts[idx] || WEEKLY_SHUFFLE_POOL[0]}
               onNavigate={onNavigate}
               onClaim={rect => handleClaimWeekly(idx, rect)}
             />
           ))}
 
-          {/* Footer locked bar */}
+          {/* Footer bar — mirrors Daily's bottom button */}
           <button
             disabled
             style={{
               width: '100%',
-              background: allWeeklyClaimed ? 'linear-gradient(135deg,#14532d,#166534)' : '#1e0a0a',
-              color:  allWeeklyClaimed ? '#4ade80' : '#6b2020',
-              border: allWeeklyClaimed ? '2px solid #22c55e' : '2px solid #3d1010',
+              background: allWeeklyClaimed
+                ? 'linear-gradient(135deg,#14532d,#166534)'
+                : isWeeklyLocked
+                  ? '#1e0a0a'
+                  : slotSpinning
+                    ? '#1e0a0a'
+                    : 'linear-gradient(135deg,#3d0808,#5a0a0a)',
+              color: allWeeklyClaimed ? '#4ade80' : isWeeklyLocked ? '#6b2020' : '#ef444488',
+              border: allWeeklyClaimed
+                ? '2px solid #22c55e'
+                : isWeeklyLocked
+                  ? '2px solid #3d1010'
+                  : '2px solid #ef444433',
               borderRadius: 12, padding: '14px',
               fontFamily: "'Bangers',sans-serif", fontSize: 20, fontWeight: 700,
               letterSpacing: '0.08em', cursor: 'not-allowed',
-              boxShadow: allWeeklyClaimed ? '0 0 16px #22c55e44' : 'none',
+              boxShadow: allWeeklyClaimed ? '0 0 16px #22c55e44' : isWeeklyLocked ? 'none' : '0 0 12px #ef444422',
               transition: 'all 0.3s',
             }}
           >
             {allWeeklyClaimed
               ? '✅ ALL WEEKLY QUESTS COMPLETE!'
-              : `🔒 QUESTS LOCKED — RESETS IN ${wDays}D ${wHours}H`}
+              : slotSpinning
+                ? '🎰 ROLLING...'
+                : isWeeklyLocked
+                  ? '🔒 WEEKLY QUESTS LOCKED IN'
+                  : '🎰 PULL LEVER TO GENERATE QUESTS!'}
           </button>
         </div>
       </div>
