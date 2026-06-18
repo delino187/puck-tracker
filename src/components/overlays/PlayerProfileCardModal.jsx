@@ -152,6 +152,43 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
           </div>
         </div>
 
+        {/* ── ELO + Diamond chips ───────────────────────────────────────────── */}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 16 }}>
+          {/* ELO chip */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'linear-gradient(135deg,#0c1a2e,#1e3a5f)',
+            border: '1px solid rgba(59,130,246,0.4)',
+            borderRadius: 10, padding: '7px 14px',
+            boxShadow: '0 0 12px rgba(59,130,246,0.18)',
+          }}>
+            <span style={{ fontSize: 15 }}>🏆</span>
+            <div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, fontWeight: 800, color: '#60a5fa', letterSpacing: '0.16em', lineHeight: 1 }}>ELO RANK</div>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: '#f1f5f9', letterSpacing: '0.04em', lineHeight: 1.1, textShadow: '0 0 10px #3b82f644' }}>
+                {(player.elo ?? 1000).toLocaleString()}
+              </div>
+            </div>
+          </div>
+
+          {/* Diamond chip */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'linear-gradient(135deg,#2a1a4a,#1a0a2a)',
+            border: '1px solid rgba(251,191,36,0.45)',
+            borderRadius: 10, padding: '7px 14px',
+            boxShadow: '0 0 12px rgba(251,191,36,0.18)',
+          }}>
+            <span style={{ fontSize: 15 }}>💎</span>
+            <div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, fontWeight: 800, color: '#fbbf24', letterSpacing: '0.16em', lineHeight: 1 }}>DIAMONDS</div>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: '#fbbf24', letterSpacing: '0.04em', lineHeight: 1.1, textShadow: '0 0 10px #fbbf2444' }}>
+                {(player.diamonds || 0).toLocaleString()}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* ── Stats row ─────────────────────────────────────────────────────── */}
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
