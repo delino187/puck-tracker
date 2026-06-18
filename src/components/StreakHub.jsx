@@ -1,24 +1,18 @@
-import { Flame, Lock, Trophy, Users } from 'lucide-react'
+import { Flame, Lock, Users } from 'lucide-react'
 import { C } from '../styles.js'
 import { playerStats } from '../utils/stats.js'
-import { allTimeStreakPB } from '../utils/badgeHelpers.js'
 import { useAppStore } from '../store/useAppStore.js'
-import { STREAK_BADGES, toCircleBadge } from '../constants/streakBadges.js'
-import BadgeCircle from './shared/BadgeCircle.jsx'
 
 const FREEZE_COST = 500
 
-export default function StreakHub({ player, stats, sessions, players, onPurchase, onBadgeClick }) {
-  const econEntry = useAppStore(state => state.economyByPlayer[player.id])
-  const techEntry = useAppStore(state => state.techniqueByPlayer[player.id])
-  const econ       = econEntry || { xpSpent: 0, streakFreezes: 0 }
+export default function StreakHub({ player, stats, sessions, players, onPurchase }) {
+  const econEntry   = useAppStore(state => state.economyByPlayer[player.id])
+  const techEntry   = useAppStore(state => state.techniqueByPlayer[player.id])
+  const econ        = econEntry || { xpSpent: 0, streakFreezes: 0 }
   const techniqueXP = techEntry?.bonusXP || 0
-  const balance    = Math.max(0, stats.xp + techniqueXP - (econ.xpSpent || 0))
-  const xpSpent    = econ.xpSpent || 0
-  const freezeQty = econ.streakFreezes || 0
-  const canAfford = balance >= FREEZE_COST
-  const pb        = allTimeStreakPB(player, sessions)
-  const isPBActive = stats.streak > 0 && stats.streak >= pb
+  const balance     = Math.max(0, stats.xp + techniqueXP - (econ.xpSpent || 0))
+  const freezeQty   = econ.streakFreezes || 0
+  const canAfford   = balance >= FREEZE_COST
 
   // All players ranked by active streak (descending)
   const streakBoard = [...players]
@@ -32,120 +26,7 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
   return (
     <div style={{ padding: '14px 14px 80px' }}>
 
-      {/* ── XP Balance hero (merged from Pro Shop) ────────────────────────── */}
-      <div style={{
-        background: 'var(--card-bg)',
-        border: '2px solid #f59e0b',
-        borderRadius: 16, padding: '18px 20px', marginBottom: 16,
-        boxShadow: '0 0 40px #f59e0b14',
-        textAlign: 'center',
-      }}>
-        <div style={{
-          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11,
-          color: '#d97706', letterSpacing: '0.2em', marginBottom: 6,
-        }}>
-          🏦 XP BALANCE
-        </div>
-        <div style={{
-          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 52, fontWeight: 900,
-          color: '#fbbf24', lineHeight: 1,
-          textShadow: '0 0 40px #f59e0b77',
-        }}>
-          {balance.toLocaleString()}
-          <span style={{ fontSize: 18, fontWeight: 600, color: '#92400e', marginLeft: 8 }}>XP</span>
-        </div>
-        <div style={{
-          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
-          color: 'var(--text-muted)', marginTop: 6, letterSpacing: '0.1em',
-        }}>
-          TOTAL EARNED: {stats.xp.toLocaleString()} XP
-          {xpSpent > 0 && ` · SPENT: ${xpSpent.toLocaleString()} XP`}
-        </div>
-      </div>
-
-      {/* ── Section A: Personal Records ───────────────────────────────────── */}
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.16em', marginBottom: 10 }}>
-        YOUR STREAK RECORDS
-      </div>
-
-      <div style={{ ...C.card, padding: '20px 18px', marginBottom: 14 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-
-          {/* Current streak */}
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 6 }}>
-              <Flame size={14} color="#f97316" />
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: '#f97316', letterSpacing: '0.14em' }}>
-                ACTIVE
-              </span>
-            </div>
-            <div style={{
-              fontFamily: "'Bangers',sans-serif", fontSize: 56,
-              color: stats.streak > 0 ? '#f97316' : 'var(--score-inactive)',
-              lineHeight: 1,
-              textShadow: stats.streak > 0 ? '0 0 24px #f9731644' : 'none',
-            }}>
-              {stats.streak || 0}
-            </div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.1em', marginTop: 4 }}>
-              DAYS
-            </div>
-            {stats.streak === 0 && (
-              <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
-                Log a set to start!
-              </div>
-            )}
-          </div>
-
-          {/* All-time personal best */}
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 6 }}>
-              <Trophy size={14} color="#fbbf24" />
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: '#fbbf24', letterSpacing: '0.14em' }}>
-                ALL-TIME BEST
-              </span>
-            </div>
-            <div style={{
-              fontFamily: "'Bangers',sans-serif", fontSize: 56,
-              color: pb > 0 ? '#fbbf24' : 'var(--score-inactive)',
-              lineHeight: 1,
-              textShadow: pb > 0 ? '0 0 24px #fbbf2444' : 'none',
-            }}>
-              {pb || 0}
-            </div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: 'var(--text-muted)', letterSpacing: '0.1em', marginTop: 4 }}>
-              DAYS
-            </div>
-            {isPBActive && (
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#fbbf24', marginTop: 4, letterSpacing: '0.06em' }}>
-                🏆 YOU'RE ON A PB RUN!
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Section B: Streak Milestone Badges ───────────────────────────── */}
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.16em', marginBottom: 10 }}>
-        STREAK MILESTONES
-      </div>
-
-      {/* 4-col compact circles — identical layout to BadgeGrid streak section */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, justifyItems: 'center', marginBottom: 20 }}>
-        {STREAK_BADGES.map(sb => (
-          <BadgeCircle
-            key={sb.id}
-            badge={toCircleBadge(sb)}
-            earned={(pb || 0) >= sb.milestone}
-            earnedDate={null}
-            isNew={false}
-            size={68}
-            onClick={onBadgeClick}
-          />
-        ))}
-      </div>
-
-      {/* ── Section C: Global Streak Leaderboard ─────────────────────────── */}
+      {/* ── Streak Leaderboard ────────────────────────────────────────────── */}
       <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.16em', marginBottom: 10 }}>
         ACTIVE STREAKS — ALL PLAYERS
       </div>
