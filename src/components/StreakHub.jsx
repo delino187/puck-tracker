@@ -1,30 +1,201 @@
-import { Flame, Lock, Users } from 'lucide-react'
-import { C } from '../styles.js'
+import { Flame, Users } from 'lucide-react'
 import { playerStats } from '../utils/stats.js'
-import { useAppStore } from '../store/useAppStore.js'
 
-const FREEZE_COST = 500
+const FREEZE_COST = 50
+const SHIELD_COST = 100
 
-export default function StreakHub({ player, stats, sessions, players, onPurchase }) {
-  const econEntry   = useAppStore(state => state.economyByPlayer[player.id])
-  const techEntry   = useAppStore(state => state.techniqueByPlayer[player.id])
-  const econ        = econEntry || { xpSpent: 0, streakFreezes: 0 }
-  const techniqueXP = techEntry?.bonusXP || 0
-  const balance     = Math.max(0, stats.xp + techniqueXP - (econ.xpSpent || 0))
-  const freezeQty   = econ.streakFreezes || 0
-  const canAfford   = balance >= FREEZE_COST
+// ── Individual showcase card inside the stall grid ────────────────────────────
+function ItemCard({ emoji, name, desc, tag, cost, canBuy, isOwned, owned, onBuy }) {
+  return (
+    <div style={{
+      background: 'linear-gradient(180deg,#fef9ee,#fef3c7)',
+      border: '3px solid #d97706',
+      borderRadius: 18,
+      padding: '14px 8px 10px',
+      textAlign: 'center',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.9)',
+      position: 'relative',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+    }}>
+      {/* Optional status badge (top-right) */}
+      {isOwned && (
+        <div style={{
+          position: 'absolute', top: -8, right: -8,
+          background: '#22c55e', border: '2px solid #15803d',
+          borderRadius: 20, padding: '1px 7px',
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
+          color: '#fff', letterSpacing: '0.08em',
+        }}>ACTIVE</div>
+      )}
+      {tag && !isOwned && (
+        <div style={{
+          position: 'absolute', top: -8, right: -8,
+          background: '#f97316', border: '2px solid #c2410c',
+          borderRadius: 20, padding: '1px 7px',
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
+          color: '#fff', letterSpacing: '0.08em',
+        }}>{tag}</div>
+      )}
 
-  // All players ranked by active streak (descending)
+      {/* Big item emoji */}
+      <div style={{ fontSize: 44, lineHeight: 1, filter: isOwned ? 'drop-shadow(0 0 6px #22c55e88)' : 'none' }}>
+        {emoji}
+      </div>
+
+      {/* Name */}
+      <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.04em', color: '#7c2d12', lineHeight: 1.1 }}>
+        {name}
+      </div>
+
+      {/* Description */}
+      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 700, color: '#92400e', letterSpacing: '0.04em', lineHeight: 1.3, minHeight: 22 }}>
+        {desc}
+      </div>
+
+      {/* Owned count */}
+      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: owned > 0 || isOwned ? '#15803d' : '#94a3b8', letterSpacing: '0.06em' }}>
+        {isOwned ? '✅ EQUIPPED' : `x${owned} owned`}
+      </div>
+
+      {/* Green pill buy button */}
+      <button
+        onClick={canBuy ? onBuy : undefined}
+        disabled={!canBuy}
+        style={{
+          width: '100%', marginTop: 4,
+          background: isOwned
+            ? '#6b7280'
+            : canBuy
+              ? 'linear-gradient(180deg,#4ade80,#16a34a)'
+              : '#94a3b8',
+          border: isOwned
+            ? '2px solid #4b5563'
+            : canBuy
+              ? '2px solid #15803d'
+              : '2px solid #64748b',
+          borderRadius: 20, padding: '7px 6px',
+          fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.06em',
+          color: '#fff',
+          cursor: canBuy ? 'pointer' : 'not-allowed',
+          boxShadow: canBuy ? '0 3px 0 #15803d, 0 0 10px #4ade8055' : 'none',
+          textShadow: '0 1px 2px rgba(0,0,0,0.35)',
+          transition: 'transform 0.1s',
+        }}
+        onMouseDown={e => { if (canBuy) e.currentTarget.style.transform = 'scale(0.96)' }}
+        onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+      >
+        {isOwned ? '— MAX —' : `${cost} 💎`}
+      </button>
+    </div>
+  )
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+export default function StreakHub({ player, stats, sessions, players, onPurchaseItem }) {
+  const totalDiamonds = player.diamonds    || 0
+  const hasEloShield  = player.hasEloShield || false
+
   const streakBoard = [...players]
-    .map(p => {
-      const s = playerStats(p, sessions)
-      return { ...p, streak: s.streak, xp: s.xp }
-    })
+    .map(p => { const s = playerStats(p, sessions); return { ...p, streak: s.streak } })
     .filter(p => p.streak > 0)
     .sort((a, b) => b.streak - a.streak)
 
   return (
     <div style={{ padding: '14px 14px 80px' }}>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          WOODEN SHOP STALL
+      ══════════════════════════════════════════════════════════════════════ */}
+      <div style={{
+        background: 'linear-gradient(180deg,#6b3a1f 0%,#4a2610 100%)',
+        borderRadius: 24,
+        border: '4px solid #3d1f0a',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,200,100,0.12)',
+        marginBottom: 22,
+        overflow: 'hidden',
+      }}>
+
+        {/* ── Striped awning ──────────────────────────────────────────────── */}
+        <div style={{ position: 'relative', height: 52, flexShrink: 0 }}>
+          {/* Red/white stripes */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'repeating-linear-gradient(90deg,#ef4444 0px,#ef4444 22px,#f8fafc 22px,#f8fafc 44px)',
+          }} />
+          {/* Bottom shadow band */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 10, background: 'rgba(0,0,0,0.28)' }} />
+        </div>
+
+        {/* ── PRO SHOP sign ───────────────────────────────────────────────── */}
+        <div style={{ textAlign: 'center', marginTop: -6, marginBottom: 14, paddingTop: 2 }}>
+          <div style={{
+            display: 'inline-block',
+            background: 'linear-gradient(180deg,#a16207,#78350f)',
+            border: '4px solid #451a03',
+            borderRadius: 14,
+            padding: '6px 30px 2px',
+            boxShadow: '0 5px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)',
+          }}>
+            <div style={{
+              fontFamily: "'Bangers',sans-serif", fontSize: 40,
+              letterSpacing: '0.14em', lineHeight: 1,
+              color: '#fbbf24',
+              textShadow: '2px 2px 0 #451a03, 4px 4px 4px rgba(0,0,0,0.4), 0 0 24px #fbbf2477',
+            }}>
+              PRO SHOP
+            </div>
+          </div>
+
+          {/* Diamond balance pill */}
+          <div style={{ marginTop: 10 }}>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'rgba(0,0,0,0.35)',
+              border: '1px solid rgba(251,191,36,0.4)',
+              borderRadius: 22, padding: '4px 14px',
+              fontFamily: "'Bangers',sans-serif", fontSize: 17,
+              color: '#fbbf24', letterSpacing: '0.08em',
+              textShadow: '0 0 10px #fbbf2455',
+            }}>
+              💎 {totalDiamonds.toLocaleString()} DIAMONDS
+            </span>
+          </div>
+        </div>
+
+        {/* ── Inner wood-grain panel with item grid ───────────────────────── */}
+        <div style={{ padding: '0 14px 4px' }}>
+          <div style={{
+            background: 'repeating-linear-gradient(180deg,rgba(0,0,0,0) 0px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0) 4px), linear-gradient(180deg,#8b5e3c,#5c3a1e)',
+            borderRadius: 18, padding: '16px 12px',
+            border: '3px solid #3d1f0a',
+            boxShadow: 'inset 0 3px 10px rgba(0,0,0,0.5)',
+          }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <ItemCard
+                emoji="🧊"
+                name="Streak Freeze"
+                desc="Auto-saves your streak on a missed day"
+                tag="HOT"
+                cost={FREEZE_COST}
+                owned={player.streak_freezes || 0}
+                canBuy={totalDiamonds >= FREEZE_COST}
+                isOwned={false}
+                onBuy={() => onPurchaseItem?.('streakFreeze', FREEZE_COST)}
+              />
+              <ItemCard
+                emoji="🛡️"
+                name="ELO Shield"
+                desc="Blocks ELO loss on your next defeat"
+                cost={SHIELD_COST}
+                owned={hasEloShield ? 1 : 0}
+                canBuy={!hasEloShield && totalDiamonds >= SHIELD_COST}
+                isOwned={hasEloShield}
+                onBuy={() => { if (!hasEloShield && totalDiamonds >= SHIELD_COST) onPurchaseItem?.('eloShield', SHIELD_COST) }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ── Streak Leaderboard ────────────────────────────────────────────── */}
       <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.16em', marginBottom: 10 }}>
@@ -32,14 +203,17 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
       </div>
 
       {streakBoard.length === 0 ? (
-        <div style={{ ...C.card, textAlign: 'center', padding: '20px 18px' }}>
+        <div style={{
+          background: 'var(--card-bg)', border: 'var(--card-border)',
+          borderRadius: 12, textAlign: 'center', padding: '20px 18px',
+        }}>
           <Users size={22} color="var(--text-muted)" style={{ marginBottom: 8 }} />
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
             No active streaks yet — hit the driveway!
           </div>
         </div>
       ) : (
-        <div style={{ marginBottom: 14 }}>
+        <div>
           {streakBoard.map((p, i) => {
             const isMe = p.id === player.id
             return (
@@ -52,37 +226,22 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
                   display: 'flex', alignItems: 'center', gap: 12,
                 }}
               >
-                {/* Rank */}
-                <div style={{
-                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 800,
-                  color: i === 0 ? '#f59e0b' : 'var(--text-muted)',
-                  minWidth: 22, textAlign: 'center',
-                }}>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 800, color: i === 0 ? '#f59e0b' : 'var(--text-muted)', minWidth: 22, textAlign: 'center' }}>
                   {i === 0 ? '🥇' : `#${i + 1}`}
                 </div>
-
-                {/* Name */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: isMe ? '#f97316' : 'var(--text-1)' }}>
                     {p.name}{p.jerseyNum ? ` #${p.jerseyNum}` : ''}{isMe ? ' 👈' : ''}
                   </div>
                 </div>
-
-                {/* Flame bar */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   {Array.from({ length: Math.min(p.streak, 7) }).map((_, fi) => (
                     <Flame key={fi} size={10} color={`rgba(249,115,22,${1 - fi * 0.1})`} />
                   ))}
                 </div>
-
-                {/* Streak count */}
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 26, fontWeight: 900, color: '#f97316', lineHeight: 1 }}>
-                    {p.streak}
-                  </div>
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.1em' }}>
-                    DAYS
-                  </div>
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 26, fontWeight: 900, color: '#f97316', lineHeight: 1 }}>{p.streak}</div>
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.1em' }}>DAYS</div>
                 </div>
               </div>
             )
@@ -90,88 +249,6 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
         </div>
       )}
 
-      {/* ── Section D: Streak Freeze Quick-Action ────────────────────────── */}
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.16em', marginBottom: 10 }}>
-        STREAK PROTECTION
-      </div>
-
-      <div style={{
-        background: 'var(--card-bg)',
-        border: freezeQty > 0 ? '1px solid #3b82f633' : 'var(--card-border)',
-        borderRadius: 14, padding: '18px',
-        boxShadow: freezeQty > 0 ? '0 0 20px #3b82f618' : 'none',
-      }}>
-        {/* Inventory status */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 42, height: 42, borderRadius: 10, fontSize: 22,
-              background: freezeQty > 0 ? 'linear-gradient(135deg,#0c1a2e,#1e3a5f)' : 'var(--card-bg)',
-              border: `1px solid ${freezeQty > 0 ? '#3b82f633' : 'var(--card-border)'}`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>❄️</div>
-            <div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>
-                Streak Freeze
-              </div>
-              <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 12, color: 'var(--text-muted)' }}>
-                Auto-activates on a missed day
-              </div>
-            </div>
-          </div>
-          <div style={{
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 36, fontWeight: 900,
-            color: freezeQty > 0 ? '#60a5fa' : 'var(--score-inactive)',
-          }}>
-            {freezeQty}
-          </div>
-        </div>
-
-        {freezeQty > 0 && (
-          <div style={{
-            background: 'rgba(59,130,246,0.08)', border: '1px solid #3b82f622',
-            borderRadius: 8, padding: '7px 12px', marginBottom: 14,
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#60a5fa', letterSpacing: '0.07em',
-          }}>
-            ❄️ You have {freezeQty} Freeze{freezeQty !== 1 ? 's' : ''} available — your streak is protected
-          </div>
-        )}
-
-        {/* Buy button */}
-        {canAfford ? (
-          <button
-            onClick={() => onPurchase(FREEZE_COST, 'streakFreezes')}
-            style={{
-              width: '100%', padding: '13px',
-              background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
-              color: '#fff', border: 'none', borderRadius: 10,
-              fontFamily: "'Barlow Condensed',sans-serif",
-              fontWeight: 800, fontSize: 16, cursor: 'pointer',
-              letterSpacing: '0.06em',
-              boxShadow: '0 0 16px #3b82f640',
-            }}
-          >
-            Buy Freeze — {FREEZE_COST.toLocaleString()} XP
-          </button>
-        ) : (
-          <div style={{
-            width: '100%', padding: '12px',
-            background: 'var(--card-bg)', border: 'var(--card-border)',
-            borderRadius: 10, textAlign: 'center',
-            fontFamily: "'Barlow Condensed',sans-serif",
-            fontSize: 13, color: 'var(--text-muted)', letterSpacing: '0.06em',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            boxSizing: 'border-box',
-          }}>
-            <Lock size={12} color="var(--text-muted)" />
-            {(FREEZE_COST - balance).toLocaleString()} more XP needed
-          </div>
-        )}
-
-        <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', marginTop: 10 }}>
-          Balance: {balance.toLocaleString()} XP available
-        </div>
-      </div>
     </div>
   )
 }

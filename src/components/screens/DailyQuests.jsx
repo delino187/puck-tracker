@@ -294,10 +294,7 @@ function StadiumLever({ disabled, onSpin, isSpinning }) {
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-const SHIELD_COST = 100
-const FREEZE_COST = 50
-
-export default function DailyQuests({ player, sessions = [], onNavigate, onDiamondEarn, onSpinComplete, onPurchaseItem, onClaimQuest }) {
+export default function DailyQuests({ player, sessions = [], onNavigate, onDiamondEarn, onSpinComplete, onClaimQuest }) {
   const [spinning,      setSpinning]      = useState(false)
   const [currentQuests, setCurrentQuests] = useState(
     player.daily_quests?.length ? player.daily_quests : []
@@ -409,8 +406,6 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
   const today         = new Date().toDateString()
   const spinAvailable = player.last_quest_spin !== today
   const { h, m }      = timeUntilReset()
-  const totalDiamonds = player.diamonds || 0
-  const hasEloShield  = player.hasEloShield || false
 
   function handleSpin() {
     if (!spinAvailable || spinning) return
@@ -619,105 +614,6 @@ export default function DailyQuests({ player, sessions = [], onNavigate, onDiamo
         </div>
       </div>
 
-      {/* ── Streak Freeze shop ─────────────────────────────────────────────── */}
-      <div style={{
-        background: 'linear-gradient(135deg,#1a0620,#2a0f30)',
-        border: '2px solid #a855f7', borderRadius: 14,
-        padding: '16px 18px', textAlign: 'center',
-      }}>
-        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: '#a855f7', marginBottom: 6, letterSpacing: '0.06em' }}>
-          🧊 STREAK FREEZE
-        </div>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#d8b4fe', marginBottom: 10, lineHeight: 1.5 }}>
-          Auto-consumed if you miss a shooting day — saves your streak instantly.
-        </div>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#a855f7', marginBottom: 10, letterSpacing: '0.06em' }}>
-          OWNED: <strong>{player.streak_freezes || 0} ❄️</strong>
-        </div>
-        <button
-          disabled={totalDiamonds < FREEZE_COST}
-          onClick={() => totalDiamonds >= FREEZE_COST && onPurchaseItem?.('streakFreeze', FREEZE_COST)}
-          style={{
-            width: '100%',
-            background: totalDiamonds >= FREEZE_COST ? 'linear-gradient(135deg,#6b21a8,#a855f7)' : '#1e293b',
-            color: '#fff', border: 'none', borderRadius: 10, padding: '10px',
-            fontFamily: "'Bangers',sans-serif", fontSize: 16, letterSpacing: '0.06em',
-            cursor: totalDiamonds >= FREEZE_COST ? 'pointer' : 'not-allowed',
-            boxShadow: totalDiamonds >= FREEZE_COST ? '0 0 16px #a855f744' : 'none',
-            opacity: totalDiamonds >= FREEZE_COST ? 1 : 0.5,
-          }}
-        >
-          BUY STREAK FREEZE — {FREEZE_COST} 💎 {totalDiamonds >= FREEZE_COST ? '→' : '(NEED MORE 💎)'}
-        </button>
-      </div>
-
-      {/* ── ELO Shield shop ────────────────────────────────────────────────── */}
-      <div style={{
-        marginTop: 14,
-        background: hasEloShield
-          ? 'linear-gradient(135deg,#061a10,#0c2a1a)'
-          : 'linear-gradient(135deg,#050d1a,#091828)',
-        border: `2px solid ${hasEloShield ? '#22c55e' : '#06b6d4'}`,
-        borderRadius: 14,
-        padding: '16px 18px', textAlign: 'center',
-        boxShadow: hasEloShield ? '0 0 20px #22c55e22' : '0 0 20px #06b6d422',
-      }}>
-        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em', marginBottom: 6, color: hasEloShield ? '#22c55e' : '#06b6d4' }}>
-          🛡️ ELO SHIELD
-        </div>
-
-        {hasEloShield && (
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            background: '#14532d', border: '1px solid #22c55e44',
-            borderRadius: 20, padding: '3px 10px', marginBottom: 10,
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800,
-            color: '#4ade80', letterSpacing: '0.1em',
-          }}>
-            ✅ SHIELD ACTIVE — absorbs your next defeat
-          </div>
-        )}
-
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#7dd3fc', marginBottom: 10, lineHeight: 1.55 }}>
-          Protect your rank! Prevents ELO loss on your next matchup defeat. One-time use. Does not stack.
-        </div>
-
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#64748b', marginBottom: 12, letterSpacing: '0.06em' }}>
-          COST: <strong style={{ color: '#06b6d4' }}>{SHIELD_COST} 💎</strong>
-          {'  ·  '}
-          BALANCE: <strong style={{ color: totalDiamonds >= SHIELD_COST ? '#34d399' : '#f87171' }}>{totalDiamonds} 💎</strong>
-        </div>
-
-        <button
-          disabled={hasEloShield || totalDiamonds < SHIELD_COST}
-          onClick={() => {
-            if (!hasEloShield && totalDiamonds >= SHIELD_COST) {
-              onPurchaseItem?.('eloShield', SHIELD_COST)
-            }
-          }}
-          style={{
-            width: '100%',
-            background: hasEloShield
-              ? '#14532d'
-              : totalDiamonds >= SHIELD_COST
-                ? 'linear-gradient(135deg,#0e7490,#06b6d4)'
-                : '#0f172a',
-            color: hasEloShield ? '#4ade80' : '#fff',
-            border: hasEloShield ? '2px solid #22c55e44' : 'none',
-            borderRadius: 10, padding: '10px',
-            fontFamily: "'Bangers',sans-serif", fontSize: 16, letterSpacing: '0.06em',
-            cursor: hasEloShield || totalDiamonds < SHIELD_COST ? 'not-allowed' : 'pointer',
-            boxShadow: !hasEloShield && totalDiamonds >= SHIELD_COST ? '0 0 16px #06b6d444' : 'none',
-            opacity: hasEloShield ? 1 : totalDiamonds >= SHIELD_COST ? 1 : 0.45,
-          }}
-        >
-          {hasEloShield
-            ? '🛡️ ALREADY EQUIPPED — ONE SHIELD MAX'
-            : totalDiamonds >= SHIELD_COST
-              ? `BUY ELO SHIELD — ${SHIELD_COST} 💎 →`
-              : `NEED ${SHIELD_COST - totalDiamonds} MORE 💎`}
-        </button>
-      </div>
     </div>
   )
 }

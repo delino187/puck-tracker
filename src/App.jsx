@@ -715,16 +715,6 @@ export default function App() {
               onNavigate={setTab}
               onDiamondEarn={(amount) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: (p.diamonds || 0) + amount } : p) })}
               onSpinComplete={(quests) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests } : p) })}
-              onPurchaseItem={(itemId, cost) => {
-                const diamonds = aPlayer.diamonds || 0
-                if (diamonds < cost) return
-                if (itemId === 'streakFreeze') {
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) })
-                } else if (itemId === 'eloShield') {
-                  if (aPlayer.hasEloShield) return
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, hasEloShield: true } : p) })
-                }
-              }}
               onClaimQuest={(questIndex) => {
                 const quests = aPlayer.daily_quests || []
                 const quest  = quests[questIndex]
@@ -751,8 +741,16 @@ export default function App() {
               stats={stats}
               sessions={st.sessions}
               players={st.players}
-              onPurchase={() => {}}
-              onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
+              onPurchaseItem={(itemId, cost) => {
+                const diamonds = aPlayer.diamonds || 0
+                if (diamonds < cost) return
+                if (itemId === 'streakFreeze') {
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) })
+                } else if (itemId === 'eloShield') {
+                  if (aPlayer.hasEloShield) return
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, hasEloShield: true } : p) })
+                }
+              }}
             />
           )}
           {tab === 'board' && (
