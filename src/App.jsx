@@ -456,11 +456,14 @@ export default function App() {
                   streak_freezes: 0,
                   last_quest_spin: null,
                   daily_quests: [],
-                  photoURL:     null,
-                  totalWins:    0,
-                  streakCount:  0,
-                  lastActivity: null,
-                  createdAt:    Date.now(),
+                  photoURL:       null,
+                  totalWins:      0,
+                  streakCount:    0,
+                  lastActivity:   null,
+                  elo:            1000,
+                  eloLastDelta:   0,
+                  eloLastUpdated: null,
+                  createdAt:      Date.now(),
                 }
                 upd({ players: [...st.players, p], view: 'coach' })
                 setNpName(''); setNpNum(''); setNpPw('')

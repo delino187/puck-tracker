@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { db } from '../../firebase.js'
 import { collection, getDocs } from 'firebase/firestore'
-import { Trophy, Play, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import Avatar from '../shared/Avatar.jsx'
 
-const TEAM_ID = 'team_main'
+const TEAM_ID  = 'team_main'
+const MS_24H   = 24 * 60 * 60 * 1000
 
 const RANKS = [
   { label: 'Benchwarmer', min: 0,  max: 5,        color: '#94a3b8' },
@@ -21,7 +22,7 @@ const MEDALS = ['🥇', '🥈', '🥉']
 
 export default function Leaderboard({ player, players }) {
   const [challenges,  setChallenges]  = useState([])
-  const [topVideo,    setTopVideo]    = useState(null)   // { name, url }
+  const [topVideo,    setTopVideo]    = useState(null)
   const [loadingVid,  setLoadingVid]  = useState(false)
 
   useEffect(() => {
@@ -30,16 +31,17 @@ export default function Leaderboard({ player, players }) {
       .catch(() => {})
   }, [])
 
+  // Sort by ELO descending; fall back to totalWins if elo is missing
   const sorted = [...players]
-    .sort((a, b) => (b.totalWins || 0) - (a.totalWins || 0))
+    .sort((a, b) => (b.elo ?? 1000) - (a.elo ?? 1000))
     .slice(0, 10)
 
   function openTopVideo(p) {
     if (loadingVid) return
     setLoadingVid(true)
-    const wins = challenges.filter(
-      c => c.status === 'completed' && c.winnerId === p.id
-    ).sort((a, b) => (b.respondedAt || 0) - (a.respondedAt || 0))
+    const wins = challenges
+      .filter(c => c.status === 'completed' && c.winnerId === p.id)
+      .sort((a, b) => (b.respondedAt || 0) - (a.respondedAt || 0))
 
     const best = wins[0]
     if (best) {
@@ -59,11 +61,11 @@ export default function Leaderboard({ player, players }) {
           🏒 SNIPER LEADERBOARD
         </div>
         <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#64748b', marginTop: 2, letterSpacing: '0.1em' }}>
-          TOP 10 · RANKED BY CHALLENGE WINS
+          TOP 10 · RANKED BY ELO RATING
         </div>
       </div>
 
-      {/* Rank key */}
+      {/* Rank tier key */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
         {RANKS.map(r => (
           <div key={r.label} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'var(--card-bg)', border: `1px solid ${r.color}44`, borderRadius: 20, padding: '3px 10px' }}>
@@ -75,11 +77,14 @@ export default function Leaderboard({ player, players }) {
         ))}
       </div>
 
-      {/* Rows */}
+      {/* Player rows */}
       {sorted.map((p, i) => {
-        const wins  = p.totalWins || 0
-        const rank  = getSnipeRank(wins)
-        const isMe  = p.id === player.id
+        const wins    = p.totalWins || 0
+        const elo     = p.elo ?? 1000
+        const rank    = getSnipeRank(wins)
+        const isMe    = p.id === player.id
+        const delta   = p.eloLastDelta ?? 0
+        const recent  = p.eloLastUpdated && (Date.now() - p.eloLastUpdated) < MS_24H
 
         return (
           <div
@@ -100,9 +105,8 @@ export default function Leaderboard({ player, players }) {
             {/* Avatar */}
             <Avatar player={p} size={34} className={isMe ? 'arcade-glow' : ''} />
 
-            {/* Name + rank badge */}
+            {/* Name + rank tier */}
             <div style={{ flex: 1, minWidth: 0 }}>
-              {/* Clicking the name opens their top winning video */}
               <button
                 onClick={() => openTopVideo(p)}
                 style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', width: '100%' }}
@@ -115,15 +119,28 @@ export default function Leaderboard({ player, players }) {
                 <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: rank.color, letterSpacing: '0.1em' }}>
                   {rank.label.toUpperCase()}
                 </span>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#475569' }}>
+                  {wins}W
+                </span>
               </div>
             </div>
 
-            {/* Win count */}
-            <div style={{ textAlign: 'center', minWidth: 40 }}>
-              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 24, color: rank.color, lineHeight: 1 }}>
-                {wins}
+            {/* ELO rating + 24h delta indicator */}
+            <div style={{ textAlign: 'center', minWidth: 56 }}>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, color: '#f1f5f9', lineHeight: 1, letterSpacing: '0.02em' }}>
+                {elo}
               </div>
-              <div className="stat-label">WINS</div>
+              {recent && delta !== 0 ? (
+                <div style={{
+                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800,
+                  color: delta > 0 ? '#22c55e' : '#ef4444',
+                  letterSpacing: '0.04em', lineHeight: 1, marginTop: 2,
+                }}>
+                  {delta > 0 ? '▲' : '▼'} {Math.abs(delta)}
+                </div>
+              ) : (
+                <div className="stat-label" style={{ color: '#475569' }}>ELO</div>
+              )}
             </div>
           </div>
         )
@@ -131,7 +148,7 @@ export default function Leaderboard({ player, players }) {
 
       {sorted.length === 0 && (
         <div style={{ textAlign: 'center', color: '#475569', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, padding: '40px 0' }}>
-          No challenge wins yet — issue a showdown to get on the board!
+          No players yet — issue a showdown to get on the board!
         </div>
       )}
 
@@ -148,14 +165,12 @@ export default function Leaderboard({ player, players }) {
             >
               <X size={16} /> Close
             </button>
-            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 20, color: '#f59e0b', letterSpacing: '0.06em', marginBottom: 10, textAlign: 'center' }}>
+            <div className="text-3d-gold" style={{ fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.06em', marginBottom: 10, textAlign: 'center' }}>
               {topVideo.name}'s Top Play
             </div>
             <video
               src={topVideo.url}
-              controls
-              autoPlay
-              playsInline
+              controls autoPlay playsInline
               style={{ width: '100%', borderRadius: 14, background: '#000', maxHeight: 420 }}
             />
           </div>

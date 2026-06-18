@@ -5,8 +5,9 @@
  */
 import { db } from '../firebase.js'
 import {
-  collection, doc, addDoc, updateDoc, getDocs, getDoc,
+  collection, doc, addDoc, updateDoc, getDocs, runTransaction,
 } from 'firebase/firestore'
+import { calculateNewRatings } from '../utils/elo.js'
 import { upload } from '@vercel/blob/client'
 
 const TEAM_ID        = 'team_main'
@@ -89,22 +90,54 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
     respondedAt:   Date.now(),
   })
 
-  // Increment totalWins for the winner
-  if (winnerId) {
-    try {
-      const teamRef  = doc(db, 'teams', TEAM_ID)
-      const teamSnap = await getDoc(teamRef)
-      if (teamSnap.exists()) {
-        const players = teamSnap.data().players || []
-        await updateDoc(teamRef, {
-          players: players.map(p =>
-            p.id === winnerId ? { ...p, totalWins: (p.totalWins || 0) + 1 } : p
-          ),
-        })
-      }
-    } catch (err) {
-      console.error('[respondToChallenge] totalWins update failed:', err)
-    }
+  // Atomic transaction: update ELO + totalWins for both players simultaneously.
+  // outcome is always from the challenger's perspective (1 = challenger won).
+  try {
+    const teamRef = doc(db, 'teams', TEAM_ID)
+    await runTransaction(db, async (tx) => {
+      const teamDoc = await tx.get(teamRef)
+      if (!teamDoc.exists()) return
+
+      const players    = teamDoc.data().players || []
+      const challenger = players.find(p => p.id === challenge.challengerId)
+      const receiver   = players.find(p => p.id === challenge.receiverId)
+      if (!challenger || !receiver) return
+
+      const ratingC   = challenger.elo ?? 1000
+      const ratingR   = receiver.elo   ?? 1000
+      const outcome   = winnerId === challenge.challengerId ? 1 : 0   // challenger perspective
+
+      const { newRatingA, newRatingB, deltaA, deltaB } =
+        calculateNewRatings(ratingC, ratingR, outcome)
+
+      const now = Date.now()
+
+      tx.update(teamRef, {
+        players: players.map(p => {
+          if (p.id === challenge.challengerId) {
+            return {
+              ...p,
+              elo:            newRatingA,
+              eloLastDelta:   deltaA,
+              eloLastUpdated: now,
+              totalWins:      (p.totalWins || 0) + (winnerId === p.id ? 1 : 0),
+            }
+          }
+          if (p.id === challenge.receiverId) {
+            return {
+              ...p,
+              elo:            newRatingB,
+              eloLastDelta:   deltaB,
+              eloLastUpdated: now,
+              totalWins:      (p.totalWins || 0) + (winnerId === p.id ? 1 : 0),
+            }
+          }
+          return p
+        }),
+      })
+    })
+  } catch (err) {
+    console.error('[respondToChallenge] ELO transaction failed:', err)
   }
 
   return { ...challenge, receiverHits, receiverVideo: videoUrl, winnerId, status: 'completed' }
