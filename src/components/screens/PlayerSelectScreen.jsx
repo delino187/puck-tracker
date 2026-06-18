@@ -3,6 +3,8 @@ import { Lock, CheckCircle, AlertCircle, Eye, EyeOff, Flame } from 'lucide-react
 import { getWeekStart, calcXP, getLevel } from '../../utils/stats.js'
 import { getPSessions, dayStreak } from '../../utils/badgeHelpers.js'
 import { C } from '../../styles.js'
+import { LEVELS } from '../../constants/levels.js'
+import { getStreakAuraClass } from '../../utils/streakAura.js'
 import Scaffold from '../shared/Scaffold.jsx'
 import LevelBadge from '../shared/LevelBadge.jsx'
 
@@ -78,25 +80,75 @@ export default function PlayerSelectScreen({ players, sessions, onSelect, onBack
         const str      = dayStreak(p, sessions)
         const weekShots = pss.filter(s => new Date(s.date) >= ws).flatMap(s => s.sets).length * 10
 
+        const level = LEVELS[li] || LEVELS[0]
+
         return (
           <button
             key={p.id}
-            style={{ ...C.card, width: '100%', textAlign: 'left', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 14 }}
             onClick={() => setSelectedPlayer(p)}
+            style={{
+              ...C.card,
+              width: '100%', textAlign: 'left', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px',
+            }}
           >
-            <div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, fontWeight: 800, marginBottom: 4, color: 'var(--text-1)' }}>
-                {p.name}{p.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{p.jerseyNum}</span> : ''}
+            {/* ── Avatar — photo or initial fallback with streak aura ─────── */}
+            {p.photoURL ? (
+              <img
+                src={p.photoURL}
+                alt={p.name}
+                className={getStreakAuraClass(str)}
+                style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+              />
+            ) : (
+              <div
+                className={getStreakAuraClass(str)}
+                style={{
+                  width: 48, height: 48, borderRadius: '50%', flexShrink: 0,
+                  background: level.bg,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontFamily: "'Bangers',sans-serif", fontSize: 24, lineHeight: 1,
+                  color: level.color,
+                }}
+              >
+                {p.name[0]?.toUpperCase() ?? '?'}
+              </div>
+            )}
+
+            {/* ── Name + level badge ────────────────────────────────────── */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontFamily: "'Bangers',sans-serif", fontSize: 22,
+                letterSpacing: '0.03em', lineHeight: 1.1,
+                color: '#ffffff', marginBottom: 5,
+              }}>
+                {p.name}
+                {p.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{p.jerseyNum}</span> : ''}
               </div>
               <LevelBadge li={li} />
             </div>
-            <div style={{ textAlign: 'right' }}>
+
+            {/* ── Stats ────────────────────────────────────────────────── */}
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
               {str > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#f97316', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, justifyContent: 'flex-end' }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 3,
+                  justifyContent: 'flex-end', marginBottom: 5,
+                  fontFamily: "'Barlow Condensed',sans-serif",
+                  fontSize: 13, fontWeight: 800, color: '#f97316',
+                }}>
                   <Flame size={12} /> {str}d
                 </div>
               )}
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-2)' }}>{weekShots} this wk</div>
+              <div style={{
+                fontFamily: "'Bangers',sans-serif", fontSize: 20,
+                color: '#f1f5f9', lineHeight: 1,
+              }}>
+                {weekShots.toLocaleString()}
+              </div>
+              <div className="stat-label" style={{ marginTop: 2 }}>
+                THIS WK
+              </div>
             </div>
           </button>
         )
