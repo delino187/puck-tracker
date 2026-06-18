@@ -114,9 +114,9 @@ export default function App() {
     }))
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Dashboard intro music: start on Dash tab, stop on any other tab ───────
+  // ── Versus tab intro music: start on Versus tab, stop on any other tab ─────
   useEffect(() => {
-    if (!st || st.view !== 'player' || tab !== 'dashboard') {
+    if (!st || st.view !== 'player' || tab !== 'challenges') {
       if (dashAudioRef.current) {
         dashAudioRef.current.pause()
         dashAudioRef.current.currentTime = 0
@@ -135,7 +135,7 @@ export default function App() {
     }
   }, [tab, st?.view]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Pause dash music the moment any celebration opens ─────────────────────
+  // ── Pause versus music the moment any celebration opens ───────────────────
   useEffect(() => {
     if (epicCeleb && dashAudioRef.current) {
       dashAudioRef.current.pause()
@@ -227,7 +227,7 @@ export default function App() {
     const hasMoreBadges = badgeQRef.current.length > 0
     if (hasMoreBadges) {
       setTimeout(popNextBadge, 150)
-    } else if (tab === 'dashboard' && dashAudioRef.current) {
+    } else if (tab === 'challenges' && dashAudioRef.current) {
       // All celebrations done — resume the intro song from where it paused
       dashAudioRef.current.play().catch(() => setDashMutePrompt(true))
     }
@@ -554,13 +554,16 @@ export default function App() {
     const earnedBadgeObj = aPlayer.earnedBadges || {}
 
     // ── Notification dot flags (reactive — clear instantly when turn completes) ──
-    const hasPendingVersus = peerChallenges.some(
+    const hasPendingVersus  = peerChallenges.some(
       c => c.receiverId === aPlayer.id && c.status === 'pending'
     )
     const hasPendingGames = puckGames.some(g => {
       const action = getGameAction(g, aPlayer.id)
       return action === 'set' || action === 'match' || action === 'expired'
     })
+    const hasClaimableQuests = (aPlayer.daily_quests || []).some(
+      q => q.completed && !q.claimed
+    )
 
     return (
       <div style={{ ...APP_BG, minHeight: '100vh', position: 'relative' }}>
@@ -585,7 +588,7 @@ export default function App() {
           />
         )}
 
-        {dashMutePrompt && tab === 'dashboard' && (
+        {dashMutePrompt && tab === 'challenges' && (
           <div
             onClick={handleDashUnmute}
             style={{
@@ -652,10 +655,10 @@ export default function App() {
           onBack={() => upd({ view: 'playerSelect', activePlayerId: null, activeSessionId: null })}
           theme={theme}
           onThemeToggle={toggleOutsideMode}
-          onStreakClick={() => setTab('streak')}
+          onStreakClick={() => setTab('store')}
           onPhotoUpload={url => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, photoURL: url } : p) })}
         />
-        <TabBar active={tab} onChange={setTab} hasSess={!!aSess} hasPendingVersus={hasPendingVersus} hasPendingGames={hasPendingGames} />
+        <TabBar active={tab} onChange={setTab} hasSess={!!aSess} hasPendingVersus={hasPendingVersus} hasPendingGames={hasPendingGames} hasClaimableQuests={hasClaimableQuests} />
 
         <div style={{ maxWidth: 520, margin: '0 auto' }}>
           {tab === 'dashboard' && (
@@ -675,6 +678,8 @@ export default function App() {
           {tab === 'session' && (
             <ShootTracker
               player={aPlayer}
+              sessions={st.sessions}
+              players={st.players}
               session={aSess}
               sesGoal={sesGoal}
               setSesGoal={setSesGoal}
@@ -685,13 +690,6 @@ export default function App() {
               flashZone={flashZone}
               flashType={flashType}
               puckAnim={puckAnim}
-            />
-          )}
-          {tab === 'games' && (
-            <Games
-              player={aPlayer}
-              players={st.players}
-              sessions={st.sessions}
               puckGames={puckGames}
               onSubmitGame={gameSession => upd({ sessions: [...st.sessions, gameSession] })}
               onPuckGameUpdate={updated => setPuckGames(prev => {
@@ -710,55 +708,52 @@ export default function App() {
               onAcceptChallenge={c => setChallengeScreen({ mode: 'respond', challenge: c })}
             />
           )}
-          {tab === 'streak' && (
-            <>
-              <DailyQuests
-                player={aPlayer}
-                sessions={st.sessions}
-                onNavigate={setTab}
-                onDiamondEarn={(amount) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: (p.diamonds || 0) + amount } : p) })}
-                onSpinComplete={(quests) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests } : p) })}
-                onPurchaseItem={(itemId, cost) => {
-                  const diamonds = aPlayer.diamonds || 0
-                  if (diamonds < cost) return
-                  if (itemId === 'streakFreeze') {
-                    upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) })
-                  } else if (itemId === 'eloShield') {
-                    if (aPlayer.hasEloShield) return
-                    upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, hasEloShield: true } : p) })
-                  }
-                }}
-                onClaimQuest={(questIndex) => {
-                  const quests = aPlayer.daily_quests || []
-                  const quest  = quests[questIndex]
-                  if (!quest || quest.claimed || !quest.completed) return
-                  // Atomic: add diamonds + mark claimed in one Firestore write
-                  upd({
-                    players: st.players.map(p =>
-                      p.id === aPlayer.id
-                        ? {
-                            ...p,
-                            diamonds:     (p.diamonds || 0) + (quest.reward || 0),
-                            daily_quests: quests.map((q, i) =>
-                              i === questIndex ? { ...q, claimed: true } : q
-                            ),
-                          }
-                        : p
-                    ),
-                  })
-                }}
-              />
-              <div style={{ marginTop: 20 }}>
-                <StreakHub
-                  player={aPlayer}
-                  stats={stats}
-                  sessions={st.sessions}
-                  players={st.players}
-                  onPurchase={() => {}}
-                  onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
-                />
-              </div>
-            </>
+          {tab === 'quests' && (
+            <DailyQuests
+              player={aPlayer}
+              sessions={st.sessions}
+              onNavigate={setTab}
+              onDiamondEarn={(amount) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: (p.diamonds || 0) + amount } : p) })}
+              onSpinComplete={(quests) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests } : p) })}
+              onPurchaseItem={(itemId, cost) => {
+                const diamonds = aPlayer.diamonds || 0
+                if (diamonds < cost) return
+                if (itemId === 'streakFreeze') {
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) })
+                } else if (itemId === 'eloShield') {
+                  if (aPlayer.hasEloShield) return
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, hasEloShield: true } : p) })
+                }
+              }}
+              onClaimQuest={(questIndex) => {
+                const quests = aPlayer.daily_quests || []
+                const quest  = quests[questIndex]
+                if (!quest || quest.claimed || !quest.completed) return
+                upd({
+                  players: st.players.map(p =>
+                    p.id === aPlayer.id
+                      ? {
+                          ...p,
+                          diamonds:     (p.diamonds || 0) + (quest.reward || 0),
+                          daily_quests: quests.map((q, i) =>
+                            i === questIndex ? { ...q, claimed: true } : q
+                          ),
+                        }
+                      : p
+                  ),
+                })
+              }}
+            />
+          )}
+          {tab === 'store' && (
+            <StreakHub
+              player={aPlayer}
+              stats={stats}
+              sessions={st.sessions}
+              players={st.players}
+              onPurchase={() => {}}
+              onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
+            />
           )}
           {tab === 'board' && (
             <Leaderboard

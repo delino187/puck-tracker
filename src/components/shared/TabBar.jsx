@@ -1,18 +1,18 @@
-import { LayoutDashboard, Target, Swords, Trophy, BarChart2, Award, Star, Gamepad2, Flame } from 'lucide-react'
+import { LayoutDashboard, Target, Swords, Trophy, BarChart2, Award, Star, ShoppingBag, Flame } from 'lucide-react'
 
 export const PLAYER_TABS = [
-  { id: 'dashboard',  Icon: LayoutDashboard, label: 'Dash'           },  // Overview
-  { id: 'session',    Icon: Target,          label: 'Shoot'          },  // Core Action
-  { id: 'games',      Icon: Gamepad2,        label: 'Games'          },  // Secondary Action
-  { id: 'challenges', Icon: Swords,          label: 'Versus'         },  // P2P Showdowns
-  { id: 'streak',     Icon: Flame,           label: 'Streaks & Shop' },  // Progression & Economy (merged)
-  { id: 'board',      Icon: Trophy,          label: 'Board'          },  // Social
-  { id: 'stats',      Icon: BarChart2,       label: 'My Stats'       },  // Analytics
-  { id: 'badges',     Icon: Award,           label: 'Badges'         },  // Achievements
-  { id: 'ranks',      Icon: Star,            label: 'Ranks'          },  // Progression Tier
+  { id: 'dashboard',  Icon: LayoutDashboard, label: 'Dash'    },  // Overview
+  { id: 'session',    Icon: Target,          label: 'Shoot'   },  // Core Action + Games
+  { id: 'challenges', Icon: Swords,          label: 'Versus'  },  // P2P Showdowns
+  { id: 'quests',     Icon: Flame,           label: 'Quests'  },  // Daily Quests
+  { id: 'store',      Icon: ShoppingBag,     label: 'Store'   },  // Streaks + Shop
+  { id: 'board',      Icon: Trophy,          label: 'Board'   },  // Social
+  { id: 'stats',      Icon: BarChart2,       label: 'Stats'   },  // Analytics
+  { id: 'badges',     Icon: Award,           label: 'Badges'  },  // Achievements
+  { id: 'ranks',      Icon: Star,            label: 'Ranks'   },  // Progression Tier
 ]
 
-export default function TabBar({ active, onChange, hasSess, hasPendingVersus, hasPendingGames }) {
+export default function TabBar({ active, onChange, hasSess, hasPendingVersus, hasPendingGames, hasClaimableQuests }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'center', background: 'var(--nav-bg)',
@@ -22,15 +22,17 @@ export default function TabBar({ active, onChange, hasSess, hasPendingVersus, ha
       {PLAYER_TABS.map(t => {
         const sel = active === t.id
 
-        // Session dot — amber, no pulse (informational)
-        const sessionDot  = t.id === 'session'    && hasSess            && !sel
+        // Session dot — amber if only session in progress; red if pending game action required
+        const sessionDot  = t.id === 'session'    && hasSess            && !hasPendingGames && !sel
         // Versus dot — red, pulsing (action required)
         const versusDot   = t.id === 'challenges' && hasPendingVersus   && !sel
-        // Games dot — red, pulsing (action required)
-        const gamesDot    = t.id === 'games'      && hasPendingGames    && !sel
+        // Games pending — now on session tab, red pulsing
+        const gamesDot    = t.id === 'session'    && hasPendingGames    && !sel
+        // Quests ready to claim — gold, pulsing
+        const questsDot   = t.id === 'quests'     && hasClaimableQuests && !sel
 
-        const showDot   = sessionDot || versusDot || gamesDot
-        const urgentDot = versusDot  || gamesDot
+        const showDot   = sessionDot || versusDot || gamesDot || questsDot
+        const urgentDot = versusDot  || gamesDot  || questsDot
 
         return (
           <button
@@ -59,13 +61,17 @@ export default function TabBar({ active, onChange, hasSess, hasPendingVersus, ha
                 className={urgentDot ? 'animate-pulse' : ''}
                 style={{
                   position: 'absolute',
-                  top: urgentDot ? 4 : 5,
-                  right: urgentDot ? 4 : 5,
+                  top:    urgentDot ? 4 : 5,
+                  right:  urgentDot ? 4 : 5,
                   width:  urgentDot ? 7 : 5,
                   height: urgentDot ? 7 : 5,
                   borderRadius: '50%',
-                  background: urgentDot ? '#ef4444' : '#f59e0b',
-                  boxShadow: urgentDot ? '0 0 6px #ef444499' : 'none',
+                  background: urgentDot
+                    ? (questsDot ? '#fbbf24' : '#ef4444')
+                    : '#f59e0b',
+                  boxShadow: urgentDot
+                    ? (questsDot ? '0 0 6px #fbbf2499' : '0 0 6px #ef444499')
+                    : 'none',
                 }}
               />
             )}

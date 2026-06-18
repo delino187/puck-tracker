@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
+import { ChevronRight } from 'lucide-react'
 
 const ENCOURAGE_MSGS = [
   "Keep your head up when you shoot! 🏒",
@@ -14,15 +15,20 @@ import StatCard          from './shared/StatCard.jsx'
 import ZoneSetRow        from './shared/ZoneSetRow.jsx'
 import NetSVG            from './net/NetSVG.jsx'
 import TechniqueTracker  from './TechniqueTracker.jsx'
+import AroundTheWorld    from './AroundTheWorld.jsx'
+import PuckGame          from './screens/PuckGame.jsx'
 import { syncQueue }     from '../services/syncQueue.js'
 
 export default function ShootTracker({
-  player, session, sesGoal, setSesGoal,
+  player, sessions = [], players = [],
+  session, sesGoal, setSesGoal,
   onLogSet, onLogAll, onEndSession, onStart,
   flashZone, flashType, puckAnim,
+  puckGames = [], onSubmitGame, onPuckGameUpdate,
 }) {
   // null = mode fork  |  'target' = zone tracker  |  'technique' = technique mode
   const [subMode,    setSubMode]    = useState(null)
+  const [activeGame, setActiveGame] = useState(null)  // null | 'puck' | 'atw'
   // Lifted zone input state: { [zoneId]: '' | string-number }
   const [zoneInputs, setZoneInputs] = useState({})
 
@@ -44,13 +50,47 @@ export default function ShootTracker({
     el.classList.add(puckAnim.type === 'fire' ? 'net-shake-fire' : 'net-shake')
   }, [puckAnim?.ts])
 
+  // ── Game routing — takes priority over session/mode state ─────────────────
+  if (activeGame === 'atw') {
+    return (
+      <AroundTheWorld
+        player={player}
+        sessions={sessions}
+        onSubmitGame={sets => { onSubmitGame?.(sets); setActiveGame(null) }}
+        onBack={() => setActiveGame(null)}
+      />
+    )
+  }
+
+  if (activeGame === 'puck') {
+    return (
+      <PuckGame
+        player={player}
+        players={players}
+        puckGames={puckGames}
+        onBack={() => setActiveGame(null)}
+        onUpdate={onPuckGameUpdate}
+      />
+    )
+  }
+
+  const activePuckCount = puckGames.filter(g => g.status === 'active').length
+  const urgentPuck      = puckGames.some(g => {
+    if (g.status !== 'active') return false
+    const r = g.currentRound
+    if (!r) return false
+    if (r.status === 'awaiting_setter'   && r.setterPlayerId === player.id) return true
+    if (r.status === 'awaiting_defender' && g.setterPlayerId !== player.id) return true
+    return false
+  })
+
   if (!session) {
     // ── Mode fork ──────────────────────────────────────────────────────────────
     if (subMode === null) {
       return (
-        <div style={{ padding: '24px 16px' }}>
+        <div style={{ padding: '24px 16px 80px' }}>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.18em', marginBottom: 16, textAlign: 'center' }}>
-            CHOOSE YOUR MODE
+            TRAINING MODES
           </div>
 
           {/* 🎯 Target Practice */}
@@ -105,6 +145,71 @@ export default function ShootTracker({
                     {tag}
                   </div>
                 ))}
+              </div>
+            </div>
+          </button>
+
+          {/* ── Training Games ─────────────────────────────────────────────────── */}
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.18em', marginTop: 28, marginBottom: 14, textAlign: 'center' }}>
+            TRAINING GAMES
+          </div>
+
+          {/* P-U-C-K */}
+          <button
+            onClick={() => setActiveGame('puck')}
+            style={{ width: '100%', textAlign: 'left', background: 'var(--card-bg)', border: urgentPuck ? '2px solid #ef444455' : '1px solid #ef444422', borderRadius: 16, padding: 0, cursor: 'pointer', overflow: 'hidden', boxShadow: urgentPuck ? '0 4px 28px #ef444422' : '0 4px 24px #ef444410', display: 'block', marginBottom: 10 }}
+          >
+            <div style={{ height: 4, background: 'linear-gradient(90deg,#7f1d1d,#ef4444,#f97316)' }} />
+            <div style={{ padding: '18px 18px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <div style={{ display: 'inline-block', background: 'linear-gradient(135deg,#7f1d1d,#ef4444)', borderRadius: 6, padding: '3px 8px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '0.12em' }}>
+                      MULTIPLAYER
+                    </div>
+                    {activePuckCount > 0 && (
+                      <div style={{ background: urgentPuck ? '#ef4444' : '#334155', color: '#fff', borderRadius: 10, padding: '1px 8px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700 }}>
+                        {activePuckCount} ACTIVE
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-3d-red" style={{ fontFamily: "'Bangers',sans-serif", fontSize: 34, letterSpacing: '0.06em', lineHeight: 1.1 }}>P-U-C-K</div>
+                </div>
+                <ChevronRight size={20} color="#ef4444" style={{ marginTop: 18, flexShrink: 0 }} />
+              </div>
+              <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, margin: '10px 0 14px' }}>
+                Hockey HORSE. Set a trick shot — if you make it, your opponent must match it or get a letter.
+              </div>
+              <div style={{ display: 'flex', gap: 14 }}>
+                {['Turn-Based', 'Video Proof', 'Earn XP'].map(tag => (
+                  <div key={tag} style={{ background: '#1a0608', border: '1px solid #ef444422', borderRadius: 6, padding: '3px 8px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: '#ef4444', letterSpacing: '0.06em' }}>{tag}</div>
+                ))}
+              </div>
+            </div>
+          </button>
+
+          {/* Around the World */}
+          <button
+            onClick={() => setActiveGame('atw')}
+            style={{ width: '100%', textAlign: 'left', background: 'var(--card-bg)', border: '1px solid #10b98133', borderRadius: 16, padding: 0, cursor: 'pointer', overflow: 'hidden', boxShadow: '0 4px 24px #10b98118', display: 'block' }}
+          >
+            <div style={{ height: 4, background: 'linear-gradient(90deg,#059669,#34d399,#0ea5e9)' }} />
+            <div style={{ padding: '18px 18px 16px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'inline-block', background: 'linear-gradient(135deg,#059669,#10b981)', borderRadius: 6, padding: '3px 8px', marginBottom: 6, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#fff', letterSpacing: '0.12em' }}>
+                    SINGLE PLAYER
+                  </div>
+                  <div className="text-3d-gold" style={{ fontFamily: "'Bangers',sans-serif", fontSize: 30, letterSpacing: '0.03em', lineHeight: 1.1 }}>Around the World</div>
+                </div>
+                <ChevronRight size={20} color="#10b981" style={{ marginTop: 18, flexShrink: 0 }} />
+              </div>
+              <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, margin: '10px 0 14px' }}>
+                4 corners. 12 seconds per zone. Keep your gloves on until the end, then log your hits.
+              </div>
+              <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#475569' }}>⏱ 48 sec total</span>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#475569' }}>🎯 4 corners</span>
               </div>
             </div>
           </button>

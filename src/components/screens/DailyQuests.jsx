@@ -70,7 +70,8 @@ function timeUntilReset() {
 }
 
 function questTab(text) {
-  if (/P-U-C-K|Versus/i.test(text))                         return 'games'
+  if (/Versus/i.test(text))                                   return 'challenges'
+  if (/P-U-C-K/i.test(text))                                 return 'session'
   if (/Shots|Accuracy|Log|Session|Set|Practice/i.test(text)) return 'session'
   return null
 }
@@ -216,7 +217,11 @@ function QuestRow({ quest, progress, isSpinning, shuffleText, onNavigate, onClai
             </div>
           ) : !isDone && tabTarget && (
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#fbbf24', marginTop: 5, letterSpacing: '0.1em' }}>
-              {tabTarget === 'session' ? '🏒 TAP → TARGET PRACTICE' : '🎮 TAP → GAMES TAB'}
+              {tabTarget === 'challenges'
+              ? '⚔️ TAP → VERSUS TAB'
+              : /P-U-C-K/i.test(quest.text)
+                ? '🎮 TAP → SHOOT TAB'
+                : '🏒 TAP → TARGET PRACTICE'}
             </div>
           )
         )}
