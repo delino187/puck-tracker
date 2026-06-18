@@ -1,97 +1,15 @@
 import { useState } from 'react'
 import {
-  Plus, Trash2, Shuffle, CheckCircle, X, Zap, CalendarDays,
+  Plus, Trash2, Shuffle, CheckCircle, X,
   Swords, Users, Lock, ChevronLeft, History, Eye, EyeOff,
   AlertCircle, Edit2, KeyRound, Trophy, Sun, Moon,
 } from 'lucide-react'
 import CoachLeaderboard from './CoachLeaderboard.jsx'
-import { ZONES } from '../constants/zones.js'
 import { getWeekStart, playerStats, calcXP, getLevel } from '../utils/stats.js'
 import { getPSessions } from '../utils/badgeHelpers.js'
 import { useTheme } from '../hooks/useTheme.js'
 import { C } from '../styles.js'
 import LevelBadge from './shared/LevelBadge.jsx'
-
-// ─── Challenge editor ─────────────────────────────────────────────────────────
-function CoachChallenges({ st, upd }) {
-  const [dZone,   setDZone]   = useState(st.dailyChallenge?.zone   || '')
-  const [dTarget, setDTarget] = useState(st.dailyChallenge?.target || '')
-  const [wZone,   setWZone]   = useState(st.weeklyChallenge?.zone  || '')
-  const [wTarget, setWTarget] = useState(st.weeklyChallenge?.target || '')
-  const [dSaved,  setDSaved]  = useState(!!st.dailyChallenge)
-  const [wSaved,  setWSaved]  = useState(!!st.weeklyChallenge)
-
-  return (
-    <div>
-      {/* Active challenges preview */}
-      {(st.dailyChallenge || st.weeklyChallenge) && (
-        <div style={{ background: '#0a0f1a', borderRadius: 10, padding: 14, border: '1px solid #334155', marginBottom: 14 }}>
-          <div style={C.label}>Active Challenges</div>
-          {st.dailyChallenge && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: st.weeklyChallenge ? '1px solid #1e3a5f' : 'none' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <Zap size={12} color="#f59e0b" />
-                <span style={{ color: '#f1f5f9', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13 }}>Daily: {ZONES.find(z => z.id === st.dailyChallenge.zone)?.label} — {st.dailyChallenge.target} hits</span>
-              </div>
-              <button style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }} onClick={() => { upd({ dailyChallenge: null }); setDSaved(false) }}><X size={14} /></button>
-            </div>
-          )}
-          {st.weeklyChallenge && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <CalendarDays size={12} color="#60a5fa" />
-                <span style={{ color: '#f1f5f9', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13 }}>Weekly: {ZONES.find(z => z.id === st.weeklyChallenge.zone)?.label} — {st.weeklyChallenge.target} hits</span>
-              </div>
-              <button style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 2 }} onClick={() => { upd({ weeklyChallenge: null }); setWSaved(false) }}><X size={14} /></button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Daily challenge editor */}
-      <div style={C.card}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 12 }}>
-          <Zap size={13} color="#f59e0b" />
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#f59e0b', letterSpacing: '0.08em' }}>DAILY CHALLENGE</span>
-        </div>
-        <label style={C.label}>Zone</label>
-        <select value={dZone} onChange={e => { setDZone(e.target.value); setDSaved(false) }} style={C.inp}>
-          <option value="">Select zone…</option>
-          {ZONES.map(z => <option key={z.id} value={z.id}>{z.label}</option>)}
-        </select>
-        <label style={C.label}>Target hits</label>
-        <input type="number" min="1" max="200" value={dTarget} onChange={e => { setDTarget(e.target.value); setDSaved(false) }} placeholder="e.g. 10" style={C.inp} />
-        <button
-          onClick={() => { if (!dZone || !dTarget) return; upd({ dailyChallenge: { zone: dZone, target: dTarget, source: 'coach', date: Date.now() } }); setDSaved(true) }}
-          style={{ width: '100%', background: dSaved ? '#064e3b' : '#f59e0b', color: dSaved ? '#6ee7b7' : '#000', border: 'none', borderRadius: 8, padding: '11px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.3s' }}
-        >
-          {dSaved ? <><CheckCircle size={14} />Published!</> : <><Zap size={14} />Publish Daily</>}
-        </button>
-      </div>
-
-      {/* Weekly challenge editor */}
-      <div style={C.card}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 12 }}>
-          <CalendarDays size={13} color="#60a5fa" />
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#60a5fa', letterSpacing: '0.08em' }}>WEEKLY CHALLENGE</span>
-        </div>
-        <label style={C.label}>Zone</label>
-        <select value={wZone} onChange={e => { setWZone(e.target.value); setWSaved(false) }} style={C.inp}>
-          <option value="">Select zone…</option>
-          {ZONES.map(z => <option key={z.id} value={z.id}>{z.label}</option>)}
-        </select>
-        <label style={C.label}>Target hits</label>
-        <input type="number" min="1" max="500" value={wTarget} onChange={e => { setWTarget(e.target.value); setWSaved(false) }} placeholder="e.g. 50" style={C.inp} />
-        <button
-          onClick={() => { if (!wZone || !wTarget) return; upd({ weeklyChallenge: { zone: wZone, target: wTarget, source: 'coach', date: Date.now() } }); setWSaved(true) }}
-          style={{ width: '100%', background: wSaved ? '#1e3a5f' : '#1d4ed8', color: wSaved ? '#93c5fd' : '#fff', border: 'none', borderRadius: 8, padding: '11px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.3s' }}
-        >
-          {wSaved ? <><CheckCircle size={14} />Published!</> : <><CalendarDays size={14} />Publish Weekly</>}
-        </button>
-      </div>
-    </div>
-  )
-}
 
 // ─── Matchup editor ────────────────────────────────────────────────────────────
 function CoachMatchups({ st, upd }) {
@@ -342,13 +260,12 @@ function CoachRoster({ st, upd }) {
 
 // ─── Main Coach Panel ─────────────────────────────────────────────────────────
 export default function CoachPortal({ st, upd }) {
-  const [cTab, setCTab] = useState('challenges')
+  const [cTab, setCTab] = useState('roster')
   const { isOutside, toggleOutsideMode } = useTheme()
   const tabs = [
-    { id: 'challenges',  label: 'Challenges', Icon: Zap    },
-    { id: 'matchups',    label: 'Matchups',   Icon: Swords  },
-    { id: 'roster',      label: 'Roster',     Icon: Users   },
-    { id: 'leaderboard', label: 'Leaders',    Icon: Trophy  },
+    { id: 'matchups',    label: 'Matchups', Icon: Swords },
+    { id: 'roster',      label: 'Roster',   Icon: Users  },
+    { id: 'leaderboard', label: 'Leaders',  Icon: Trophy },
   ]
 
   return (
@@ -403,7 +320,6 @@ export default function CoachPortal({ st, upd }) {
         </div>
 
         <div style={{ padding: 16 }}>
-          {cTab === 'challenges'  && <CoachChallenges  st={st} upd={upd} />}
           {cTab === 'matchups'    && <CoachMatchups    st={st} upd={upd} />}
           {cTab === 'roster'      && <CoachRoster       st={st} upd={upd} />}
           {cTab === 'leaderboard' && <CoachLeaderboard  st={st} />}
