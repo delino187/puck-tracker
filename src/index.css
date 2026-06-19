@@ -264,4 +264,3 @@ select { -webkit-appearance: none; }
   0%, 100% { transform: scale(1); box-shadow: 0 0 30px #ef444466, 0 0 60px #ef444433; }
   50%      { transform: scale(1.02); box-shadow: 0 0 40px #ef444477, 0 0 80px #ef444444; }
 }
-}
