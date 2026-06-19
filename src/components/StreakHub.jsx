@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect } from 'react'
-import storeMusicUrl from '../../public/store-music.mp3'
+import { useState } from 'react'
 
-const FREEZE_COST    = 50
-const SHIELD_COST    = 100
-const ELO_RESET_COST = 200
-const GLOW_COST      = 150
-const PFP_COST       = 50
+const FREEZE_COST       = 75
+const WEEK_FREEZE_COST  = 400
+const DOUBLE_XP_COST    = 200
+const SHIELD_COST       = 100
+const ELO_RESET_COST    = 200
+const GLOW_COST         = 150
+const PFP_COST          = 50
 const BASE_ELO       = 1000
 
 // ── Individual showcase card inside the stall grid ────────────────────────────
@@ -140,65 +141,17 @@ function ItemCard({ emoji, name, desc, tag, cost, canBuy, isOwned, owned, onBuy,
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function StreakHub({ player, stats, onPurchaseItem, onNavigate }) {
-  const totalDiamonds    = player.diamonds         || 0
-  const hasEloShield     = player.hasEloShield     || false
-  const boughtBorderGlow = player.boughtBorderGlow || false
-  const hasBorderGlow    = player.hasBorderGlow    || false
-  const canChangePfp     = player.canChangePfp     || false
+  const totalDiamonds    = player.diamonds            || 0
+  const hasEloShield     = player.hasEloShield        || false
+  const boughtBorderGlow = player.boughtBorderGlow    || false
+  const hasBorderGlow    = player.hasBorderGlow       || false
+  const canChangePfp     = player.canChangePfp        || false
+  const weekFreezeQty    = player.week_streak_freezes || 0
+  const doubleXpQty      = player.doubleXpTokens      || 0
   const [showLowBalance, setShowLowBalance] = useState(false)
-
-  // ── Store background music ────────────────────────────────────────────────
-  const bgMusicRef = useRef(null)
-  const mutedRef   = useRef(localStorage.getItem('appAudioMuted') === 'true')
-  const [musicMuted, setMusicMuted] = useState(mutedRef.current)
-
-  useEffect(() => {
-    const audio = new Audio(storeMusicUrl)
-    audio.loop   = true
-    audio.volume = 0.22
-    bgMusicRef.current = audio
-    if (!mutedRef.current) {
-      audio.play().catch(() => {
-        const resume = () => { audio.play().catch(() => {}); window.removeEventListener('click', resume) }
-        window.addEventListener('click', resume)
-      })
-    }
-    return () => { audio.pause(); audio.currentTime = 0; bgMusicRef.current = null }
-  }, []) // eslint-disable-line
-
-  function handleMuteToggle() {
-    const nowMuted = !mutedRef.current
-    mutedRef.current = nowMuted
-    setMusicMuted(nowMuted)
-    try { localStorage.setItem('appAudioMuted', String(nowMuted)) } catch {}
-    const audio = bgMusicRef.current
-    if (!audio) return
-    if (nowMuted) { audio.pause() } else { audio.play().catch(() => {}) }
-  }
 
   return (
     <div style={{ padding: '14px 14px 80px' }}>
-
-      {/* ── Tab header: music mute toggle ─────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 10 }}>
-        <button
-          onClick={handleMuteToggle}
-          title={musicMuted ? 'Unmute store music' : 'Mute store music'}
-          style={{
-            background: musicMuted ? 'rgba(15,23,42,0.7)' : 'rgba(251,191,36,0.12)',
-            border: `1px solid ${musicMuted ? '#334155' : '#fbbf2444'}`,
-            borderRadius: 8, padding: '4px 9px', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 4,
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9,
-            fontWeight: 800, letterSpacing: '0.1em',
-            color: musicMuted ? '#475569' : '#fbbf24',
-            transition: 'all 0.15s',
-          }}
-        >
-          <span>{musicMuted ? '🔇' : '🎵'}</span>
-          <span>{musicMuted ? 'OFF' : 'ON'}</span>
-        </button>
-      </div>
 
       {/* ── Low-balance modal ─────────────────────────────────────────────── */}
       {showLowBalance && (
@@ -348,13 +301,22 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
             border: '3px solid #3d1f0a',
             boxShadow: 'inset 0 3px 10px rgba(0,0,0,0.5)',
           }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
 
-              {/* ── Row 1: Core protections ──────────────────────────────── */}
+            {/* ── Consumables label ─────────────────────────────────────── */}
+            <div style={{
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
+              color: 'rgba(254,243,199,0.55)', letterSpacing: '0.22em',
+              textTransform: 'uppercase', textAlign: 'center', marginBottom: 10,
+            }}>
+              ⚡ CONSUMABLES &amp; POWER-UPS
+            </div>
+
+            {/* ── 3-col responsive grid for the new consumable items ────── */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginBottom: 14 }}>
               <ItemCard
                 emoji="🧊"
-                name="Streak Freeze"
-                desc="Auto-saves your streak on a missed day"
+                name="1-DAY FREEZE"
+                desc="Chills your streak for 24 hours if you miss a day on the ice. Ingested automatically upon a missed day."
                 tag="HOT"
                 cost={FREEZE_COST}
                 owned={player.streak_freezes || 0}
@@ -363,6 +325,45 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 onBuy={() => onPurchaseItem?.('streakFreeze', FREEZE_COST)}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
+              <ItemCard
+                emoji="🌨️"
+                name="1-WEEK FREEZE"
+                desc="Going away for a tournament or vacation? Locks your daily streak perfectly safe for 7 days straight!"
+                tag="PREMIUM"
+                cost={WEEK_FREEZE_COST}
+                owned={weekFreezeQty}
+                canBuy={totalDiamonds >= WEEK_FREEZE_COST}
+                isOwned={false}
+                onBuy={() => onPurchaseItem?.('weekStreakFreeze', WEEK_FREEZE_COST)}
+                onInsufficientFunds={() => setShowLowBalance(true)}
+              />
+              <ItemCard
+                emoji="⚡"
+                name="DOUBLE-XP TOKEN"
+                desc="Supercharge your grind! Earn 2x XP on all pucks logged for your next shooting session or next 50 shots."
+                tag="NEW"
+                cost={DOUBLE_XP_COST}
+                owned={doubleXpQty}
+                canBuy={totalDiamonds >= DOUBLE_XP_COST}
+                isOwned={false}
+                onBuy={() => onPurchaseItem?.('doubleXpToken', DOUBLE_XP_COST)}
+                onInsufficientFunds={() => setShowLowBalance(true)}
+              />
+            </div>
+
+            {/* ── Divider ───────────────────────────────────────────────── */}
+            <div style={{ height: 1, background: 'rgba(0,0,0,0.35)', margin: '4px 0 14px' }} />
+
+            {/* ── Competitive + cosmetic (2-col) ────────────────────────── */}
+            <div style={{
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
+              color: 'rgba(254,243,199,0.55)', letterSpacing: '0.22em',
+              textTransform: 'uppercase', textAlign: 'center', marginBottom: 10,
+            }}>
+              🏒 COMPETITIVE &amp; COSMETICS
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
               <ItemCard
                 emoji="🛡️"
                 name="ELO Shield"
@@ -374,8 +375,6 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 onBuy={() => onPurchaseItem?.('eloShield', SHIELD_COST)}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
-
-              {/* ── Row 2: Competitive + cosmetic ────────────────────────── */}
               <ItemCard
                 emoji="📈"
                 name="ELO RESET"
@@ -402,8 +401,6 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 onBuy={() => onPurchaseItem?.('borderGlow', GLOW_COST)}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
-
-              {/* ── Row 3: Profile unlock (centred via auto-placement) ────── */}
               <ItemCard
                 emoji="🎭"
                 name="CUSTOM AVATAR"
@@ -416,11 +413,69 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 onBuy={() => onPurchaseItem?.('unlockPfp', PFP_COST)}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
-
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── Consumable inventory ──────────────────────────────────────────── */}
+      {(player.streak_freezes > 0 || weekFreezeQty > 0 || doubleXpQty > 0) && (
+        <div style={{
+          background: 'var(--card-bg)', border: 'var(--card-border)',
+          borderRadius: 16, padding: '16px 18px', marginBottom: 14,
+        }}>
+          <div style={{
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
+            color: 'var(--text-muted)', letterSpacing: '0.2em', marginBottom: 12,
+          }}>
+            YOUR CONSUMABLES
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {(player.streak_freezes || 0) > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 22 }}>🧊</span>
+                  <div>
+                    <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>1-Day Streak Freeze</div>
+                    <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 11, color: 'var(--text-muted)' }}>Auto-activates on a missed day</div>
+                  </div>
+                </div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 28, fontWeight: 900, color: '#60a5fa' }}>
+                  {player.streak_freezes}
+                </div>
+              </div>
+            )}
+            {weekFreezeQty > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 22 }}>🌨️</span>
+                  <div>
+                    <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>1-Week Streak Freeze</div>
+                    <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 11, color: 'var(--text-muted)' }}>7-day streak protection</div>
+                  </div>
+                </div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 28, fontWeight: 900, color: '#818cf8' }}>
+                  {weekFreezeQty}
+                </div>
+              </div>
+            )}
+            {doubleXpQty > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 22 }}>⚡</span>
+                  <div>
+                    <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>Double-XP Token</div>
+                    <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 11, color: 'var(--text-muted)' }}>2x XP on next session</div>
+                  </div>
+                </div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 28, fontWeight: 900, color: '#fbbf24' }}>
+                  {doubleXpQty}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   )

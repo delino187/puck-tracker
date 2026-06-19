@@ -10,7 +10,9 @@ import HeatLegend from './net/HeatLegend.jsx'
 export default function GoalHeatmap({ player, stats, sessions }) {
   const pss  = sessions.filter(s => s.playerId === player.id)
   const hist = pss.map(s => {
-    const sh = s.sets.length * 10
+    const sets = s.sets || []
+    const hits = sets.reduce((a, x) => a + x.hits, 0)
+    const sh   = s.source === 'atw' ? hits : sets.length * 10
     return { d: new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), sh }
   }).slice(-10)
   const maxSh = Math.max(...hist.map(d => d.sh), 10)
@@ -24,7 +26,7 @@ export default function GoalHeatmap({ player, stats, sessions }) {
     <div style={{ padding: '14px 16px 80px' }}>
       {/* Career totals */}
       <div style={C.card}>
-        <div style={C.label}>Career Totals</div>
+        <div style={C.label}>Career Accuracy Totals</div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 8, marginBottom: 12 }}>
           <StatCard label="Shots"    value={stats.totalShots}                                               color="#60a5fa" />
           <StatCard label="Hits"     value={stats.totalHits}                                                color="#34d399" />

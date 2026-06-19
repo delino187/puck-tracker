@@ -23,20 +23,34 @@ export function getLevel(xp) {
 }
 
 export function playerStats(player, sessions) {
-  const pss     = getPSessions(player, sessions)
+  const pss = getPSessions(player, sessions)
+
+  // ATW sessions only track successful hits (no misses recorded),
+  // so shots = hits for those sessions to avoid inflating the miss count.
+  let totalShots = 0
+  let totalHits  = 0
+  pss.forEach(s => {
+    const h = s.sets.reduce((a, st) => a + st.hits, 0)
+    totalShots += s.source === 'atw' ? h : s.sets.length * 10
+    totalHits  += h
+  })
+
   const allSets = pss.flatMap(s => s.sets)
-  const totalShots = allSets.length * 10
-  const totalHits  = allSets.reduce((a, s) => a + s.hits, 0)
   const acc        = totalShots > 0 ? (totalHits / totalShots) * 100 : 0
   const streak     = dayStreak(player, sessions)
   const xp         = calcXP(totalShots, totalHits)
   const { level, li } = getLevel(xp)
   const nextLevel  = LEVELS[li + 1] || null
 
-  const weekStart  = getWeekStart()
-  const weekSets   = pss.filter(s => new Date(s.date) >= weekStart).flatMap(s => s.sets)
-  const weekShots  = weekSets.length * 10
-  const weekHits   = weekSets.reduce((a, s) => a + s.hits, 0)
+  const weekStart    = getWeekStart()
+  const weekSessions = pss.filter(s => new Date(s.date) >= weekStart)
+  let weekShots = 0
+  let weekHits  = 0
+  weekSessions.forEach(s => {
+    const h = s.sets.reduce((a, st) => a + st.hits, 0)
+    weekShots += s.source === 'atw' ? h : s.sets.length * 10
+    weekHits  += h
+  })
   const weekAcc    = weekShots > 0 ? (weekHits / weekShots) * 100 : 0
 
   const zoneStats = {}

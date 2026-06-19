@@ -6,10 +6,14 @@ export function getPSessions(player, sessions) {
 }
 
 export function lifetimeShots(p, s) {
-  const sessionShots  = getPSessions(p, s).reduce((a, x) => a + x.sets.length * 10, 0)
+  // ATW sessions only track successful hits; count shots = hits to avoid inflating miss count.
+  const sessionShots = getPSessions(p, s).reduce((a, x) => {
+    const h = x.sets.reduce((sum, st) => sum + st.hits, 0)
+    return a + (x.source === 'atw' ? h : x.sets.length * 10)
+  }, 0)
   // Technique-mode pucks live in Zustand, not in the sessions array —
   // read synchronously via getState() so this works outside React components.
-  const techEntry     = useAppStore.getState().techniqueByPlayer[p.id]
+  const techEntry      = useAppStore.getState().techniqueByPlayer[p.id]
   const techniqueShots = techEntry?.totalPucks || 0
   return sessionShots + techniqueShots
 }

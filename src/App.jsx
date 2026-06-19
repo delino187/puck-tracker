@@ -60,7 +60,6 @@ export default function App() {
   const [npName,        setNpName]       = useState('')
   const [npNum,         setNpNum]        = useState('')
   const [npPw,          setNpPw]         = useState('')
-  const [dashMutePrompt,  setDashMutePrompt]   = useState(false)
   const [rankDetailOpen,  setRankDetailOpen]   = useState(false)
   const [peerChallenges,  setPeerChallenges]   = useState([])
   const [challengeScreen, setChallengeScreen]  = useState(null) // null | 'create' | { mode:'respond', challenge }
@@ -72,7 +71,6 @@ export default function App() {
 
   const badgeQRef               = useRef([])
   const epicAudioRef            = useRef(null)
-  const dashAudioRef            = useRef(null)
   const streakInsuranceCheckedRef = useRef(null)
   const play         = useAudio()
   const { theme, toggleOutsideMode } = useTheme()
@@ -116,35 +114,6 @@ export default function App() {
       ),
     }))
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Versus tab intro music: start on Versus tab, stop on any other tab ─────
-  useEffect(() => {
-    if (!st || st.view !== 'player' || tab !== 'challenges') {
-      if (dashAudioRef.current) {
-        dashAudioRef.current.pause()
-        dashAudioRef.current.currentTime = 0
-        dashAudioRef.current = null
-      }
-      setDashMutePrompt(false)
-      return
-    }
-    const audio = new Audio('/intro-song.m4a')
-    audio.volume = 0.6
-    dashAudioRef.current = audio
-    audio.play().catch(() => setDashMutePrompt(true))
-    return () => {
-      audio.pause()
-      audio.currentTime = 0
-    }
-  }, [tab, st?.view]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Pause versus music the moment any celebration opens ───────────────────
-  useEffect(() => {
-    if (epicCeleb && dashAudioRef.current) {
-      dashAudioRef.current.pause()
-      // Do NOT reset currentTime — so it resumes seamlessly when modal closes
-    }
-  }, [epicCeleb])
 
   // ── Streak insurance: check on player load, once per broken streak ───────
   useEffect(() => {
@@ -227,18 +196,7 @@ export default function App() {
   function handleEpicClose() {
     stopEpicAudio()
     setEpicCeleb(null)
-    const hasMoreBadges = badgeQRef.current.length > 0
-    if (hasMoreBadges) {
-      setTimeout(popNextBadge, 150)
-    } else if (tab === 'challenges' && dashAudioRef.current) {
-      // All celebrations done — resume the intro song from where it paused
-      dashAudioRef.current.play().catch(() => setDashMutePrompt(true))
-    }
-  }
-
-  function handleDashUnmute() {
-    dashAudioRef.current?.play().catch(() => {})
-    setDashMutePrompt(false)
+    if (badgeQRef.current.length > 0) setTimeout(popNextBadge, 150)
   }
 
   function handlePeerChallengeSubmit({ challenge }) {
@@ -609,28 +567,6 @@ export default function App() {
           />
         )}
 
-        {dashMutePrompt && tab === 'challenges' && (
-          <div
-            onClick={handleDashUnmute}
-            style={{
-              position: 'fixed', bottom: 24, right: 20, zIndex: 200,
-              background: 'rgba(10,15,26,0.92)',
-              border: '1px solid #3b82f644',
-              borderRadius: 24, padding: '9px 16px',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 7,
-              backdropFilter: 'blur(10px)',
-              boxShadow: '0 4px 24px rgba(0,0,0,0.5), 0 0 14px #3b82f622',
-              fontFamily: "'Barlow Condensed',sans-serif",
-              fontSize: 12, fontWeight: 700,
-              color: '#93c5fd', letterSpacing: '0.08em',
-              userSelect: 'none',
-            }}
-          >
-            🔊 Tap to Unmute Music
-          </div>
-        )}
-
         {aPlayer.coachMsg && (
           <CoachMsgPopup
             message={aPlayer.coachMsg}
@@ -712,7 +648,16 @@ export default function App() {
               flashType={flashType}
               puckAnim={puckAnim}
               puckGames={puckGames}
-              onSubmitGame={gameSession => upd({ sessions: [...st.sessions, gameSession] })}
+              onSubmitGame={sets => {
+                const atwSession = {
+                  id:       newId(),
+                  playerId: aPlayer.id,
+                  date:     new Date().toISOString(),
+                  source:   'atw',
+                  sets,
+                }
+                upd({ sessions: [...st.sessions, atwSession] })
+              }}
               onPuckGameUpdate={updated => setPuckGames(prev => {
                 const idx = prev.findIndex(g => g.id === updated.id)
                 return idx >= 0 ? prev.map(g => g.id === updated.id ? updated : g) : [updated, ...prev]
@@ -773,6 +718,10 @@ export default function App() {
                 if (diamonds < cost) return
                 if (itemId === 'streakFreeze') {
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) })
+                } else if (itemId === 'weekStreakFreeze') {
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, week_streak_freezes: (p.week_streak_freezes || 0) + 1 } : p) })
+                } else if (itemId === 'doubleXpToken') {
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, doubleXpTokens: (p.doubleXpTokens || 0) + 1 } : p) })
                 } else if (itemId === 'eloShield') {
                   if (aPlayer.hasEloShield) return
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, hasEloShield: true } : p) })

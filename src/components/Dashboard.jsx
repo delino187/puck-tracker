@@ -220,13 +220,16 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
             <ChevronRight size={13} color="#64748b" />
           </div>
           {recent.map((s, i) => {
-            const sh = s.sets.length * 10
-            const hi = s.sets.reduce((a, x) => a + x.hits, 0)
+            const sets = s.sets || []
+            const hi   = sets.reduce((a, x) => a + x.hits, 0)
+            // ATW sessions only record hits, so shots = hits (no misses tracked)
+            const sh   = s.source === 'atw' ? hi : sets.length * 10
+            const label = s.source === 'atw' ? `${hi} hits` : `${sh} shots`
             return (
-              <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < recent.length - 1 ? '1px solid #1e3a5f' : 'none' }}>
+              <div key={s.id || i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: i < recent.length - 1 ? '1px solid #1e3a5f' : 'none' }}>
                 <span style={{ fontFamily: "'Barlow Condensed',sans-serif", color: '#64748b', fontSize: 12, letterSpacing: '0.04em' }}>{new Date(s.date).toLocaleDateString()}</span>
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: 'var(--text-1)' }}>{sh} shots</span>
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 800, color: '#34d399' }}>{sh > 0 ? (hi / sh * 100).toFixed(0) : 0}%</span>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: 'var(--text-1)' }}>{label}</span>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 800, color: '#34d399' }}>{sh > 0 ? (hi / sh * 100).toFixed(0) : '—'}%</span>
               </div>
             )
           })}

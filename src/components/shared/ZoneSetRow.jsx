@@ -41,13 +41,14 @@ export default function ZoneSetRow({ zone, prevHits, prevShots, value, onChange,
           }}
           disabled={!hasVal}
           style={{
-            background: hasVal ? '#0f172a' : 'var(--card-bg)',
+            background: hasVal ? 'linear-gradient(135deg,#1d4ed8,#3b82f6)' : 'var(--card-bg)',
             color: hasVal ? '#ffffff' : 'var(--text-muted)',
             border: hasVal ? 'none' : 'var(--card-border)',
-            borderRadius: 6, padding: '6px 12px',
-            fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 13,
+            borderRadius: 6, padding: '6px 14px',
+            fontFamily: "'Bangers',sans-serif", fontWeight: 400, fontSize: 16,
             cursor: hasVal ? 'pointer' : 'default',
-            letterSpacing: '0.06em',
+            letterSpacing: '0.1em', textTransform: 'uppercase',
+            boxShadow: hasVal ? '0 0 10px #3b82f633' : 'none',
           }}
         >
           LOG

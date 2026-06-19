@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react'
 import { computeQuestProgress, parseQuestTarget, parseQuestSuffix } from '../../utils/questHelpers.js'
 import { playCashRegister } from '../../utils/arcadeSounds.js'
 import { getWeekStart } from '../../utils/stats.js'
-import questMusicUrl from '../../../public/quest-tab-music.mp3'
 
 // ── Quest pool — strictly achievable within 24 hours ─────────────────────────
 const QUEST_POOL = {
@@ -399,55 +398,6 @@ export default function DailyQuests({
 
   const intervalRef  = useRef(null)
   const spinAudioRef = useRef(null)
-  const bgMusicRef   = useRef(null)
-  const mutedRef     = useRef(localStorage.getItem('appAudioMuted') === 'true')
-  const [musicMuted, setMusicMuted] = useState(mutedRef.current)
-
-  // ── Quest tab background music ────────────────────────────────────────────
-  // Single persistent Audio instance stored in a ref. Attempts immediate play
-  // on mount; if the browser blocks autoplay, a window click listener retries
-  // every time the user clicks anywhere until it succeeds. Full cleanup on
-  // unmount: listener removed, track paused, timeline reset.
-  useEffect(() => {
-    const audio = new Audio(questMusicUrl)
-    audio.loop   = false
-    audio.volume = 0.25
-    bgMusicRef.current = audio
-
-    audio.addEventListener('error', e =>
-      console.error('Quest Music Error Code:', e.target.error)
-    )
-
-    const playAudio = () => {
-      if (audio.paused && !mutedRef.current) {
-        audio.play().catch(err => console.log('Autoplay blocked, waiting for click...', err))
-      }
-    }
-
-    // Persistent window listener — retries on every click until playing
-    window.addEventListener('click', playAudio)
-
-    // Attempt immediate play only if not muted globally
-    if (!mutedRef.current) playAudio()
-
-    return () => {
-      window.removeEventListener('click', playAudio)
-      audio.pause()
-      audio.currentTime = 0
-      bgMusicRef.current = null
-    }
-  }, []) // eslint-disable-line
-
-  // Toggle: pause for real when muted, resume play when unmuted; sync global key
-  function handleMuteToggle() {
-    const nowMuted = !mutedRef.current
-    mutedRef.current = nowMuted
-    setMusicMuted(nowMuted)
-    try { localStorage.setItem('appAudioMuted', String(nowMuted)) } catch {}
-    const audio = bgMusicRef.current
-    if (!audio) return
-    if (nowMuted) { audio.pause() } else { audio.play().catch(() => {}) }
-  }
 
   // Sync completed/claimed flags written by the session-end path back into
   // local display state without triggering during the spin animation.
@@ -635,28 +585,6 @@ export default function DailyQuests({
         @keyframes reelSlideIn   { from{ transform:translateY(38px);opacity:0 } to{ transform:translateY(0);opacity:1 } }
         @keyframes winPrizePop   { 0%{ transform:scale(0.65);opacity:0 } 70%{ transform:scale(1.14) } 100%{ transform:scale(1);opacity:1 } }
       `}</style>
-
-      {/* ── Tab header row: music toggle (outside the gold frame) ─── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 10 }}>
-        <button
-          onClick={handleMuteToggle}
-          title={musicMuted ? 'Unmute quest music' : 'Mute quest music'}
-          style={{
-            background: musicMuted ? 'rgba(15,23,42,0.7)' : 'rgba(251,191,36,0.12)',
-            border: `1px solid ${musicMuted ? '#334155' : '#fbbf2444'}`,
-            borderRadius: 8, padding: '4px 9px',
-            cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 4,
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9,
-            fontWeight: 800, letterSpacing: '0.1em',
-            color: musicMuted ? '#475569' : '#fbbf24',
-            transition: 'all 0.15s',
-          }}
-        >
-          <span>{musicMuted ? '🔇' : '🎵'}</span>
-          <span>{musicMuted ? 'OFF' : 'ON'}</span>
-        </button>
-      </div>
 
       {/* ── Diamond burst particles ────────────────────────────────────────── */}
       {burst && (

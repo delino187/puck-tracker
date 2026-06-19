@@ -12,16 +12,21 @@ import { useAppStore } from '../../store/useAppStore.js'
 const TEAM_ID = 'team_main'
 
 function computePlayerStats(player, sessions) {
-  const pSessions    = sessions.filter(s => s.playerId === player.id)
-  const allSets      = pSessions.flatMap(s => s.sets)
-  const sessionShots = allSets.length * 10
-  const totalHits    = allSets.reduce((a, s) => a + s.hits, 0)
+  const pSessions = sessions.filter(s => s.playerId === player.id)
+  let sessionShots = 0
+  let totalHits    = 0
+  pSessions.forEach(s => {
+    const h = (s.sets || []).reduce((a, st) => a + st.hits, 0)
+    // ATW sessions only track hits, so shots = hits to avoid inflating miss count.
+    sessionShots += s.source === 'atw' ? h : (s.sets || []).length * 10
+    totalHits    += h
+  })
   // Technique pucks live in Zustand, not in sessions — add them so the modal
   // reflects the same career total shown on the Dashboard.
-  const techEntry    = useAppStore.getState().techniqueByPlayer[player.id]
-  const totalShots   = sessionShots + (techEntry?.totalPucks || 0)
-  const xp           = calcXP(totalShots, totalHits)
-  const { li }       = getLevel(xp)
+  const techEntry  = useAppStore.getState().techniqueByPlayer[player.id]
+  const totalShots = sessionShots + (techEntry?.totalPucks || 0)
+  const xp         = calcXP(totalShots, totalHits)
+  const { li }     = getLevel(xp)
   return { totalShots, totalHits, xp, li }
 }
 

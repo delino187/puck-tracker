@@ -400,10 +400,11 @@ export default function ShootTracker({
             borderRadius: 10,
             border: 'none',
             cursor: filledCount > 0 ? 'pointer' : 'default',
-            fontFamily: "'Barlow Condensed',sans-serif",
-            fontWeight: 900,
-            fontSize: 15,
-            letterSpacing: '0.06em',
+            fontFamily: "'Bangers',sans-serif",
+            fontWeight: 400,
+            fontSize: 20,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
             background: filledCount > 0
               ? 'linear-gradient(90deg,#1d4ed8,#2563eb,#3b82f6)'
               : '#0f172a',
@@ -417,6 +418,25 @@ export default function ShootTracker({
             : 'Fill zones above, then Log All'}
         </button>
       </div>
+
+      {/* ── End Session — elevated above the net so it's always reachable ── */}
+      <button
+        onClick={onEndSession}
+        style={{
+          width: '100%', marginBottom: 10,
+          padding: '15px 0',
+          background: 'linear-gradient(135deg,#064e3b,#059669)',
+          color: '#34d399', border: '1px solid #10b98166',
+          borderRadius: 12, cursor: 'pointer',
+          fontFamily: "'Bangers',sans-serif",
+          fontWeight: 400, fontSize: 22, letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          boxShadow: '0 0 20px #10b98122',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+        }}
+      >
+        <CheckCircle size={17} /> End Session
+      </button>
 
       {/* ── Net SVG with shake wrapper ───────────────────────────────────── */}
       <div style={{ position: 'relative', width: '100%', paddingBottom: '68%', marginBottom: 10 }}>
@@ -445,10 +465,6 @@ export default function ShootTracker({
           })}
         </div>
       )}
-
-      <button style={{ ...C.btnS, borderColor: '#22c55e', color: '#22c55e' }} onClick={onEndSession}>
-        <CheckCircle size={15} /> End Session
-      </button>
     </div>
   )
 }

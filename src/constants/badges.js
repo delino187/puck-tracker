@@ -116,13 +116,13 @@ export const BADGES = [
 
   // ── Around the World game badges ─────────────────────────────────────────────
   { id: 'atw_1',  name: 'Global Citizen',   desc: 'Complete your first Around the World run',    cat: 'games', tier: 1, Icon: Globe,     innerBg: 'linear-gradient(135deg,#064e3b,#059669)', innerIcon: '#6ee7b7', check: (p,s) => atwGamesPlayed(p,s) >= 1       },
-  { id: 'atw_ff', name: 'Frequent Flyer',   desc: '15+ total hits in a single ATW run',          cat: 'games', tier: 1, Icon: Plane,     innerBg: 'linear-gradient(135deg,#0c4a6e,#0284c7)', innerIcon: '#bae6fd', check: (p,s) => atwMaxRunHits(p,s) >= 15       },
-  { id: 'atw_oa', name: 'Orbit Achieved',   desc: '25+ total hits in a single ATW run',          cat: 'games', tier: 2, Icon: RotateCcw, innerBg: 'linear-gradient(135deg,#1e1b4b,#4338ca)', innerIcon: '#c7d2fe', check: (p,s) => atwMaxRunHits(p,s) >= 25       },
-  { id: 'atw_ls', name: 'Light Speed',      desc: '35+ total hits in a single ATW run',          cat: 'games', tier: 3, Icon: Zap,       innerBg: 'linear-gradient(135deg,#78350f,#f59e0b)', innerIcon: '#fef3c7', check: (p,s) => atwMaxRunHits(p,s) >= 35       },
-  { id: 'atw_pc', name: 'Perfect Compass',  desc: '3+ hits in every corner in one ATW run',      cat: 'games', tier: 2, Icon: Compass,   innerBg: 'linear-gradient(135deg,#134e4a,#0d9488)', innerIcon: '#99f6e4', check: (p,s) => atwAllCornersAtLeast(p,s,3)   },
+  { id: 'atw_ff', name: 'Frequent Flyer',   desc: '8+ total hits in a single ATW run',           cat: 'games', tier: 1, Icon: Plane,     innerBg: 'linear-gradient(135deg,#0c4a6e,#0284c7)', innerIcon: '#bae6fd', check: (p,s) => atwMaxRunHits(p,s) >= 8        },
+  { id: 'atw_oa', name: 'Orbit Achieved',   desc: '12+ total hits in a single ATW run',          cat: 'games', tier: 2, Icon: RotateCcw, innerBg: 'linear-gradient(135deg,#1e1b4b,#4338ca)', innerIcon: '#c7d2fe', check: (p,s) => atwMaxRunHits(p,s) >= 12       },
+  { id: 'atw_ls', name: 'Light Speed',      desc: '20+ total hits in a single ATW run',          cat: 'games', tier: 3, Icon: Zap,       innerBg: 'linear-gradient(135deg,#78350f,#f59e0b)', innerIcon: '#fef3c7', check: (p,s) => atwMaxRunHits(p,s) >= 20       },
+  { id: 'atw_pc', name: 'Perfect Compass',  desc: '2+ hits in every corner in one ATW run',      cat: 'games', tier: 2, Icon: Compass,   innerBg: 'linear-gradient(135deg,#134e4a,#0d9488)', innerIcon: '#99f6e4', check: (p,s) => atwAllCornersAtLeast(p,s,2)   },
   { id: 'atw_jl', name: 'Jet Lag',          desc: 'Play Around the World 3 days in a row',       cat: 'games', tier: 2, Icon: Moon,      innerBg: 'linear-gradient(135deg,#0f172a,#1e3a8a)', innerIcon: '#a5b4fc', check: (p,s) => atwDayStreak(p,s,3)            },
-  { id: 'atw_sb', name: 'Sonic Boom',       desc: 'Beat your ATW personal best by 5+ hits',      cat: 'games', tier: 3, Icon: Wind,      innerBg: 'linear-gradient(135deg,#7f1d1d,#dc2626)', innerIcon: '#fca5a5', check: (p,s) => atwBeatPBBy(p,s,5)             },
-  { id: 'atw_ps', name: 'Passport Stamped', desc: '100 career hits across all ATW runs',         cat: 'games', tier: 2, Icon: Map,       innerBg: 'linear-gradient(135deg,#713f12,#b45309)', innerIcon: '#fde68a', check: (p,s) => atwCareerHits(p,s) >= 100      },
+  { id: 'atw_sb', name: 'Sonic Boom',       desc: 'Beat your ATW personal best by 3+ hits',      cat: 'games', tier: 3, Icon: Wind,      innerBg: 'linear-gradient(135deg,#7f1d1d,#dc2626)', innerIcon: '#fca5a5', check: (p,s) => atwBeatPBBy(p,s,3)             },
+  { id: 'atw_ps', name: 'Passport Stamped', desc: '40 career hits across all ATW runs',          cat: 'games', tier: 2, Icon: Map,       innerBg: 'linear-gradient(135deg,#713f12,#b45309)', innerIcon: '#fde68a', check: (p,s) => atwCareerHits(p,s) >= 40       },
 ]
 
 export const BADGE_CATS = [
