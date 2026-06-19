@@ -2,9 +2,10 @@ import { useState } from 'react'
 import {
   Plus, Trash2, Shuffle, CheckCircle, X,
   Swords, Users, Lock, ChevronLeft, History, Eye, EyeOff,
-  AlertCircle, Edit2, KeyRound, Trophy, Sun, Moon,
+  AlertCircle, Edit2, KeyRound, Trophy, Sun, Moon, MessageSquare,
 } from 'lucide-react'
 import CoachLeaderboard from './CoachLeaderboard.jsx'
+import CoachFeedback    from './CoachFeedback.jsx'
 import { getWeekStart, playerStats, calcXP, getLevel } from '../utils/stats.js'
 import { getPSessions } from '../utils/badgeHelpers.js'
 import { useTheme } from '../hooks/useTheme.js'
@@ -263,9 +264,10 @@ export default function CoachPortal({ st, upd }) {
   const [cTab, setCTab] = useState('roster')
   const { isOutside, toggleOutsideMode } = useTheme()
   const tabs = [
-    { id: 'matchups',    label: 'Matchups', Icon: Swords },
-    { id: 'roster',      label: 'Roster',   Icon: Users  },
-    { id: 'leaderboard', label: 'Leaders',  Icon: Trophy },
+    { id: 'matchups',    label: 'Matchups', Icon: Swords         },
+    { id: 'roster',      label: 'Roster',   Icon: Users          },
+    { id: 'leaderboard', label: 'Leaders',  Icon: Trophy         },
+    { id: 'feedback',    label: 'Feedback', Icon: MessageSquare  },
   ]
 
   return (
@@ -323,6 +325,7 @@ export default function CoachPortal({ st, upd }) {
           {cTab === 'matchups'    && <CoachMatchups    st={st} upd={upd} />}
           {cTab === 'roster'      && <CoachRoster       st={st} upd={upd} />}
           {cTab === 'leaderboard' && <CoachLeaderboard  st={st} />}
+          {cTab === 'feedback'    && <CoachFeedback />}
         </div>
       </div>
     </div>
