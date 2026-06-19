@@ -11,6 +11,7 @@ import {
 } from '../../services/puckGameService.js'
 import PuckGameOverlay from '../overlays/PuckGameOverlay.jsx'
 import CopyButton, { buildInviteText } from '../shared/CopyButton.jsx'
+import { updateStreak } from '../../utils/streakService.js'
 
 function uploadErrMsg(err) {
   if (err?.message === 'FILE_TOO_LARGE')
@@ -163,6 +164,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
     try {
       const url = await uploadPuckVideo(videoFile, selectedGame.id, `setter_${player.id}`, setUploadProgress)
       logTechniqueShots(player.id, 3)   // all 3 shots logged → +3 XP
+      updateStreak(player.id).catch(() => {})
       const updated = await submitSetterShot(selectedGame, { zone, trickStyle: trick, videoUrl: url, made })
       await refresh(updated)
     } catch (err) { setError(uploadErrMsg(err)); setSubmitting(false) }
@@ -175,6 +177,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
     try {
       const url = await uploadPuckVideo(videoFile, selectedGame.id, `defender_${player.id}`, setUploadProgress)
       logTechniqueShots(player.id, 3)   // all 3 shots logged → +3 XP
+      updateStreak(player.id).catch(() => {})
       const p1 = players.find(p => p.id === selectedGame.p1Id)
       const p2 = players.find(p => p.id === selectedGame.p2Id)
       const updated = await submitDefenderResponse(selectedGame, { videoUrl: url, made, p1Elo: p1?.elo || 1600, p2Elo: p2?.elo || 1600 })

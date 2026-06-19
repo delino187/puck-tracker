@@ -7,16 +7,21 @@ import { LEVELS } from '../../constants/levels.js'
 import { calcXP, getLevel } from '../../utils/stats.js'
 import { getStreakAuraClass } from '../../utils/streakAura.js'
 import { STREAK_EXCLUSIVE_BADGES } from '../../constants/streakBadges.js'
+import { useAppStore } from '../../store/useAppStore.js'
 
 const TEAM_ID = 'team_main'
 
 function computePlayerStats(player, sessions) {
-  const pSessions = sessions.filter(s => s.playerId === player.id)
-  const allSets   = pSessions.flatMap(s => s.sets)
-  const totalShots = allSets.length * 10
-  const totalHits  = allSets.reduce((a, s) => a + s.hits, 0)
-  const xp         = calcXP(totalShots, totalHits)
-  const { li }     = getLevel(xp)
+  const pSessions    = sessions.filter(s => s.playerId === player.id)
+  const allSets      = pSessions.flatMap(s => s.sets)
+  const sessionShots = allSets.length * 10
+  const totalHits    = allSets.reduce((a, s) => a + s.hits, 0)
+  // Technique pucks live in Zustand, not in sessions — add them so the modal
+  // reflects the same career total shown on the Dashboard.
+  const techEntry    = useAppStore.getState().techniqueByPlayer[player.id]
+  const totalShots   = sessionShots + (techEntry?.totalPucks || 0)
+  const xp           = calcXP(totalShots, totalHits)
+  const { li }       = getLevel(xp)
   return { totalShots, totalHits, xp, li }
 }
 
@@ -50,10 +55,10 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
   const [h2h,     setH2h]     = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const { totalHits, li } = computePlayerStats(player, sessions)
+  const { totalShots, totalHits, li } = computePlayerStats(player, sessions)
   const level              = LEVELS[li]
   const earnedIds          = Object.keys(player.earnedBadges || {})
-  const earnedMedals       = BADGES.filter(b => earnedIds.includes(b.id)).slice(0, 6)
+  const earnedMedals       = BADGES.filter(b => earnedIds.includes(b.id))
   const activeStreak       = player.streakCount || 0
   const liveMedals         = STREAK_EXCLUSIVE_BADGES.filter(b => activeStreak >= b.minStreak)
   const medals             = [...liveMedals, ...earnedMedals]
@@ -105,8 +110,9 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
         position: 'fixed', inset: 0, zIndex: 300,
         background: 'rgba(0,0,0,0.75)',
         backdropFilter: 'blur(6px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '0 16px',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '20px 16px 32px',
+        overflowY: 'auto',
       }}
     >
       <div
@@ -117,7 +123,7 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
           border: '2px solid rgba(6,182,212,0.35)',
           borderRadius: 22,
           boxShadow: '0 0 40px rgba(6,182,212,0.15), 0 24px 48px rgba(0,0,0,0.6)',
-          padding: '28px 20px 24px',
+          padding: '28px 20px 28px',
           position: 'relative',
         }}
       >
@@ -196,11 +202,11 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
           marginBottom: 16, gap: 4,
         }}>
           {[
+            { label: 'Shots',   value: totalShots > 0 ? totalShots.toLocaleString() : '—' },
+            { label: 'Hits',    value: totalHits  > 0 ? totalHits.toLocaleString()  : '—' },
             { label: 'Wins',    value: isSelf ? '—' : (h2h?.wins   ?? '…') },
             { label: 'Losses',  value: isSelf ? '—' : (h2h?.losses ?? '…') },
-            { label: 'Ties',    value: isSelf ? '—' : (h2h?.ties   ?? '…') },
             { label: 'Win %',   value: isSelf ? '—' : (loading ? '…' : `${winRate}%`) },
-            { label: 'Hits',    value: totalHits > 0 ? totalHits.toLocaleString() : '—' },
           ].map(({ label, value }) => (
             <div key={label} style={{ textAlign: 'center' }}>
               <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.04em', color: '#f1f5f9', lineHeight: 1 }}>
@@ -215,11 +221,18 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
 
         {/* ── Medals ────────────────────────────────────────────────────────── */}
         {medals.length > 0 && (
-          <div style={{ marginBottom: 16, width: '100%', overflow: 'hidden', padding: '0 4px' }}>
+          <div style={{ marginBottom: 16, width: '100%', padding: '0 2px' }}>
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.12em', color: '#f1f5f9', textTransform: 'uppercase', marginBottom: 10 }}>
               Badges <span style={{ color: '#a855f7' }}>({medals.length})</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, justifyItems: 'center', alignItems: 'center', width: '100%' }}>
+            <div style={{
+              display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
+              gap: 10, justifyItems: 'center', alignItems: 'start',
+              width: '100%',
+              maxHeight: medals.length > 10 ? 220 : 'none',
+              overflowY: medals.length > 10 ? 'auto' : 'visible',
+              paddingBottom: 4,
+            }}>
               {medals.map(b => (
                 <div key={b.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div

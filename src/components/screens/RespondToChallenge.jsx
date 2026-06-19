@@ -4,6 +4,7 @@ import { ZONES } from '../../constants/zones.js'
 import { C } from '../../styles.js'
 import { useAppStore } from '../../store/useAppStore.js'
 import { uploadChallengeVideo, respondToChallenge, WARN_FILE_BYTES } from '../../services/peerChallengeService.js'
+import { updateStreak } from '../../utils/streakService.js'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
 import { playScoreSound } from '../../utils/arcadeSounds.js'
 import Avatar from '../shared/Avatar.jsx'
@@ -364,6 +365,7 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
       const videoUrl = await uploadChallengeVideo(videoFile, tempKey, 'receiver', setUploadProgress)
       const updated  = await respondToChallenge(challenge, myHits, videoUrl)
       logTechniqueShots(player.id, shotCount)
+      updateStreak(player.id).catch(() => {})
       const didWin = updated.winnerId === player.id
       setWon(didWin)
       if (updated.eloResult) setEloData(updated.eloResult)
