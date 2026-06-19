@@ -239,13 +239,31 @@ export default function App() {
   }
 
   function handlePeerChallengeSubmit({ challenge }) {
-    // Merge updated challenge into local list — XP is awarded via logTechniqueShots inside the screens
+    // Merge updated challenge into local list
     setPeerChallenges(prev => {
       const idx = prev.findIndex(c => c.id === challenge.id)
       return idx >= 0
         ? prev.map(c => c.id === challenge.id ? challenge : c)
         : [challenge, ...prev]
     })
+
+    // Instantly apply ELO deltas to local player state so the leaderboard and
+    // header reflect the new ratings without waiting for a Firestore reload.
+    const er = challenge.eloResult
+    if (er && challenge.status === 'completed') {
+      const now = Date.now()
+      upd({
+        players: st.players.map(p => {
+          if (p.id === challenge.challengerId && er.challengerDelta !== undefined) {
+            return { ...p, elo: (p.elo ?? 1000) + er.challengerDelta, eloLastDelta: er.challengerDelta, eloLastUpdated: now, hasEloShield: false }
+          }
+          if (p.id === challenge.receiverId && er.receiverDelta !== undefined) {
+            return { ...p, elo: (p.elo ?? 1000) + er.receiverDelta, eloLastDelta: er.receiverDelta, eloLastUpdated: now, hasEloShield: false }
+          }
+          return p
+        }),
+      })
+    }
   }
 
   function handleDashNavigate(tabId, openRankDetail = false) {

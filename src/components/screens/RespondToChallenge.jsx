@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, Video, Upload, CheckCircle, AlertCircle, Trophy, Info, Play } from 'lucide-react'
 import { ZONES } from '../../constants/zones.js'
 import { C } from '../../styles.js'
@@ -6,6 +6,252 @@ import { useAppStore } from '../../store/useAppStore.js'
 import { uploadChallengeVideo, respondToChallenge } from '../../services/peerChallengeService.js'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
 import { playScoreSound } from '../../utils/arcadeSounds.js'
+import Avatar from '../shared/Avatar.jsx'
+
+// ── Rolling-number hook: animates from `startVal` toward `target` ─────────────
+function useRollingValue(target, startVal, duration = 1800) {
+  const [value, setValue] = useState(startVal)
+  useEffect(() => {
+    if (target === startVal) return
+    let rafId
+    let startTime = null
+    const diff = target - startVal
+    function animate(ts) {
+      if (!startTime) startTime = ts
+      const progress = Math.min(1, (ts - startTime) / duration)
+      const eased    = 1 - Math.pow(1 - progress, 3)   // cubic ease-out
+      setValue(Math.round(startVal + diff * eased))
+      if (progress < 1) { rafId = requestAnimationFrame(animate) }
+      else               { setValue(target) }
+    }
+    rafId = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(rafId)
+  }, []) // eslint-disable-line
+  return value
+}
+
+// ── Confetti particle shapes ───────────────────────────────────────────────────
+const CONFETTI_COLORS = ['#fbbf24','#22c55e','#06b6d4','#a855f7','#ef4444','#f97316','#fff']
+
+// ── Victory / Defeat full-screen overlay ──────────────────────────────────────
+function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, onBack }) {
+  const oldElo     = player.elo ?? 1000
+  const delta      = eloData?.receiverDelta ?? 0
+  const newElo     = oldElo + delta
+  const displayElo = useRollingValue(newElo, oldElo, 2000)
+
+  const shieldSaved = eloData?.receiverShieldSaved ?? false
+
+  // Audio
+  useEffect(() => {
+    const audio = new Audio(won ? '/win-fanfare.mp3' : '/loss-fail.mp3')
+    audio.volume = 0.7
+    audio.play().catch(() => {
+      // Fallback CDN sounds if public files not present
+      const fb = new Audio(won
+        ? 'https://assets.mixkit.co/active_storage/sfx/2202/2202.mp3'
+        : 'https://assets.mixkit.co/active_storage/sfx/2019/2019.mp3')
+      fb.volume = 0.6
+      fb.play().catch(() => {})
+    })
+    return () => { audio.pause() }
+  }, []) // eslint-disable-line
+
+  // Confetti seeds (win only)
+  const confetti = won
+    ? Array.from({ length: 26 }, (_, i) => ({
+        id:       i,
+        left:     `${(i / 26) * 100 + (Math.random() - 0.5) * 8}%`,
+        delay:    `${(Math.random() * 1.8).toFixed(2)}s`,
+        duration: `${(2.2 + Math.random() * 2).toFixed(2)}s`,
+        color:    CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+        size:     6 + Math.floor(Math.random() * 9),
+        shape:    i % 3 === 0 ? '50%' : '2px',  // circle or square
+      }))
+    : []
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 500, overflowY: 'auto',
+      background: won
+        ? 'radial-gradient(ellipse at 50% 20%, #1a2e00 0%, #0a1200 60%, #060a00 100%)'
+        : 'radial-gradient(ellipse at 50% 20%, #2a0000 0%, #150000 60%, #0a0000 100%)',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      padding: '32px 20px 40px',
+    }}>
+      <style>{`
+        @keyframes confettiFall {
+          0%   { transform: translateY(-30px) rotate(0deg); opacity: 1 }
+          80%  { opacity: 1 }
+          100% { transform: translateY(110vh) rotate(600deg); opacity: 0 }
+        }
+        @keyframes redVignette {
+          0%,100% { box-shadow: inset 0 0 90px 50px rgba(200,0,0,0.35) }
+          50%     { box-shadow: inset 0 0 140px 80px rgba(200,0,0,0.55) }
+        }
+        @keyframes goldHalo {
+          0%,100% { box-shadow: 0 0 60px 20px rgba(251,191,36,0.25), 0 0 120px 40px rgba(251,191,36,0.12) }
+          50%     { box-shadow: 0 0 100px 40px rgba(251,191,36,0.40), 0 0 200px 80px rgba(251,191,36,0.20) }
+        }
+        @keyframes victoryTitle {
+          0%,100% { text-shadow: 0 0 50px #fbbf2499, 0 2px 0 #78350f }
+          50%     { text-shadow: 0 0 90px #fbbf24cc, 0 2px 0 #78350f }
+        }
+        @keyframes defeatTitle {
+          0%,100% { text-shadow: 0 0 50px #ef444499, 0 2px 0 #7f1d1d }
+          50%     { text-shadow: 0 0 90px #ef4444cc, 0 2px 0 #7f1d1d }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(30px); opacity: 0 }
+          to   { transform: translateY(0);    opacity: 1 }
+        }
+        @keyframes eloCountPulse {
+          0%,100% { transform: scale(1) }
+          50%     { transform: scale(1.04) }
+        }
+      `}</style>
+
+      {/* Red vignette pulse — loss only */}
+      {!won && (
+        <div style={{ position: 'fixed', inset: 0, animation: 'redVignette 1.6s ease-in-out infinite', pointerEvents: 'none', zIndex: 0 }} />
+      )}
+
+      {/* Gold halo glow — win only */}
+      {won && (
+        <div style={{ position: 'fixed', inset: 0, animation: 'goldHalo 2s ease-in-out infinite', pointerEvents: 'none', zIndex: 0 }} />
+      )}
+
+      {/* Confetti */}
+      {confetti.map(p => (
+        <div key={p.id} style={{
+          position: 'fixed', left: p.left, top: '-10px', zIndex: 1,
+          width: p.size, height: p.size,
+          background: p.color, borderRadius: p.shape,
+          animation: `confettiFall ${p.duration} ${p.delay} linear forwards`,
+          pointerEvents: 'none',
+        }} />
+      ))}
+
+      {/* Everything else sits above the effects */}
+      <div style={{ position: 'relative', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: 380 }}>
+
+        {/* Avatar */}
+        <div style={{ animation: 'slideUp 0.5s ease-out both', marginBottom: 16 }}>
+          <Avatar
+            player={player}
+            size={72}
+            glowActive={!!player.hasBorderGlow}
+            style={{
+              borderRadius: '50%',
+              border: `4px solid ${won ? '#fbbf24' : '#ef4444'}`,
+              boxShadow: won ? '0 0 30px #fbbf2466' : '0 0 30px #ef444466',
+            }}
+          />
+        </div>
+
+        {/* Win / Loss title */}
+        <div style={{
+          fontFamily: "'Bangers',sans-serif",
+          fontSize: 'clamp(56px,15vw,88px)',
+          letterSpacing: '0.08em', lineHeight: 0.95,
+          textAlign: 'center',
+          color: won ? '#fbbf24' : '#ef4444',
+          animation: `${won ? 'victoryTitle' : 'defeatTitle'} 1.6s ease-in-out infinite, slideUp 0.4s ease-out both`,
+          marginBottom: 6,
+        }}>
+          {won ? 'VICTORY!' : 'DEFEAT'}
+        </div>
+        <div style={{ fontSize: 52, lineHeight: 1, marginBottom: 24, animation: 'slideUp 0.45s ease-out 0.05s both' }}>
+          {won ? '🏆' : '💀'}
+        </div>
+
+        {/* Score */}
+        <div style={{
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700,
+          color: '#cbd5e1', marginBottom: 26, textAlign: 'center',
+          animation: 'slideUp 0.5s ease-out 0.15s both',
+        }}>
+          <span style={{ color: '#94a3b8' }}>{challenge.challengerName}: </span>
+          <strong style={{ color: '#f1f5f9' }}>{challenge.challengerHits}/{shotCount}</strong>
+          <span style={{ color: '#475569' }}>  ·  </span>
+          <span style={{ color: '#94a3b8' }}>You: </span>
+          <strong style={{ color: won ? '#4ade80' : '#f97316' }}>{myHits}/{shotCount}</strong>
+        </div>
+
+        {/* ELO card */}
+        {eloData && (
+          <div style={{
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)',
+            border: `2px solid ${won ? '#fbbf2444' : '#ef444433'}`,
+            borderRadius: 20, padding: '20px 36px',
+            textAlign: 'center', marginBottom: 28, width: '100%',
+            animation: 'slideUp 0.55s ease-out 0.3s both',
+          }}>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: '0.22em', marginBottom: 10 }}>
+              ELO RATING
+            </div>
+            {/* Rolling number */}
+            <div style={{
+              fontFamily: "'Bangers',sans-serif", fontSize: 64,
+              letterSpacing: '0.04em', lineHeight: 1,
+              color: won ? '#fbbf24' : '#ef4444',
+              animation: 'eloCountPulse 0.4s ease-in-out infinite',
+            }}>
+              {displayElo}
+            </div>
+            {/* Delta badge */}
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: delta > 0 ? 'rgba(34,197,94,0.15)' : delta < 0 ? 'rgba(239,68,68,0.15)' : 'rgba(148,163,184,0.1)',
+              border: `1px solid ${delta > 0 ? '#22c55e55' : delta < 0 ? '#ef444455' : '#33415555'}`,
+              borderRadius: 20, padding: '4px 14px', marginTop: 10,
+              fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.06em',
+              color: delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#94a3b8',
+            }}>
+              {delta > 0 ? `▲ +${delta} ELO` : delta < 0 ? `▼ ${delta} ELO` : shieldSaved ? '🛡️ SHIELDED — 0 ELO' : '— 0 ELO'}
+            </div>
+
+            {/* Streak bonus line */}
+            {eloData.streakBonus > 0 && (
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800, color: '#f97316', letterSpacing: '0.08em', marginTop: 10 }}>
+                🔥 +{eloData.streakBonus} STREAK BONUS ({eloData.streakBonusPct}%)
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* XP credit */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          color: '#34d399', fontFamily: "'Barlow Condensed',sans-serif",
+          fontSize: 13, fontWeight: 700, marginBottom: 28,
+          animation: 'slideUp 0.5s ease-out 0.45s both',
+        }}>
+          <CheckCircle size={15} /> +{shotCount} XP credited to your total
+        </div>
+
+        {/* Back button */}
+        <button
+          onClick={onBack}
+          style={{
+            background: won
+              ? 'linear-gradient(135deg,#aa6600,#fbbf24)'
+              : 'linear-gradient(135deg,#7f1d1d,#ef4444)',
+            color: won ? '#000' : '#fff',
+            border: 'none', borderRadius: 18, padding: '16px 52px',
+            fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.1em',
+            cursor: 'pointer',
+            boxShadow: won ? '0 0 36px #fbbf2455, 0 4px 0 #92400e' : '0 0 36px #ef444455, 0 4px 0 #7f1d1d',
+            animation: 'slideUp 0.5s ease-out 0.6s both',
+          }}
+        >
+          BACK TO VERSUS
+        </button>
+      </div>
+    </div>
+  )
+}
 
 const MAX_SECS = 10
 
@@ -96,77 +342,18 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
     }
   }
 
-  // ── Result ─────────────────────────────────────────────────────────────────
+  // ── Result — full-screen VictoryOverlay ───────────────────────────────────
   if (done) {
-    const showElo          = !!eloData
-    const eloDelta         = eloData?.receiverDelta        ?? 0
-    const baseDelta        = eloData?.baseDelta             ?? 0
-    const streakBonus      = eloData?.streakBonus           ?? 0
-    const bonusPct         = eloData?.streakBonusPct        ?? 0
-    const shieldSaved      = eloData?.receiverShieldSaved   ?? false
-    const shieldConsumed   = eloData?.receiverShieldConsumed ?? false
-    const shieldBaseLoss   = eloData?.shieldBaseLoss        ?? 0   // raw loss (negative)
-
     return (
-      <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center' }}>
-        <div style={{ fontSize: 64, marginBottom: 16 }}>{won ? '🏆' : shieldSaved ? '🛡️' : '💪'}</div>
-        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 40, letterSpacing: '0.08em', color: won ? '#22c55e' : shieldSaved ? '#06b6d4' : '#f59e0b', textShadow: `0 0 30px ${won ? '#22c55e55' : shieldSaved ? '#06b6d455' : '#f59e0b55'}`, marginBottom: 10 }}>
-          {won ? 'SHOWDOWN WON!' : shieldSaved ? 'SHIELDED!' : 'NICE EFFORT!'}
-        </div>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 15, color: '#cbd5e1', marginBottom: 6 }}>
-          {challenge.challengerName}: <strong style={{ color: '#f1f5f9' }}>{challenge.challengerHits}/{shotCount}</strong>
-          {'  ·  '}
-          You: <strong style={{ color: won ? '#22c55e' : '#f59e0b' }}>{myHits}/{shotCount}</strong>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#34d399', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, marginTop: 16, marginBottom: showElo ? 16 : 32 }}>
-          <CheckCircle size={15} /> +{shotCount} XP credited to your total
-        </div>
-
-        {showElo && (
-          <div style={{ background: 'rgba(15,23,42,0.8)', border: `1px solid ${shieldSaved ? '#06b6d444' : '#1e3a5f'}`, borderRadius: 14, padding: '16px 24px', marginBottom: 28, minWidth: 220 }}>
-            {won ? (
-              <>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#94a3b8', marginBottom: 6 }}>
-                  BASE ELO: +{baseDelta}
-                </div>
-                {streakBonus > 0 && (
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#fb923c', marginBottom: 6 }}>
-                    🔥 STREAK BONUS (+{bonusPct}%): +{streakBonus}
-                  </div>
-                )}
-                <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.06em', color: '#06b6d4', textShadow: '0 0 18px #06b6d488', lineHeight: 1.1 }}>
-                  TOTAL GAINED: +{eloDelta} ELO
-                </div>
-                {shieldConsumed && (
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.08em', marginTop: 10, borderTop: '1px solid #1e3a5f', paddingTop: 8 }}>
-                    🛡️ ELO Shield consumed.
-                  </div>
-                )}
-              </>
-            ) : shieldSaved ? (
-              <>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#7f1d1d', marginBottom: 6 }}>
-                  BASE LOSS: {shieldBaseLoss} ELO
-                </div>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#06b6d4', textShadow: '0 0 10px #06b6d444', marginBottom: 6 }}>
-                  🛡️ ELO SHIELD ACTIVE: +{Math.abs(shieldBaseLoss)} BREAK
-                </div>
-                <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.06em', color: '#f1f5f9', lineHeight: 1.1 }}>
-                  TOTAL ADJUSTMENT: 0 ELO
-                </div>
-              </>
-            ) : (
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: '0.1em', color: '#f59e0b' }}>
-                ELO: {eloDelta}
-              </div>
-            )}
-          </div>
-        )}
-
-        <button onClick={onBack} style={{ ...C.btnP, background: won ? '#22c55e' : shieldSaved ? '#06b6d4' : '#f59e0b', color: '#000', fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.08em' }}>
-          BACK TO VERSUS
-        </button>
-      </div>
+      <VictoryOverlay
+        won={won}
+        player={player}
+        eloData={eloData}
+        myHits={myHits}
+        shotCount={shotCount}
+        challenge={challenge}
+        onBack={onBack}
+      />
     )
   }
 

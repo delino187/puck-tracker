@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { db } from '../../firebase.js'
-import { collection, getDocs } from 'firebase/firestore'
+import { collection, onSnapshot } from 'firebase/firestore'
 import { X } from 'lucide-react'
 import Avatar from '../shared/Avatar.jsx'
 import { getStreakAuraClass } from '../../utils/streakAura.js'
@@ -67,9 +67,12 @@ export default function Leaderboard({ player, players, sessions = [] }) {
   const [sortBy,      setSortBy]      = useState('elo')
 
   useEffect(() => {
-    getDocs(collection(db, 'teams', TEAM_ID, 'peerChallenges'))
-      .then(snap => setChallenges(snap.docs.map(d => ({ id: d.id, ...d.data() }))))
-      .catch(() => {})
+    const unsub = onSnapshot(
+      collection(db, 'teams', TEAM_ID, 'peerChallenges'),
+      snap => setChallenges(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      () => {},
+    )
+    return unsub
   }, [])
 
   // Precompute stats for every player once per render

@@ -126,9 +126,10 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
       const finalDeltaA = (!loserIsReceiver && challengerHadShield) ? 0 : deltaA
       const finalDeltaB = (loserIsReceiver  && receiverHadShield)   ? 0 : deltaB
 
-      // Store breakdown for the victory screen
+      // Store breakdown for the victory screen + local state sync
       eloResult = {
         receiverDelta:           finalDeltaB,
+        challengerDelta:         finalDeltaA,   // needed for instant local state sync
         baseDelta:               eloCalc.baseDelta,
         streakBonus:             eloCalc.streakBonus,
         streakBonusPct:          eloCalc.streakBonusPct,
