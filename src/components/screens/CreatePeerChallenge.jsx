@@ -3,7 +3,7 @@ import { ChevronLeft, Video, Upload, CheckCircle, AlertCircle, Info } from 'luci
 import { ZONES } from '../../constants/zones.js'
 import { C } from '../../styles.js'
 import { useAppStore } from '../../store/useAppStore.js'
-import { uploadChallengeVideo, createChallenge } from '../../services/peerChallengeService.js'
+import { uploadChallengeVideo, createChallenge, WARN_FILE_BYTES } from '../../services/peerChallengeService.js'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
 import { playScoreSound } from '../../utils/arcadeSounds.js'
 
@@ -11,9 +11,9 @@ const MAX_SECS = 10
 
 function uploadErrMsg(err) {
   if (err?.message === 'FILE_TOO_LARGE')
-    return 'Video file is too large! Please clip your video down to just the 5-10 seconds of your actual shots before uploading.'
+    return 'Video exceeds 150 MB — trim it to just your shots (5-10 s) in your phone\'s editor, then re-upload.'
   if (err?.message === 'UPLOAD_TIMEOUT')
-    return 'Network connection timed out! Try moving closer to your Wi-Fi router.'
+    return 'Network timed out! Move closer to Wi-Fi and try again.'
   return 'Upload failed — check your connection and try again.'
 }
 
@@ -29,6 +29,7 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
   const [error,      setError]      = useState('')
   const [uploading,       setUploading]       = useState(false)
   const [uploadProgress,  setUploadProgress]  = useState(0)
+  const [fileWarnMb,      setFileWarnMb]      = useState(null)
   const [showTips,   setShowTips]   = useState(false)
   const fileInputRef = useRef(null)
 
@@ -41,6 +42,7 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
     const file = e.target.files?.[0]
     if (!file) return
     setError('')
+    setFileWarnMb(null)
     const objectUrl = URL.createObjectURL(file)
     const vid       = document.createElement('video')
     vid.preload     = 'metadata'
@@ -52,6 +54,9 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
       }
       setVideoFile(file)
       setPreviewUrl(objectUrl)
+      if (file.size > WARN_FILE_BYTES) {
+        setFileWarnMb((file.size / (1024 * 1024)).toFixed(1))
+      }
     }
     vid.src = objectUrl
   }
@@ -225,6 +230,14 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
             </div>
           )}
 
+          {fileWarnMb && (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginTop: 10, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, padding: '8px 12px' }}>
+              <AlertCircle size={13} color="#fbbf24" style={{ flexShrink: 0, marginTop: 1 }} />
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#fbbf24', lineHeight: 1.5 }}>
+                <strong>{fileWarnMb} MB</strong> — large file detected. Upload may take 30–90 s on mobile. Keep your Wi-Fi strong!
+              </span>
+            </div>
+          )}
           {error && (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginTop: 10, color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, lineHeight: 1.4 }}>
               <AlertCircle size={13} style={{ marginTop: 1, flexShrink: 0 }} /> {error}
@@ -257,9 +270,14 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
         {uploading ? (
           <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, background: '#0f172a', border: '2px solid #a855f7' }}>
             <div style={{ position: 'absolute', inset: 0, width: `${uploadProgress}%`, background: 'linear-gradient(90deg,#6b21a8,#a855f7)', transition: 'width 0.15s ease-out' }} />
-            <div style={{ position: 'relative', zIndex: 1, padding: '14px', textAlign: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', color: '#fff' }}>
+            <div style={{ position: 'relative', zIndex: 1, padding: '14px 14px 6px', textAlign: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', color: '#fff' }}>
               🛰️ UPLOADING... {uploadProgress}%
             </div>
+            {videoFile && (
+              <div style={{ position: 'relative', zIndex: 1, paddingBottom: 10, textAlign: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#c4b5fd', letterSpacing: '0.06em' }}>
+                {(videoFile.size * uploadProgress / 100 / (1024 * 1024)).toFixed(1)} MB&nbsp;/&nbsp;{(videoFile.size / (1024 * 1024)).toFixed(1)} MB transferred
+              </div>
+            )}
           </div>
         ) : (
           <button

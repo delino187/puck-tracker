@@ -16,7 +16,9 @@ import { calculateNewRatings } from '../utils/elo.js'
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'puckGames')
 const LETTERS        = ['P', 'U', 'C', 'K']
-const MAX_FILE_BYTES = 15 * 1024 * 1024
+const MAX_FILE_BYTES  = 150 * 1024 * 1024   // 150 MB — Vercel Blob client upload; no server body limit
+const WARN_FILE_BYTES = 25 * 1024 * 1024    // show amber warning above this threshold
+export { WARN_FILE_BYTES }
 
 function playSfxAsync(url) {
   try { new Audio(url).play().catch(() => {}) } catch {}

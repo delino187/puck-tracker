@@ -55,7 +55,7 @@ export default async function handler(req, res) {
           allowedContentTypes: isImage
             ? ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic']
             : ['video/mp4', 'video/quicktime', 'video/mov'],
-          maximumSizeInBytes: isImage ? 5 * 1024 * 1024 : 70 * 1024 * 1024,
+          maximumSizeInBytes: isImage ? 5 * 1024 * 1024 : 200 * 1024 * 1024,
         }
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {

@@ -7,14 +7,15 @@ import {
   createPuckGame, uploadPuckVideo,
   submitSetterShot, submitDefenderResponse,
   loadPuckGamesForPlayer, getGameAction, PUCK_LETTERS, createRematch,
+  WARN_FILE_BYTES,
 } from '../../services/puckGameService.js'
 import PuckGameOverlay from '../overlays/PuckGameOverlay.jsx'
 
 function uploadErrMsg(err) {
   if (err?.message === 'FILE_TOO_LARGE')
-    return 'Video file is too large! Please clip your video down to just the 5-10 seconds of your actual shots before uploading.'
+    return 'Video exceeds 150 MB — trim it to just your shots (5-10 s) in your phone\'s editor, then re-upload.'
   if (err?.message === 'UPLOAD_TIMEOUT')
-    return 'Network connection timed out! Try moving closer to your Wi-Fi router.'
+    return 'Network timed out! Move closer to Wi-Fi and try again.'
   return 'Upload failed — check your connection and try again.'
 }
 
@@ -97,6 +98,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
   const [videoFile,     setVideoFile]    = useState(null)
   const [previewUrl,    setPreviewUrl]   = useState(null)
   const [videoError,    setVideoError]   = useState('')
+  const [fileWarnMb,    setFileWarnMb]   = useState(null)
   const [submitting,     setSubmitting]    = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error,         setError]        = useState('')
@@ -105,12 +107,13 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
   const logTechniqueShots = useAppStore(s => s.logTechniqueShots)
   const friends = players.filter(p => p.id !== player.id)
 
-  function resetVideo() { setVideoFile(null); setPreviewUrl(null); setVideoError('') }
+  function resetVideo() { setVideoFile(null); setPreviewUrl(null); setVideoError(''); setFileWarnMb(null) }
 
   function handleVideoSelect(file, url, err) {
     setVideoError(err || '')
     setVideoFile(file || null)
     setPreviewUrl(url || null)
+    setFileWarnMb(file && file.size > WARN_FILE_BYTES ? (file.size / (1024 * 1024)).toFixed(1) : null)
   }
 
   function friendName(game) {
@@ -332,14 +335,27 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
               <VideoPicker previewUrl={previewUrl} onSelect={handleVideoSelect} onClear={resetVideo} error={videoError} />
             </div>
 
+            {fileWarnMb && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 10, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, padding: '8px 12px' }}>
+                <AlertCircle size={13} color="#fbbf24" style={{ flexShrink: 0, marginTop: 1 }} />
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#fbbf24', lineHeight: 1.5 }}>
+                  <strong>{fileWarnMb} MB</strong> — large file. May take 30–90 s on mobile. Keep Wi-Fi strong!
+                </span>
+              </div>
+            )}
             {error && <div style={{ color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, marginBottom: 10 }}>{error}</div>}
 
             {submitting ? (
               <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, background: '#0f172a', border: '2px solid #a855f7' }}>
                 <div style={{ position: 'absolute', inset: 0, width: `${uploadProgress}%`, background: 'linear-gradient(90deg,#6b21a8,#a855f7)', transition: 'width 0.15s ease-out' }} />
-                <div style={{ position: 'relative', zIndex: 1, padding: '14px', textAlign: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', color: '#fff' }}>
+                <div style={{ position: 'relative', zIndex: 1, padding: '14px 14px 6px', textAlign: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', color: '#fff' }}>
                   🛰️ UPLOADING... {uploadProgress}%
                 </div>
+                {videoFile && (
+                  <div style={{ position: 'relative', zIndex: 1, paddingBottom: 10, textAlign: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#c4b5fd', letterSpacing: '0.06em' }}>
+                    {(videoFile.size * uploadProgress / 100 / (1024 * 1024)).toFixed(1)} MB&nbsp;/&nbsp;{(videoFile.size / (1024 * 1024)).toFixed(1)} MB transferred
+                  </div>
+                )}
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -389,14 +405,27 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
                   </div>
                   <VideoPicker previewUrl={previewUrl} onSelect={handleVideoSelect} onClear={resetVideo} error={videoError} />
                 </div>
+                {fileWarnMb && (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 10, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 8, padding: '8px 12px' }}>
+                    <AlertCircle size={13} color="#fbbf24" style={{ flexShrink: 0, marginTop: 1 }} />
+                    <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#fbbf24', lineHeight: 1.5 }}>
+                      <strong>{fileWarnMb} MB</strong> — large file. May take 30–90 s on mobile. Keep Wi-Fi strong!
+                    </span>
+                  </div>
+                )}
                 {error && <div style={{ color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, marginBottom: 10 }}>{error}</div>}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {submitting ? (
                     <div style={{ position: 'relative', overflow: 'hidden', borderRadius: 12, background: '#0f172a', border: '2px solid #a855f7', gridColumn: '1 / -1' }}>
                       <div style={{ position: 'absolute', inset: 0, width: `${uploadProgress}%`, background: 'linear-gradient(90deg,#6b21a8,#a855f7)', transition: 'width 0.15s ease-out' }} />
-                      <div style={{ position: 'relative', zIndex: 1, padding: '14px', textAlign: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', color: '#fff' }}>
+                      <div style={{ position: 'relative', zIndex: 1, padding: '14px 14px 6px', textAlign: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', color: '#fff' }}>
                         🛰️ UPLOADING... {uploadProgress}%
                       </div>
+                      {videoFile && (
+                        <div style={{ position: 'relative', zIndex: 1, paddingBottom: 10, textAlign: 'center', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#c4b5fd', letterSpacing: '0.06em' }}>
+                          {(videoFile.size * uploadProgress / 100 / (1024 * 1024)).toFixed(1)} MB&nbsp;/&nbsp;{(videoFile.size / (1024 * 1024)).toFixed(1)} MB transferred
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <>

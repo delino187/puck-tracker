@@ -13,7 +13,8 @@ import { upload } from '@vercel/blob/client'
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'peerChallenges')
 const EXPIRY_MS      = 48 * 60 * 60 * 1000
-const MAX_FILE_BYTES = 15 * 1024 * 1024
+const MAX_FILE_BYTES  = 150 * 1024 * 1024   // 150 MB — Vercel Blob client upload; no server body limit
+export const WARN_FILE_BYTES = 25 * 1024 * 1024  // show amber warning above this threshold
 
 function playSfxAsync(url) {
   try { new Audio(url).play().catch(() => {}) } catch {}
