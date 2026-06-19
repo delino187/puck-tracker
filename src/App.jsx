@@ -764,8 +764,6 @@ export default function App() {
             <StreakHub
               player={aPlayer}
               stats={stats}
-              sessions={st.sessions}
-              players={st.players}
               onNavigate={setTab}
               onPurchaseItem={(itemId, cost) => {
                 const diamonds = aPlayer.diamonds || 0

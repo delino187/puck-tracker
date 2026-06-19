@@ -1,6 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import { Flame, Users } from 'lucide-react'
-import { playerStats } from '../utils/stats.js'
 import storeMusicUrl from '../../public/store-music.mp3'
 
 const FREEZE_COST    = 50
@@ -141,7 +139,7 @@ function ItemCard({ emoji, name, desc, tag, cost, canBuy, isOwned, owned, onBuy,
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function StreakHub({ player, stats, sessions, players, onPurchaseItem, onNavigate }) {
+export default function StreakHub({ player, stats, onPurchaseItem, onNavigate }) {
   const totalDiamonds    = player.diamonds         || 0
   const hasEloShield     = player.hasEloShield     || false
   const boughtBorderGlow = player.boughtBorderGlow || false
@@ -177,11 +175,6 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
     if (!audio) return
     if (nowMuted) { audio.pause() } else { audio.play().catch(() => {}) }
   }
-
-  const streakBoard = [...players]
-    .map(p => { const s = playerStats(p, sessions); return { ...p, streak: s.streak } })
-    .filter(p => p.streak > 0)
-    .sort((a, b) => b.streak - a.streak)
 
   return (
     <div style={{ padding: '14px 14px 80px' }}>
@@ -428,58 +421,6 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
           </div>
         </div>
       </div>
-
-      {/* ── Streak Leaderboard ────────────────────────────────────────────── */}
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.16em', marginBottom: 10 }}>
-        ACTIVE STREAKS — ALL PLAYERS
-      </div>
-
-      {streakBoard.length === 0 ? (
-        <div style={{
-          background: 'var(--card-bg)', border: 'var(--card-border)',
-          borderRadius: 12, textAlign: 'center', padding: '20px 18px',
-        }}>
-          <Users size={22} color="var(--text-muted)" style={{ marginBottom: 8 }} />
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
-            No active streaks yet — hit the driveway!
-          </div>
-        </div>
-      ) : (
-        <div>
-          {streakBoard.map((p, i) => {
-            const isMe = p.id === player.id
-            return (
-              <div
-                key={p.id}
-                style={{
-                  background: isMe ? 'rgba(249,115,22,0.1)' : 'var(--card-bg)',
-                  border: isMe ? '1px solid #f9731633' : 'var(--card-border)',
-                  borderRadius: 12, padding: '12px 14px', marginBottom: 8,
-                  display: 'flex', alignItems: 'center', gap: 12,
-                }}
-              >
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 800, color: i === 0 ? '#f59e0b' : 'var(--text-muted)', minWidth: 22, textAlign: 'center' }}>
-                  {i === 0 ? '🥇' : `#${i + 1}`}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 700, color: isMe ? '#f97316' : 'var(--text-1)' }}>
-                    {p.name}{p.jerseyNum ? ` #${p.jerseyNum}` : ''}{isMe ? ' 👈' : ''}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                  {Array.from({ length: Math.min(p.streak, 7) }).map((_, fi) => (
-                    <Flame key={fi} size={10} color={`rgba(249,115,22,${1 - fi * 0.1})`} />
-                  ))}
-                </div>
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 26, fontWeight: 900, color: '#f97316', lineHeight: 1 }}>{p.streak}</div>
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: 'var(--text-muted)', letterSpacing: '0.1em' }}>DAYS</div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
 
     </div>
   )
