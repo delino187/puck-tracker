@@ -35,6 +35,7 @@ import EpicCelebration     from './components/overlays/EpicCelebration.jsx'
 import CelebOverlay        from './components/overlays/CelebOverlay.jsx'
 import CoachMsgPopup       from './components/overlays/CoachMsgPopup.jsx'
 import StreakBrokenModal   from './components/overlays/StreakBrokenModal.jsx'
+import FeedbackModal       from './components/overlays/FeedbackModal.jsx'
 import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
 import { loadChallengesForPlayer } from './services/peerChallengeService.js'
@@ -66,6 +67,8 @@ export default function App() {
   const [puckGames,       setPuckGames]        = useState([])
 
   const [streakBrokenData, setStreakBrokenData] = useState(null)
+  const [feedbackOpen,     setFeedbackOpen]     = useState(false)
+  const [feedbackToast,    setFeedbackToast]    = useState(false)
 
   const badgeQRef               = useRef([])
   const epicAudioRef            = useRef(null)
@@ -811,6 +814,61 @@ export default function App() {
           )}
           {tab === 'ranks' && <RanksTab stats={stats} openDetail={rankDetailOpen} onDetailClose={() => setRankDetailOpen(false)} />}
         </div>
+
+        {/* ── Feedback floating button ────────────────────────────────────── */}
+        <button
+          onClick={() => setFeedbackOpen(true)}
+          title="Report a bug or request a feature"
+          style={{
+            position: 'fixed', bottom: 22, right: 16, zIndex: 90,
+            background: 'linear-gradient(135deg,#450a0a,#7f1d1d)',
+            border: '1px solid #ef444455',
+            borderRadius: 20, padding: '7px 12px',
+            display: 'flex', alignItems: 'center', gap: 5,
+            cursor: 'pointer',
+            boxShadow: '0 0 16px rgba(239,68,68,0.25), 0 2px 8px rgba(0,0,0,0.5)',
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11,
+            fontWeight: 800, letterSpacing: '0.08em', color: '#fca5a5',
+            transition: 'all 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 28px rgba(239,68,68,0.45), 0 2px 8px rgba(0,0,0,0.5)'; e.currentTarget.style.borderColor = '#ef444488' }}
+          onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 16px rgba(239,68,68,0.25), 0 2px 8px rgba(0,0,0,0.5)'; e.currentTarget.style.borderColor = '#ef444455' }}
+        >
+          <span style={{ fontSize: 13 }}>🕹️</span>
+          <span>REPORT BUG</span>
+        </button>
+
+        {/* ── Feedback modal ──────────────────────────────────────────────── */}
+        {feedbackOpen && (
+          <FeedbackModal
+            player={aPlayer}
+            activeTab={tab}
+            onClose={() => setFeedbackOpen(false)}
+            onSuccess={() => {
+              setFeedbackToast(true)
+              setTimeout(() => setFeedbackToast(false), 3500)
+            }}
+          />
+        )}
+
+        {/* ── Success toast ───────────────────────────────────────────────── */}
+        {feedbackToast && (
+          <div style={{
+            position: 'fixed', bottom: 72, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 500, pointerEvents: 'none',
+            background: 'linear-gradient(135deg,#052e16,#14532d)',
+            border: '1px solid #22c55e66',
+            borderRadius: 14, padding: '12px 20px',
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14,
+            fontWeight: 700, color: '#4ade80', letterSpacing: '0.06em',
+            boxShadow: '0 0 24px rgba(34,197,94,0.3), 0 4px 16px rgba(0,0,0,0.5)',
+            whiteSpace: 'nowrap',
+            animation: 'slideUp 0.3s ease-out both',
+          }}>
+            🛠️ Feedback received! Time to go fix things.
+          </div>
+        )}
+
       </div>
     )
   }
