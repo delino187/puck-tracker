@@ -24,16 +24,31 @@ export default function PuckGameOverlay({ game, playerElo, onRematch, onClose })
   const iWon = playerElo.delta > 0
   const eloDisplay = useRollingValue(Math.abs(playerElo.delta), 1800)
 
+  // Play sound effect when overlay mounts
+  useEffect(() => {
+    try {
+      if (iWon) {
+        // Play win fanfare
+        new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-84.wav').play().catch(() => {})
+      } else {
+        // Play game-over fail sound
+        new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-81.wav').play().catch(() => {})
+      }
+    } catch {}
+  }, [iWon])
+
   return (
     <div
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
         background: iWon
-          ? 'radial-gradient(circle at 40% 50%, rgba(34,197,94,0.25), rgba(0,0,0,0.8))'
-          : 'radial-gradient(circle at 40% 50%, rgba(239,68,68,0.25), rgba(0,0,0,0.8))',
+          ? 'radial-gradient(circle at 50% 30%, rgba(251,191,36,0.3), rgba(0,0,0,0.9))'
+          : 'radial-gradient(circle at 50% 50%, rgba(239,68,68,0.4), rgba(0,0,0,0.95))',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '0 16px',
+        backdropFilter: 'blur(4px)',
+        animation: iWon ? 'none' : 'redVignettePulse 0.3s ease-out',
       }}
     >
       <div
@@ -59,31 +74,21 @@ export default function PuckGameOverlay({ game, playerElo, onRematch, onClose })
         <div
           style={{
             fontFamily: "'Bangers',sans-serif",
-            fontSize: 42,
-            letterSpacing: '0.06em',
-            color: iWon ? '#22c55e' : '#ef4444',
+            fontSize: 48,
+            letterSpacing: '0.08em',
+            color: iWon ? '#fbbf24' : '#ef4444',
             textShadow: iWon
-              ? '0 0 40px #22c55e55, 0 0 20px #22c55e33'
-              : '0 0 40px #ef444455, 0 0 20px #ef444433',
+              ? '0 0 60px #fbbf2455, 0 0 30px #fbbf2466, 0 0 20px #fbbf2477'
+              : '0 0 60px #ef444466, 0 0 30px #ef444477, 0 0 20px #ef444488',
             marginBottom: 8,
             lineHeight: 1,
+            animation: iWon ? 'goldenPulse 0.4s ease-out' : 'none',
           }}
         >
-          {iWon ? 'KNOCKOUT!' : 'WASTED!'}
+          {iWon ? 'VICTORY! YOU BROKE THE COMPETITION 🏆' : 'DEFEAT! YOU SPELLED P-U-C-K 💀'}
         </div>
 
-        {/* Subtitle */}
-        <div
-          style={{
-            fontFamily: "'Bangers',sans-serif",
-            fontSize: 24,
-            color: '#f1f5f9',
-            letterSpacing: '0.04em',
-            marginBottom: 24,
-          }}
-        >
-          {iWon ? 'YOU WIN!' : 'YOU LOSE!'}
-        </div>
+        {/* Subtitle (removed - title now contains full message) */}
 
         {/* ELO Delta */}
         <div
@@ -91,7 +96,8 @@ export default function PuckGameOverlay({ game, playerElo, onRematch, onClose })
             background: 'rgba(15,23,42,0.7)',
             borderRadius: 16,
             padding: '16px 12px',
-            marginBottom: 24,
+            marginBottom: 28,
+            marginTop: 20,
             border: `1px solid ${iWon ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
           }}
         >
@@ -121,38 +127,49 @@ export default function PuckGameOverlay({ game, playerElo, onRematch, onClose })
         </div>
 
         {/* Action buttons */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
           <button
             onClick={onRematch}
             style={{
               width: '100%',
-              background: 'linear-gradient(135deg,#7f1d1d,#ef4444)',
+              background: 'linear-gradient(135deg,#dc2626,#ef4444)',
               color: '#fff',
-              border: 'none',
-              borderRadius: 12,
-              padding: '14px 16px',
+              border: '2px solid #ef4444',
+              borderRadius: 14,
+              padding: '16px 20px',
               fontFamily: "'Bangers',sans-serif",
-              fontSize: 18,
-              letterSpacing: '0.06em',
+              fontSize: 20,
+              letterSpacing: '0.08em',
               cursor: 'pointer',
-              boxShadow: '0 0 20px #ef444440',
+              boxShadow: '0 0 30px #ef444466, 0 0 60px #ef444433',
+              animation: 'rematchPulse 1.2s ease-in-out infinite',
+              fontWeight: 'bold',
             }}
           >
-            🔥 REMATCH
+            🔄 REMATCH?
           </button>
           <button
             onClick={onClose}
             style={{
               width: '100%',
               background: 'transparent',
-              color: '#64748b',
-              border: '1px solid #334155',
+              color: '#94a3b8',
+              border: '1px solid #475569',
               borderRadius: 12,
               padding: '12px 16px',
               fontFamily: "'Barlow Condensed',sans-serif",
-              fontSize: 14,
+              fontSize: 13,
               letterSpacing: '0.06em',
               cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.borderColor = '#64748b'
+              e.target.style.color = '#cbd5e1'
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.borderColor = '#475569'
+              e.target.style.color = '#94a3b8'
             }}
           >
             BACK

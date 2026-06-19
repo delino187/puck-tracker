@@ -246,3 +246,22 @@ select { -webkit-appearance: none; }
     3px 3px 0 #991b1b,
     4px 4px 3px rgba(0, 0, 0, 0.5);
 }
+
+/* ── P-U-C-K Game Overlay Animations ──────────────────────────────────── */
+@keyframes goldenPulse {
+  0%   { opacity: 0.6; transform: scale(0.95); }
+  50%  { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes redVignettePulse {
+  0%   { opacity: 0; }
+  50%  { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+@keyframes rematchPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 30px #ef444466, 0 0 60px #ef444433; }
+  50%      { transform: scale(1.02); box-shadow: 0 0 40px #ef444477, 0 0 80px #ef444444; }
+}
+}

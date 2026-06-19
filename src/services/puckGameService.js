@@ -124,15 +124,15 @@ export async function submitDefenderResponse(game, { videoUrl, made, p1Elo = 160
   let eloResult = null
 
   if (!made) {
-    // Defender missed → setter gets the next letter (inverted HORSE mechanics)
-    if (setterKey === 'p1Letters') {
+    // Defender missed (loses) → setter wins, gives letter to defender
+    if (defenderKey === 'p1Letters') {
       p1Letters = [...p1Letters, LETTERS[p1Letters.length]]
     } else {
       p2Letters = [...p2Letters, LETTERS[p2Letters.length]]
     }
   } else {
-    // Defender matched → defender gives a letter to setter
-    if (defenderKey === 'p1Letters') {
+    // Defender matched (wins) → defender wins, gives letter to setter
+    if (setterKey === 'p1Letters') {
       p1Letters = [...p1Letters, LETTERS[p1Letters.length]]
     } else {
       p2Letters = [...p2Letters, LETTERS[p2Letters.length]]
