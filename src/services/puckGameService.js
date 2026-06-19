@@ -9,8 +9,9 @@
  *   Setter MISSES → no letter, turn flips to other player immediately
  */
 import { db } from '../firebase.js'
-import { collection, doc, addDoc, updateDoc, getDocs } from 'firebase/firestore'
+import { collection, doc, addDoc, updateDoc, getDocs, runTransaction } from 'firebase/firestore'
 import { upload } from '@vercel/blob/client'
+import { calculateNewRatings } from '../utils/elo.js'
 
 const TEAM_ID        = 'team_main'
 const COL            = () => collection(db, 'teams', TEAM_ID, 'puckGames')
@@ -112,31 +113,61 @@ export async function submitSetterShot(game, { zone, trickStyle, videoUrl, made 
 }
 
 // ── Defender submits their response ───────────────────────────────────────────
-export async function submitDefenderResponse(game, { videoUrl, made }) {
+export async function submitDefenderResponse(game, { videoUrl, made, p1Elo = 1600, p2Elo = 1600 }) {
   const now          = Date.now()
   const isP1Setter   = game.setterPlayerId === game.p1Id
+  const setterKey    = isP1Setter ? 'p1Letters' : 'p2Letters'
   const defenderKey  = isP1Setter ? 'p2Letters' : 'p1Letters'
 
   let p1Letters = [...game.p1Letters]
   let p2Letters = [...game.p2Letters]
+  let eloResult = null
 
   if (!made) {
-    // Defender missed → gets the next letter; setter keeps going
+    // Defender missed → setter gets the next letter (inverted HORSE mechanics)
+    if (setterKey === 'p1Letters') {
+      p1Letters = [...p1Letters, LETTERS[p1Letters.length]]
+    } else {
+      p2Letters = [...p2Letters, LETTERS[p2Letters.length]]
+    }
+  } else {
+    // Defender matched → defender gives a letter to setter
     if (defenderKey === 'p1Letters') {
       p1Letters = [...p1Letters, LETTERS[p1Letters.length]]
     } else {
       p2Letters = [...p2Letters, LETTERS[p2Letters.length]]
     }
   }
-  // If defender matched → no letter, setter stays
 
   const p1Out     = p1Letters.length >= 4
   const p2Out     = p2Letters.length >= 4
-  const newStatus = p1Out ? 'p2_wins' : p2Out ? 'p1_wins' : 'active'
+  let newStatus   = 'active'
+  let winnerId    = null
+
+  if (p1Out) {
+    newStatus = 'p2_wins'
+    winnerId = game.p2Id
+  } else if (p2Out) {
+    newStatus = 'p1_wins'
+    winnerId = game.p1Id
+  }
+
+  // Calculate ELO if game is over
+  if (winnerId) {
+    const ratings = calculateNewRatings(
+      game.p1Id === winnerId ? p1Elo : p2Elo,
+      game.p1Id === winnerId ? p2Elo : p1Elo
+    )
+    eloResult = {
+      p1Delta: game.p1Id === winnerId ? ratings.winner - p1Elo : ratings.loser - p1Elo,
+      p2Delta: game.p2Id === winnerId ? ratings.winner - p2Elo : ratings.loser - p2Elo,
+    }
+  }
 
   const update = {
     p1Letters, p2Letters,
     status: newStatus,
+    eloResult: eloResult || undefined,
     currentRound: newStatus === 'active'
       ? freshRound(game.setterPlayerId)
       : { ...game.currentRound, defenderVideo: videoUrl, defenderMade: made, status: 'complete' },
@@ -145,6 +176,16 @@ export async function submitDefenderResponse(game, { videoUrl, made }) {
 
   await updateDoc(doc(db, 'teams', TEAM_ID, 'puckGames', game.id), update)
   return { ...game, ...update }
+}
+
+// ── Rematch ───────────────────────────────────────────────────────────────────
+export async function createRematch(game) {
+  return createPuckGame({
+    p1Id:   game.p2Id,
+    p1Name: game.p2Name,
+    p2Id:   game.p1Id,
+    p2Name: game.p1Name,
+  })
 }
 
 // ── Load ──────────────────────────────────────────────────────────────────────

@@ -6,8 +6,9 @@ import { useAppStore } from '../../store/useAppStore.js'
 import {
   createPuckGame, uploadPuckVideo,
   submitSetterShot, submitDefenderResponse,
-  loadPuckGamesForPlayer, getGameAction, PUCK_LETTERS,
+  loadPuckGamesForPlayer, getGameAction, PUCK_LETTERS, createRematch,
 } from '../../services/puckGameService.js'
+import PuckGameOverlay from '../overlays/PuckGameOverlay.jsx'
 
 function uploadErrMsg(err) {
   if (err?.message === 'FILE_TOO_LARGE')
@@ -89,6 +90,7 @@ function VideoPicker({ previewUrl, onSelect, onClear, error, maxSecs = MAX_SECS 
 export default function PuckGame({ player, players, puckGames, onBack, onUpdate }) {
   const [view,          setView]         = useState('list')   // 'list' | 'new' | 'game' | 'set' | 'match'
   const [selectedGame,  setSelectedGame] = useState(null)
+  const [showOverlay,   setShowOverlay]  = useState(false)
   const [friendId,      setFriendId]     = useState('')
   const [zone,          setZone]         = useState(ZONES[0].id)
   const [trick,         setTrick]        = useState(TRICK_STYLES[0])
@@ -98,6 +100,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
   const [submitting,     setSubmitting]    = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error,         setError]        = useState('')
+  const [rematchLoading, setRematchLoading] = useState(false)
 
   const logTechniqueShots = useAppStore(s => s.logTechniqueShots)
   const friends = players.filter(p => p.id !== player.id)
@@ -129,6 +132,10 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
     setSubmitting(false)
     setError('')
     setView('game')
+    // Show overlay if game just ended
+    if (updatedGame.status !== 'active') {
+      setShowOverlay(true)
+    }
   }
 
   // ── Start new game ────────────────────────────────────────────────────────
@@ -164,7 +171,9 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
     try {
       const url = await uploadPuckVideo(videoFile, selectedGame.id, `defender_${player.id}`, setUploadProgress)
       logTechniqueShots(player.id, 3)   // all 3 shots logged → +3 XP
-      const updated = await submitDefenderResponse(selectedGame, { videoUrl: url, made })
+      const p1 = players.find(p => p.id === selectedGame.p1Id)
+      const p2 = players.find(p => p.id === selectedGame.p2Id)
+      const updated = await submitDefenderResponse(selectedGame, { videoUrl: url, made, p1Elo: p1?.elo || 1600, p2Elo: p2?.elo || 1600 })
       await refresh(updated)
     } catch (err) { setError(uploadErrMsg(err)); setSubmitting(false) }
   }
@@ -175,7 +184,23 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
     try {
       const updated = await submitDefenderResponse(selectedGame, { videoUrl: null, made: false })
       await refresh(updated)
+      setShowOverlay(true)
     } catch { setSubmitting(false) }
+  }
+
+  // ── Handle rematch ────────────────────────────────────────────────────────
+  async function handleRematch() {
+    setRematchLoading(true)
+    try {
+      const newGame = await createRematch(selectedGame)
+      onUpdate(newGame)
+      setSelectedGame(newGame)
+      setShowOverlay(false)
+      resetVideo()
+    } catch {
+      setError('Rematch failed — try again.')
+      setRematchLoading(false)
+    }
   }
 
   // ─────────────────────────── VIEWS ────────────────────────────────────────
@@ -222,23 +247,40 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
     // GAME OVER
     if (g.status !== 'active') {
       const iWon = (g.status === 'p1_wins' && g.p1Id === player.id) || (g.status === 'p2_wins' && g.p2Id === player.id)
+      const playerElo = {
+        delta: g.p1Id === player.id ? g.eloResult?.p1Delta || 0 : g.eloResult?.p2Delta || 0,
+      }
+
       return (
-        <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center' }}>
-          <div style={{ fontSize: 72, marginBottom: 16 }}>{iWon ? '🏆' : '💀'}</div>
-          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 48, letterSpacing: '0.08em', color: iWon ? '#22c55e' : '#ef4444', textShadow: `0 0 40px ${iWon ? '#22c55e55' : '#ef444455'}`, marginBottom: 12, lineHeight: 1 }}>
-            {iWon ? 'KNOCKOUT!' : 'WASTED!'}
+        <>
+          {showOverlay && (
+            <PuckGameOverlay
+              game={g}
+              playerElo={playerElo}
+              onRematch={() => handleRematch()}
+              onClose={() => { setView('list'); setSelectedGame(null); setShowOverlay(false) }}
+            />
+          )}
+          <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center' }}>
+            <div style={{ fontSize: 72, marginBottom: 16 }}>{iWon ? '🏆' : '💀'}</div>
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 48, letterSpacing: '0.08em', color: iWon ? '#22c55e' : '#ef4444', textShadow: `0 0 40px ${iWon ? '#22c55e55' : '#ef444455'}`, marginBottom: 12, lineHeight: 1 }}>
+              {iWon ? 'KNOCKOUT!' : 'WASTED!'}
+            </div>
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, color: '#f1f5f9', letterSpacing: '0.04em', marginBottom: 32 }}>
+              {iWon ? 'YOU WIN!' : `DEFEATED BY ${fName.toUpperCase()}`}
+            </div>
+            <div style={{ display: 'flex', gap: 28, marginBottom: 40 }}>
+              <LetterRow letters={myL}    label="You"    isYou />
+              <LetterRow letters={theirL} label={fName}  isYou={false} />
+            </div>
+            <button onClick={() => setShowOverlay(true)} style={{ ...C.btnP, background: 'linear-gradient(135deg,#7f1d1d,#ef4444)', fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em', boxShadow: '0 0 20px #ef444440', marginBottom: 10 }}>
+              🏆 VIEW RESULTS
+            </button>
+            <button onClick={() => { setView('list'); setSelectedGame(null); setShowOverlay(false) }} style={{ ...C.btnP, background: '#1e293b', fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em' }}>
+              ← BACK TO GAMES
+            </button>
           </div>
-          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, color: '#f1f5f9', letterSpacing: '0.04em', marginBottom: 32 }}>
-            {iWon ? 'YOU WIN!' : `DEFEATED BY ${fName.toUpperCase()}`}
-          </div>
-          <div style={{ display: 'flex', gap: 28, marginBottom: 40 }}>
-            <LetterRow letters={myL}    label="You"    isYou />
-            <LetterRow letters={theirL} label={fName}  isYou={false} />
-          </div>
-          <button onClick={() => { setView('list'); setSelectedGame(null) }} style={{ ...C.btnP, background: '#1e293b', fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em' }}>
-            ← BACK TO GAMES
-          </button>
-        </div>
+        </>
       )
     }
 
