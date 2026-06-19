@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
-import { Play, Clock, Trophy, Swords } from 'lucide-react'
+import { useState } from 'react'
+import { Trophy } from 'lucide-react'
 import { ZONES } from '../../constants/zones.js'
-import { formatCountdown } from '../../services/peerChallengeService.js'
 import Avatar from './Avatar.jsx'
 import HistoricalMatchupModal from '../overlays/HistoricalMatchupModal.jsx'
 import PlayerProfileCardModal from '../overlays/PlayerProfileCardModal.jsx'
@@ -10,20 +9,13 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], s
   const challenger = players.find(p => p.id === challenge.challengerId)
   const receiver   = players.find(p => p.id === challenge.receiverId)
   const me         = players.find(p => p.id === playerId)
-  const [countdown,    setCountdown]    = useState(formatCountdown(challenge.expiresAt))
-  const [showVideo,    setShowVideo]    = useState(false)
-  const [matchupOpp,   setMatchupOpp]   = useState(null)   // H2H quick summary
+  const [matchupOpp,    setMatchupOpp]   = useState(null)   // H2H quick summary
   const [profilePlayer, setProfilePlayer] = useState(null) // full profile card
 
   function openProfile(player) {
     if (!player || player.id === playerId) return
     setProfilePlayer(player)
   }
-
-  useEffect(() => {
-    const iv = setInterval(() => setCountdown(formatCountdown(challenge.expiresAt)), 10_000)
-    return () => clearInterval(iv)
-  }, [challenge.expiresAt])
 
   const isChallenger = challenge.challengerId === playerId
   const zoneName     = ZONES.find(z => z.id === challenge.zone)?.label ?? challenge.zone
@@ -72,131 +64,112 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], s
     )
   }
 
-  // ── Challenger's outgoing card ─────────────────────────────────────────────
-  if (isChallenger) {
-    return (
-      <div style={{
-        background: 'var(--card-bg)',
-        border: '1px solid #3b82f644',
-        borderRadius: 14, padding: '16px 18px', marginBottom: 12,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-          <Swords size={14} color="#3b82f6" />
-          <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em', color: '#3b82f6' }}>
-            CHALLENGE ISSUED
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          {/* My avatar — no action */}
-          <Avatar player={challenger} size={26} className="arcade-glow" />
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-1)' }}>vs</span>
-          {/* Opponent avatar → profile card | name text → H2H quick summary */}
-          <button onClick={() => openProfile(receiver)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-            <Avatar player={receiver} size={26} className="arcade-glow" />
-          </button>
-          <button onClick={() => receiver && setMatchupOpp(receiver)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#a855f7', textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}>
-              <strong>{challenge.receiverName}</strong>
-            </span>
-          </button>
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: 'var(--text-muted)', flex: 1 }}>
-            · {challenge.challengerHits} hits · {zoneName}
-          </span>
-        </div>
+  // ── Shared compact match-list card (outgoing + incoming) ─────────────────
+  const opp     = isChallenger ? receiver  : challenger
+  const oppName = isChallenger ? challenge.receiverName : challenge.challengerName
 
-        {challenge.challengerVideo && (
-          <button
-            onClick={() => setShowVideo(v => !v)}
-            style={{ background: 'transparent', border: '1px solid #3b82f644', borderRadius: 8, padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, marginBottom: showVideo ? 8 : 0, marginTop: 8, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#60a5fa' }}
-          >
-            <Play size={11} /> {showVideo ? 'HIDE' : 'YOUR PROOF'}
-          </button>
-        )}
-        {showVideo && challenge.challengerVideo && (
-          <video src={challenge.challengerVideo} controls playsInline style={{ width: '100%', borderRadius: 8, marginBottom: 8, maxHeight: 200 }} />
-        )}
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 10 }}>
-          <Clock size={11} color={expired ? '#ef4444' : '#94a3b8'} />
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: expired ? '#ef4444' : '#94a3b8', letterSpacing: '0.06em' }}>
-            {expired ? 'EXPIRED — NO RESPONSE' : countdown}
-          </span>
-        </div>
-        {matchupOpp    && me && <HistoricalMatchupModal     player={me} opponent={matchupOpp}    onClose={() => setMatchupOpp(null)} />}
-        {profilePlayer && me && <PlayerProfileCardModal player={profilePlayer} currentPlayer={me} sessions={sessions} onClose={() => setProfilePlayer(null)} />}
-      </div>
-    )
-  }
-
-  // ── Receiver's incoming card ───────────────────────────────────────────────
   return (
-    <div style={{
-      background: 'linear-gradient(135deg,#0f0c1a,#1a1030)',
-      border: '2px solid #a855f755',
-      borderRadius: 14, padding: '18px', marginBottom: 12,
-      boxShadow: '0 0 28px #a855f714',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-        <Swords size={16} color="#a855f7" />
-        <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.08em', color: '#a855f7', textShadow: '0 0 20px #a855f755' }}>
-          CHALLENGE INCOMING!
-        </span>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        {/* Challenger avatar → profile card | name text stays in card body for H2H */}
-        <button onClick={() => openProfile(challenger)} style={{ background: 'none', border: 'none', padding: 0, cursor: challenger ? 'pointer' : 'default' }}>
-          <Avatar player={challenger} size={32} className="arcade-glow" />
-        </button>
-        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#94a3b8', letterSpacing: '0.06em' }}>VS</span>
-        <Avatar player={receiver} size={32} className="arcade-glow" />
-      </div>
-
-      <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color: '#f1f5f9', marginBottom: 6, letterSpacing: '0.04em' }}>
-        {/* Name text tap → quick H2H modal */}
-        <button onClick={() => challenger && setMatchupOpp(challenger)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'inherit', font: 'inherit', letterSpacing: 'inherit' }}>
-          {challenge.challengerName}
-        </button>{' '}scored{' '}
-        <span style={{ color: '#a855f7' }}>{challenge.challengerHits} HITS</span>{' '}
-        in <span style={{ color: '#a855f7' }}>{zoneName.toUpperCase()}</span>
-      </div>
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#94a3b8', marginBottom: 12 }}>
-        Match or beat {challenge.challengerHits} hits to win!
-      </div>
-
-      {challenge.challengerVideo && (
-        <>
-          <button
-            onClick={() => setShowVideo(v => !v)}
-            style={{ background: '#2e1065', border: '1px solid #a855f755', borderRadius: 8, padding: '8px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginBottom: showVideo ? 10 : 12, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#d8b4fe', width: '100%', justifyContent: 'center' }}
-          >
-            <Play size={13} /> {showVideo ? 'HIDE PROOF VIDEO' : 'WATCH PROOF VIDEO ▶'}
-          </button>
-          {showVideo && (
-            <video src={challenge.challengerVideo} controls playsInline style={{ width: '100%', borderRadius: 8, marginBottom: 12, maxHeight: 220 }} />
-          )}
-        </>
-      )}
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Clock size={12} color={expired ? '#ef4444' : '#a855f7'} />
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: expired ? '#ef4444' : '#a855f7', letterSpacing: '0.08em' }}>
-            {expired ? 'TIME EXPIRED' : countdown}
-          </span>
-        </div>
-      </div>
-
-      {!expired && (
+    <>
+      <div
+        onClick={() => !expired && onAccept?.(challenge)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12,
+          background: 'linear-gradient(135deg,#0d0b18,#14102a)',
+          border: `2px solid ${expired ? '#1e293b' : isChallenger ? '#3b82f655' : '#a855f766'}`,
+          borderRadius: 16, padding: '12px 14px', marginBottom: 10,
+          cursor: expired ? 'default' : 'pointer',
+          boxShadow: expired ? 'none' : isChallenger ? '0 0 16px #3b82f614' : '0 0 20px #a855f718',
+          opacity: expired ? 0.55 : 1,
+          transition: 'transform 0.1s, box-shadow 0.1s',
+        }}
+        onMouseEnter={e => { if (!expired) { e.currentTarget.style.transform = 'scale(1.01)' } }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+      >
+        {/* ── Left: opponent avatar ─────────────────────────────────────── */}
         <button
-          onClick={() => onAccept(challenge)}
-          style={{ width: '100%', background: 'linear-gradient(135deg,#6b21a8,#a855f7)', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em', cursor: 'pointer', boxShadow: '0 0 20px #a855f740' }}
+          onClick={e => { e.stopPropagation(); openProfile(opp) }}
+          style={{ background: 'none', border: 'none', padding: 0, cursor: opp ? 'pointer' : 'default', flexShrink: 0 }}
         >
-          ⚔️ ACCEPT CHALLENGE
+          <Avatar
+            player={opp}
+            size={48}
+            className={isChallenger ? '' : 'arcade-glow'}
+            style={{ borderRadius: '50%' }}
+          />
         </button>
-      )}
+
+        {/* ── Center: name, game mode, status pill ─────────────────────── */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {/* VS name */}
+          <button
+            onClick={e => { e.stopPropagation(); opp && setMatchupOpp(opp) }}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: opp ? 'pointer' : 'default', display: 'block', textAlign: 'left' }}
+          >
+            <div style={{
+              fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.06em',
+              color: '#f1f5f9', lineHeight: 1.1,
+            }}>
+              VS {oppName?.toUpperCase() ?? '—'}
+            </div>
+          </button>
+
+          {/* Game mode subtext */}
+          <div style={{
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700,
+            color: '#475569', letterSpacing: '0.08em', marginTop: 3,
+          }}>
+            Hockey Horse · {zoneName}
+          </div>
+
+          {/* Status pill */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 7,
+            background: expired
+              ? 'rgba(239,68,68,0.1)'
+              : isChallenger
+                ? 'rgba(59,130,246,0.12)'
+                : 'rgba(168,85,247,0.15)',
+            border: `1px solid ${expired ? '#ef444444' : isChallenger ? '#3b82f644' : '#a855f766'}`,
+            borderRadius: 20, padding: '3px 10px',
+          }}>
+            <span style={{ fontSize: 10 }}>
+              {expired ? '⛔' : isChallenger ? '⏳' : '⚡'}
+            </span>
+            <span style={{
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
+              letterSpacing: '0.1em',
+              color: expired ? '#ef4444' : isChallenger ? '#60a5fa' : '#c084fc',
+            }}>
+              {expired
+                ? isChallenger ? 'EXPIRED — NO RESPONSE' : 'TIME EXPIRED'
+                : isChallenger ? 'WAITING FOR OPPONENT…' : 'YOUR TURN!'}
+            </span>
+          </div>
+        </div>
+
+        {/* ── Right: action button ──────────────────────────────────────── */}
+        {!expired && (
+          <button
+            onClick={e => { e.stopPropagation(); onAccept?.(challenge) }}
+            style={{
+              flexShrink: 0,
+              background: isChallenger
+                ? 'linear-gradient(135deg,#1d4ed8,#3b82f6)'
+                : 'linear-gradient(135deg,#6b21a8,#a855f7)',
+              border: 'none', borderRadius: 12, padding: '10px 14px',
+              fontFamily: "'Bangers',sans-serif", fontSize: 16, letterSpacing: '0.06em',
+              color: '#fff', cursor: 'pointer',
+              boxShadow: isChallenger ? '0 0 16px #3b82f644' : '0 0 16px #a855f744',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {isChallenger ? 'VIEW 🕹️' : 'PLAY ⚔️'}
+          </button>
+        )}
+      </div>
+
       {matchupOpp    && me && <HistoricalMatchupModal     player={me} opponent={matchupOpp}    onClose={() => setMatchupOpp(null)} />}
       {profilePlayer && me && <PlayerProfileCardModal player={profilePlayer} currentPlayer={me} sessions={sessions} onClose={() => setProfilePlayer(null)} />}
-    </div>
+    </>
   )
 }
