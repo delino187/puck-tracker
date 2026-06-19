@@ -186,11 +186,8 @@ export default function StreakHub({ player, stats, sessions, players, onPurchase
   return (
     <div style={{ padding: '14px 14px 80px' }}>
 
-      {/* ── Tab header: label + music mute toggle ─────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.2em' }}>
-          PRO SHOP
-        </div>
+      {/* ── Tab header: music mute toggle ─────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 10 }}>
         <button
           onClick={handleMuteToggle}
           title={musicMuted ? 'Unmute store music' : 'Mute store music'}

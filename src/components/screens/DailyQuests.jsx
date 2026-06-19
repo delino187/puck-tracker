@@ -636,11 +636,8 @@ export default function DailyQuests({
         @keyframes winPrizePop   { 0%{ transform:scale(0.65);opacity:0 } 70%{ transform:scale(1.14) } 100%{ transform:scale(1);opacity:1 } }
       `}</style>
 
-      {/* ── Tab header row: label + music toggle (outside the gold frame) ─── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.2em' }}>
-          DAILY QUESTS
-        </div>
+      {/* ── Tab header row: music toggle (outside the gold frame) ─── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 10 }}>
         <button
           onClick={handleMuteToggle}
           title={musicMuted ? 'Unmute quest music' : 'Mute quest music'}

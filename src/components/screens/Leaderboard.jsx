@@ -23,11 +23,12 @@ function getSnipeRank(wins) {
 const MEDALS = ['🥇', '🥈', '🥉']
 
 const FILTERS = [
-  { id: 'elo',      label: '🏆 ELO',   color: '#f59e0b' },
-  { id: 'xp',       label: '⚡ XP',     color: '#a855f7' },
-  { id: 'rank',     label: '🎯 RANK',   color: '#22c55e' },
-  { id: 'shots',    label: '🏒 SHOTS',  color: '#3b82f6' },
-  { id: 'accuracy', label: '📊 ACC',    color: '#06b6d4' },
+  { id: 'elo',      label: '🏆 ELO',    color: '#f59e0b' },
+  { id: 'xp',       label: '⚡ XP',      color: '#a855f7' },
+  { id: 'rank',     label: '🎯 RANK',    color: '#22c55e' },
+  { id: 'shots',    label: '🏒 SHOTS',   color: '#3b82f6' },
+  { id: 'accuracy', label: '📊 ACC',     color: '#06b6d4' },
+  { id: 'streak',   label: '🔥 STREAK',  color: '#ef4444' },
 ]
 
 const SUBTITLES = {
@@ -36,6 +37,7 @@ const SUBTITLES = {
   rank:     'TOP 10 · RANKED BY TIER LEVEL',
   shots:    'TOP 10 · RANKED BY TOTAL SHOTS LOGGED',
   accuracy: 'TOP 10 · RANKED BY SESSION ACCURACY',
+  streak:   'TOP 10 · RANKED BY LONGEST WINNING STREAK',
 }
 
 function getMetric(p, stats, sortBy) {
@@ -53,6 +55,13 @@ function getMetric(p, stats, sortBy) {
         value: stats.totalShots > 0 ? `${Math.round(stats.acc)}%` : '—',
         label: 'ACC',
         color: '#06b6d4',
+        large: true,
+      }
+    case 'streak':
+      return {
+        value: stats.streak > 0 ? `${stats.streak} Days 🔥` : '—',
+        label: 'STREAK',
+        color: '#ef4444',
         large: true,
       }
     default:
@@ -87,6 +96,7 @@ export default function Leaderboard({ player, players, sessions = [] }) {
         case 'rank':     return sb.li        - sa.li
         case 'shots':    return sb.totalShots - sa.totalShots
         case 'accuracy': return sb.acc       - sa.acc
+        case 'streak':   return sb.streak     - sa.streak
         default:         return 0
       }
     })
