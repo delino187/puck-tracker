@@ -183,7 +183,7 @@ function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, on
         {eloData && (
           <div style={{
             background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(10px)',
-            border: `2px solid ${won ? '#fbbf2444' : '#ef444433'}`,
+            border: `2px solid ${eloData.unranked ? '#06b6d433' : won ? '#fbbf2444' : '#ef444433'}`,
             borderRadius: 20, padding: '20px 36px',
             textAlign: 'center', marginBottom: 28, width: '100%',
             animation: 'slideUp 0.55s ease-out 0.3s both',
@@ -191,32 +191,60 @@ function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, on
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: '0.22em', marginBottom: 10 }}>
               ELO RATING
             </div>
-            {/* Rolling number */}
-            <div style={{
-              fontFamily: "'Bangers',sans-serif", fontSize: 64,
-              letterSpacing: '0.04em', lineHeight: 1,
-              color: won ? '#fbbf24' : '#ef4444',
-              animation: 'eloCountPulse 0.4s ease-in-out infinite',
-            }}>
-              {displayElo}
-            </div>
-            {/* Delta badge */}
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: delta > 0 ? 'rgba(34,197,94,0.15)' : delta < 0 ? 'rgba(239,68,68,0.15)' : 'rgba(148,163,184,0.1)',
-              border: `1px solid ${delta > 0 ? '#22c55e55' : delta < 0 ? '#ef444455' : '#33415555'}`,
-              borderRadius: 20, padding: '4px 14px', marginTop: 10,
-              fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.06em',
-              color: delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#94a3b8',
-            }}>
-              {delta > 0 ? `▲ +${delta} ELO` : delta < 0 ? `▼ ${delta} ELO` : shieldSaved ? '🛡️ SHIELDED — 0 ELO' : '— 0 ELO'}
-            </div>
 
-            {/* Streak bonus line */}
-            {eloData.streakBonus > 0 && (
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800, color: '#f97316', letterSpacing: '0.08em', marginTop: 10 }}>
-                🔥 +{eloData.streakBonus} STREAK BONUS ({eloData.streakBonusPct}%)
-              </div>
+            {eloData.unranked ? (
+              /* ── Unranked: ELO frozen ──────────────────────────────────── */
+              <>
+                <div style={{
+                  fontFamily: "'Bangers',sans-serif", fontSize: 44,
+                  letterSpacing: '0.04em', lineHeight: 1,
+                  color: '#06b6d4', marginBottom: 10,
+                }}>
+                  {displayElo}
+                </div>
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: 'rgba(6,182,212,0.12)',
+                  border: '1px solid #06b6d455',
+                  borderRadius: 20, padding: '6px 16px',
+                  fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.06em',
+                  color: '#06b6d4',
+                }}>
+                  🛡️ ELO PROTECTED
+                </div>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#475569', letterSpacing: '0.06em', marginTop: 8 }}>
+                  Casual match · no rating change
+                </div>
+              </>
+            ) : (
+              /* ── Ranked: full rolling counter ──────────────────────────── */
+              <>
+                <div style={{
+                  fontFamily: "'Bangers',sans-serif", fontSize: 64,
+                  letterSpacing: '0.04em', lineHeight: 1,
+                  color: won ? '#fbbf24' : '#ef4444',
+                  animation: 'eloCountPulse 0.4s ease-in-out infinite',
+                }}>
+                  {displayElo}
+                </div>
+                {/* Delta badge */}
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  background: delta > 0 ? 'rgba(34,197,94,0.15)' : delta < 0 ? 'rgba(239,68,68,0.15)' : 'rgba(148,163,184,0.1)',
+                  border: `1px solid ${delta > 0 ? '#22c55e55' : delta < 0 ? '#ef444455' : '#33415555'}`,
+                  borderRadius: 20, padding: '4px 14px', marginTop: 10,
+                  fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.06em',
+                  color: delta > 0 ? '#4ade80' : delta < 0 ? '#f87171' : '#94a3b8',
+                }}>
+                  {delta > 0 ? `▲ +${delta} ELO` : delta < 0 ? `▼ ${delta} ELO` : shieldSaved ? '🛡️ SHIELDED — 0 ELO' : '— 0 ELO'}
+                </div>
+                {/* Streak bonus line */}
+                {eloData.streakBonus > 0 && (
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800, color: '#f97316', letterSpacing: '0.08em', marginTop: 10 }}>
+                    🔥 +{eloData.streakBonus} STREAK BONUS ({eloData.streakBonusPct}%)
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

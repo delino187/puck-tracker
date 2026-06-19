@@ -27,6 +27,7 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
   const [myHits,     setMyHits]     = useState(3)
   const [tapPulse,   setTapPulse]   = useState(null)
   const [error,      setError]      = useState('')
+  const [matchType,       setMatchType]       = useState('ranked')
   const [uploading,       setUploading]       = useState(false)
   const [uploadProgress,  setUploadProgress]  = useState(0)
   const [fileWarnMb,      setFileWarnMb]      = useState(null)
@@ -78,6 +79,7 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
         shotCount,
         challengerHits: myHits,
         videoUrl,
+        matchType,
       })
       // Award XP via technique shots — +1 XP per puck, shows in career total
       logTechniqueShots(player.id, shotCount)
@@ -145,6 +147,40 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
                 {n} SHOTS
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Match type toggle */}
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#64748b', letterSpacing: '0.16em', marginBottom: 8 }}>MATCH TYPE</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {[
+              { id: 'ranked',   label: 'RANKED 🏆',   sub: 'Affects ELO & rank',      activeColor: '#fbbf24', activeBg: 'linear-gradient(135deg,#78350f,#b45309)', glow: '#fbbf24' },
+              { id: 'unranked', label: 'UNRANKED 🤝',  sub: 'Casual · zero ELO risk',   activeColor: '#22c55e', activeBg: 'linear-gradient(135deg,#14532d,#15803d)', glow: '#22c55e' },
+            ].map(opt => {
+              const active = matchType === opt.id
+              return (
+                <button
+                  key={opt.id}
+                  onClick={() => setMatchType(opt.id)}
+                  style={{
+                    background: active ? opt.activeBg : '#0f172a',
+                    border: `2px solid ${active ? opt.glow : '#334155'}`,
+                    borderRadius: 12, padding: '12px 8px',
+                    cursor: 'pointer', textAlign: 'center',
+                    boxShadow: active ? `0 0 18px ${opt.glow}55` : 'none',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 17, letterSpacing: '0.06em', color: active ? opt.activeColor : '#64748b', lineHeight: 1 }}>
+                    {opt.label}
+                  </div>
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: active ? `${opt.activeColor}cc` : '#475569', marginTop: 3, letterSpacing: '0.04em' }}>
+                    {opt.sub}
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
 

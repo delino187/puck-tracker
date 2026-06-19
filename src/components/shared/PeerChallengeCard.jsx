@@ -5,6 +5,22 @@ import Avatar from './Avatar.jsx'
 import HistoricalMatchupModal from '../overlays/HistoricalMatchupModal.jsx'
 import PlayerProfileCardModal from '../overlays/PlayerProfileCardModal.jsx'
 
+function MatchTypeBadge({ matchType }) {
+  const ranked = matchType !== 'unranked'
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 3,
+      background: ranked ? 'rgba(251,191,36,0.1)' : 'rgba(34,197,94,0.1)',
+      border: `1px solid ${ranked ? '#fbbf2444' : '#22c55e44'}`,
+      borderRadius: 20, padding: '2px 7px', flexShrink: 0,
+    }}>
+      <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: ranked ? '#fbbf24' : '#22c55e' }}>
+        {ranked ? '🏆 RANKED' : '🤝 CASUAL'}
+      </span>
+    </span>
+  )
+}
+
 export default function PeerChallengeCard({ challenge, playerId, players = [], sessions = [], onAccept }) {
   const challenger = players.find(p => p.id === challenge.challengerId)
   const receiver   = players.find(p => p.id === challenge.receiverId)
@@ -39,6 +55,9 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], s
             <Trophy size={14} color={won ? '#22c55e' : '#ef4444'} />
             <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em', color: won ? '#22c55e' : '#ef4444' }}>
               {won ? 'CHALLENGE WON!' : 'CHALLENGE LOST'}
+            </span>
+            <span style={{ marginLeft: 'auto' }}>
+              <MatchTypeBadge matchType={challenge.matchType} />
             </span>
           </div>
           {/* Opponent name — clickable to open H2H modal */}
@@ -114,11 +133,11 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], s
           </button>
 
           {/* Game mode subtext */}
-          <div style={{
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700,
-            color: '#475569', letterSpacing: '0.08em', marginTop: 3,
-          }}>
-            Hockey Horse · {zoneName}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: '#475569', letterSpacing: '0.08em' }}>
+              Hockey Horse · {zoneName}
+            </span>
+            <MatchTypeBadge matchType={challenge.matchType} />
           </div>
 
           {/* Status pill */}

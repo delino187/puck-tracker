@@ -57,6 +57,7 @@ export async function createChallenge({
   challengerId, challengerName,
   receiverId,   receiverName,
   zone, challengerHits, videoUrl,
+  matchType = 'ranked',
 }) {
   const now  = Date.now()
   const data = {
@@ -65,6 +66,7 @@ export async function createChallenge({
     zone,
     challengerHits,
     challengerVideo: videoUrl,
+    matchType,                   // 'ranked' | 'unranked'
     status:          'pending',
     receiverHits:    null,
     receiverVideo:   null,
@@ -92,87 +94,111 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
   })
 
   // Atomic transaction: update ELO + totalWins for both players simultaneously.
-  // outcome is always from the challenger's perspective (1 = challenger won).
-  let eloResult = null
-  try {
-    const teamRef = doc(db, 'teams', TEAM_ID)
-    await runTransaction(db, async (tx) => {
-      const teamDoc = await tx.get(teamRef)
-      if (!teamDoc.exists()) return
+  // Skipped entirely for unranked matches — ELO stays frozen, wins still counted.
+  const isRanked = challenge.matchType !== 'unranked'
+  let eloResult  = isRanked ? null : { unranked: true }
 
-      const players    = teamDoc.data().players || []
-      const challenger = players.find(p => p.id === challenge.challengerId)
-      const receiver   = players.find(p => p.id === challenge.receiverId)
-      if (!challenger || !receiver) return
+  if (isRanked) {
+    try {
+      const teamRef = doc(db, 'teams', TEAM_ID)
+      await runTransaction(db, async (tx) => {
+        const teamDoc = await tx.get(teamRef)
+        if (!teamDoc.exists()) return
 
-      const ratingC     = challenger.elo ?? 1000
-      const ratingR     = receiver.elo   ?? 1000
-      const outcome     = winnerId === challenge.challengerId ? 1 : 0
+        const players    = teamDoc.data().players || []
+        const challenger = players.find(p => p.id === challenge.challengerId)
+        const receiver   = players.find(p => p.id === challenge.receiverId)
+        if (!challenger || !receiver) return
 
-      // Pass winner's active streak for Daily Heat multiplier
-      const winner       = winnerId === challenge.challengerId ? challenger : receiver
-      const winnerStreak = winner.streakCount || winner.streak || 0
+        const ratingC     = challenger.elo ?? 1000
+        const ratingR     = receiver.elo   ?? 1000
+        const outcome     = winnerId === challenge.challengerId ? 1 : 0
 
-      const eloCalc = calculateNewRatings(ratingC, ratingR, outcome, winnerStreak)
-      const { deltaA, deltaB } = eloCalc
+        // Pass winner's active streak for Daily Heat multiplier
+        const winner       = winnerId === challenge.challengerId ? challenger : receiver
+        const winnerStreak = winner.streakCount || winner.streak || 0
 
-      // ── ELO Shield — read BEFORE any writes (inside transaction read phase) ──
-      // Consumption is unconditional: the shield is expended whether the player
-      // wins or loses. Zeroing happens only if the shielded player lost.
-      const receiverHadShield   = receiver.hasEloShield   || false
-      const challengerHadShield = challenger.hasEloShield || false
-      const loserIsReceiver     = winnerId === challenge.challengerId
+        const eloCalc = calculateNewRatings(ratingC, ratingR, outcome, winnerStreak)
+        const { deltaA, deltaB } = eloCalc
 
-      // Apply shield: zero out the losing side's delta only
-      const finalDeltaA = (!loserIsReceiver && challengerHadShield) ? 0 : deltaA
-      const finalDeltaB = (loserIsReceiver  && receiverHadShield)   ? 0 : deltaB
+        // ── ELO Shield — read BEFORE any writes (inside transaction read phase) ──
+        // Consumption is unconditional: the shield is expended whether the player
+        // wins or loses. Zeroing happens only if the shielded player lost.
+        const receiverHadShield   = receiver.hasEloShield   || false
+        const challengerHadShield = challenger.hasEloShield || false
+        const loserIsReceiver     = winnerId === challenge.challengerId
 
-      // Store breakdown for the victory screen + local state sync
-      eloResult = {
-        receiverDelta:           finalDeltaB,
-        challengerDelta:         finalDeltaA,   // needed for instant local state sync
-        baseDelta:               eloCalc.baseDelta,
-        streakBonus:             eloCalc.streakBonus,
-        streakBonusPct:          eloCalc.streakBonusPct,
-        streakDays:              eloCalc.streakDays,
-        won:                     winnerId === challenge.receiverId,
-        // Shield metadata for the end-screen UI
-        receiverShieldSaved:     loserIsReceiver && receiverHadShield,
-        receiverShieldConsumed:  receiverHadShield,
-        shieldBaseLoss:          loserIsReceiver ? deltaB : 0,
-      }
+        // Apply shield: zero out the losing side's delta only
+        const finalDeltaA = (!loserIsReceiver && challengerHadShield) ? 0 : deltaA
+        const finalDeltaB = (loserIsReceiver  && receiverHadShield)   ? 0 : deltaB
 
-      const now = Date.now()
-      tx.update(teamRef, {
-        players: players.map(p => {
-          if (p.id === challenge.challengerId) {
-            return {
-              ...p,
-              elo:            ratingC + finalDeltaA,
-              eloLastDelta:   finalDeltaA,
-              eloLastUpdated: now,
-              totalWins:      (p.totalWins || 0) + (winnerId === p.id ? 1 : 0),
-              // Consume shield atomically — cannot be saved by closing the app
-              hasEloShield:   false,
+        // Store breakdown for the victory screen + local state sync
+        eloResult = {
+          receiverDelta:           finalDeltaB,
+          challengerDelta:         finalDeltaA,   // needed for instant local state sync
+          baseDelta:               eloCalc.baseDelta,
+          streakBonus:             eloCalc.streakBonus,
+          streakBonusPct:          eloCalc.streakBonusPct,
+          streakDays:              eloCalc.streakDays,
+          won:                     winnerId === challenge.receiverId,
+          // Shield metadata for the end-screen UI
+          receiverShieldSaved:     loserIsReceiver && receiverHadShield,
+          receiverShieldConsumed:  receiverHadShield,
+          shieldBaseLoss:          loserIsReceiver ? deltaB : 0,
+        }
+
+        const now = Date.now()
+        tx.update(teamRef, {
+          players: players.map(p => {
+            if (p.id === challenge.challengerId) {
+              return {
+                ...p,
+                elo:            ratingC + finalDeltaA,
+                eloLastDelta:   finalDeltaA,
+                eloLastUpdated: now,
+                totalWins:      (p.totalWins || 0) + (winnerId === p.id ? 1 : 0),
+                // Consume shield atomically — cannot be saved by closing the app
+                hasEloShield:   false,
+              }
             }
-          }
-          if (p.id === challenge.receiverId) {
-            return {
-              ...p,
-              elo:            ratingR + finalDeltaB,
-              eloLastDelta:   finalDeltaB,
-              eloLastUpdated: now,
-              totalWins:      (p.totalWins || 0) + (winnerId === p.id ? 1 : 0),
-              // Consume shield atomically — cannot be saved by closing the app
-              hasEloShield:   false,
+            if (p.id === challenge.receiverId) {
+              return {
+                ...p,
+                elo:            ratingR + finalDeltaB,
+                eloLastDelta:   finalDeltaB,
+                eloLastUpdated: now,
+                totalWins:      (p.totalWins || 0) + (winnerId === p.id ? 1 : 0),
+                // Consume shield atomically — cannot be saved by closing the app
+                hasEloShield:   false,
+              }
             }
-          }
-          return p
-        }),
+            return p
+          }),
+        })
       })
-    })
-  } catch (err) {
-    console.error('[respondToChallenge] ELO transaction failed:', err)
+    } catch (err) {
+      console.error('[respondToChallenge] ELO transaction failed:', err)
+    }
+  } else {
+    // Unranked: still credit totalWins so career stats stay accurate
+    try {
+      const teamRef = doc(db, 'teams', TEAM_ID)
+      await runTransaction(db, async (tx) => {
+        const teamDoc = await tx.get(teamRef)
+        if (!teamDoc.exists()) return
+        const players = teamDoc.data().players || []
+        tx.update(teamRef, {
+          players: players.map(p => {
+            if (p.id === challenge.challengerId || p.id === challenge.receiverId) {
+              return { ...p, totalWins: (p.totalWins || 0) + (winnerId === p.id ? 1 : 0) }
+            }
+            return p
+          }),
+        })
+      })
+    } catch (err) {
+      console.error('[respondToChallenge] unranked win-count transaction failed:', err)
+    }
   }
 
   return {
