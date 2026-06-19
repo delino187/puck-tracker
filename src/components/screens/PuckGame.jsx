@@ -10,6 +10,7 @@ import {
   WARN_FILE_BYTES,
 } from '../../services/puckGameService.js'
 import PuckGameOverlay from '../overlays/PuckGameOverlay.jsx'
+import CopyButton, { buildInviteText } from '../shared/CopyButton.jsx'
 
 function uploadErrMsg(err) {
   if (err?.message === 'FILE_TOO_LARGE')
@@ -451,10 +452,11 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
               {action === 'waiting_set' ? `WAITING FOR ${fName.toUpperCase()} TO SET` : `WAITING FOR ${fName.toUpperCase()} TO MATCH`}
             </div>
             {action === 'waiting_match' && round?.defenderDeadline && (
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#475569' }}>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#475569', marginBottom: 16 }}>
                 Deadline: {new Date(round.defenderDeadline).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
               </div>
             )}
+            <CopyButton inviteText={buildInviteText('puck')} style={{ marginTop: 8 }} />
           </div>
         )}
       </div>

@@ -4,6 +4,7 @@ import { ZONES } from '../../constants/zones.js'
 import Avatar from './Avatar.jsx'
 import HistoricalMatchupModal from '../overlays/HistoricalMatchupModal.jsx'
 import PlayerProfileCardModal from '../overlays/PlayerProfileCardModal.jsx'
+import CopyButton, { buildInviteText } from './CopyButton.jsx'
 
 function MatchTypeBadge({ matchType }) {
   const ranked = matchType !== 'unranked'
@@ -164,6 +165,13 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], s
                 : isChallenger ? 'WAITING FOR OPPONENT…' : 'YOUR TURN!'}
             </span>
           </div>
+
+          {/* Nudge copy link — only on outgoing pending cards */}
+          {isChallenger && !expired && (
+            <div style={{ marginTop: 6 }}>
+              <CopyButton inviteText={buildInviteText('versus', challenge.matchType)} />
+            </div>
+          )}
         </div>
 
         {/* ── Right: action button ──────────────────────────────────────── */}
