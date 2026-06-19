@@ -59,12 +59,17 @@ export default function NetSVG({ flashZone, flashType, heatData, puckAnim }) {
         const { fill, stroke, text } = getColors(z.id)
         const d       = heatData && heatData[z.id]
         const hasData = d && d.shots > 0
+        const [word1, ...rest] = z.label.split(' ')
+        const word2 = rest.join(' ')
+        const labelY1 = hasData ? pos.cy - 12 : pos.cy - 5
+        const labelY2 = hasData ? pos.cy - 2  : pos.cy + 6
         return (
           <g key={z.id}>
             <circle cx={pos.cx} cy={pos.cy} r={pos.r} fill={fill} stroke={stroke} strokeWidth="1.5" />
             <circle cx={pos.cx - pos.r * 0.25} cy={pos.cy - pos.r * 0.25} r={pos.r * 0.35} fill="rgba(255,255,255,0.1)" />
-            <text x={pos.cx} y={pos.cy - (hasData ? 6 : 3)} textAnchor="middle" fill={text} fontSize="9"  fontWeight="700" fontFamily="Barlow Condensed" style={{ userSelect: 'none' }}>{z.short}</text>
-            {hasData && <text x={pos.cx} y={pos.cy + 10} textAnchor="middle" fill={text} fontSize="12" fontWeight="800" fontFamily="Barlow Condensed" style={{ userSelect: 'none' }}>{d.acc.toFixed(0)}%</text>}
+            <text x={pos.cx} y={labelY1} textAnchor="middle" fill={text} fontSize="8" fontWeight="700" fontFamily="Barlow Condensed" style={{ userSelect: 'none' }}>{word1}</text>
+            <text x={pos.cx} y={labelY2} textAnchor="middle" fill={text} fontSize="8" fontWeight="700" fontFamily="Barlow Condensed" style={{ userSelect: 'none' }}>{word2}</text>
+            {hasData && <text x={pos.cx} y={pos.cy + 11} textAnchor="middle" fill={text} fontSize="12" fontWeight="800" fontFamily="Barlow Condensed" style={{ userSelect: 'none' }}>{d.acc.toFixed(0)}%</text>}
           </g>
         )
       })}

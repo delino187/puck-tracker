@@ -235,7 +235,7 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
 
       {/* ── Live Feed ─────────────────────────────────────────────────────── */}
       {players.length > 1 && (
-        <LiveFeed players={players} sessions={sessions} currentPlayerId={player.id} />
+        <LiveFeed players={players} sessions={sessions} currentPlayerId={player.id} onBadgeClick={onBadgeClick} />
       )}
 
       <button style={C.btnP} onClick={onStartSession}>

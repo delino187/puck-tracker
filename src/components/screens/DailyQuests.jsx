@@ -741,18 +741,60 @@ export default function DailyQuests({
             </div>
           )}
 
-          {/* Quest rows — always 3 */}
-          {displayQuests.map((quest, i) => (
-            <QuestRow
-              key={i}
-              quest={quest}
-              progress={quest.reward !== '?' ? getQuestProgress(quest.text, sessions) : null}
-              isSpinning={spinning}
-              shuffleText={shuffleTexts[i] || SHUFFLE_POOL[0]}
-              onNavigate={onNavigate}
-              onClaim={rect => handleClaim(i, rect)}
-            />
-          ))}
+          {/* Quest rows — always 3; blurred behind overlay when unseen */}
+          <div style={{ position: 'relative' }}>
+            <div style={{
+              filter:        (spinAvailable && !currentQuests.length) ? 'blur(3px) saturate(0.25)' : 'none',
+              pointerEvents: (spinAvailable && !currentQuests.length) ? 'none' : 'auto',
+              transition: 'filter 0.3s',
+            }}>
+              {displayQuests.map((quest, i) => (
+                <QuestRow
+                  key={i}
+                  quest={quest}
+                  progress={quest.reward !== '?' ? getQuestProgress(quest.text, sessions) : null}
+                  isSpinning={spinning}
+                  shuffleText={shuffleTexts[i] || SHUFFLE_POOL[0]}
+                  onNavigate={onNavigate}
+                  onClaim={rect => handleClaim(i, rect)}
+                />
+              ))}
+            </div>
+
+            {/* Pre-spin CTA overlay — visible only on a new day before the lever is pulled */}
+            {spinAvailable && !currentQuests.length && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 10, pointerEvents: 'none',
+              }}>
+                <div style={{
+                  background: 'rgba(10,8,18,0.72)',
+                  backdropFilter: 'blur(4px)',
+                  border: '2px solid #fbbf24',
+                  borderRadius: 16,
+                  padding: '18px 24px',
+                  textAlign: 'center',
+                  boxShadow: '0 0 40px #fbbf2455',
+                  animation: 'shimmer 1.4s ease-in-out infinite',
+                }}>
+                  <div style={{
+                    fontFamily: "'Bangers',sans-serif", fontSize: 22,
+                    color: '#fbbf24', letterSpacing: '0.08em', lineHeight: 1.2,
+                    textShadow: '0 0 24px #fbbf2488',
+                  }}>
+                    🕹️ PULL LEVER TO SPIN
+                  </div>
+                  <div style={{
+                    fontFamily: "'Bangers',sans-serif", fontSize: 17,
+                    color: '#fbbf24cc', letterSpacing: '0.06em', lineHeight: 1.3, marginTop: 4,
+                  }}>
+                    & UNLOCK TODAY'S QUESTS!
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Spin / locked button */}
           <button

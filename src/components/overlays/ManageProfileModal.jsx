@@ -162,7 +162,7 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onClo
                 fontSize: 10, fontWeight: 800,
                 color: '#94a3b8', letterSpacing: '0.12em',
               }}>
-                🔓 UNLOCK CUSTOM PFPs IN THE STORE
+                🔓 UNLOCK CUSTOM AVATAR IN THE STORE
               </div>
             )}
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.05em', color: '#f1f5f9', lineHeight: 1.1 }}>

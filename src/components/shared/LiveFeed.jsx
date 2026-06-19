@@ -50,11 +50,12 @@ function buildFeed(players, sessions) {
       const badge = BADGES.find(b => b.id === id)
       if (!badge) return
       events.push({
-        ts:   data.ts,
-        pid:  p.id,
-        name: p.name,
-        icon: '🏆',
-        text: `earned "${badge.name}"`,
+        ts:    data.ts,
+        pid:   p.id,
+        name:  p.name,
+        icon:  '🏆',
+        text:  'earned',
+        badge,
       })
     })
   })
@@ -62,7 +63,7 @@ function buildFeed(players, sessions) {
   return events.sort((a, b) => b.ts - a.ts).slice(0, 6)
 }
 
-export default function LiveFeed({ players, sessions, currentPlayerId }) {
+export default function LiveFeed({ players, sessions, currentPlayerId, onBadgeClick }) {
   const feed = buildFeed(players, sessions)
   if (feed.length === 0) return null
 
@@ -101,7 +102,18 @@ export default function LiveFeed({ players, sessions, currentPlayerId }) {
                 {isMe ? 'You' : ev.name}
               </span>
               <span style={{ fontFamily: 'Barlow,sans-serif', fontSize: 12, color: '#64748b' }}>
-                {' '}{ev.text}
+                {ev.badge ? (
+                  <> earned{' '}
+                    <button
+                      onClick={e => { e.stopPropagation(); onBadgeClick?.(ev.badge, true) }}
+                      style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#fbbf24', fontFamily: 'inherit', fontSize: 'inherit', fontWeight: 700, textDecoration: 'underline dotted', textUnderlineOffset: 2 }}
+                    >
+                      "{ev.badge.name}"
+                    </button>
+                  </>
+                ) : (
+                  <> {ev.text}</>
+                )}
               </span>
             </div>
 

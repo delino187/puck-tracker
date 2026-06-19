@@ -406,7 +406,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
               {/* ── Row 3: Profile unlock (centred via auto-placement) ────── */}
               <ItemCard
                 emoji="🎭"
-                name="CUSTOM PFP"
+                name="CUSTOM AVATAR"
                 desc="Unlock the ability to set a custom profile avatar image in your profile settings"
                 tag={canChangePfp ? undefined : 'NEW'}
                 cost={PFP_COST}
