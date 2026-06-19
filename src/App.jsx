@@ -775,6 +775,7 @@ export default function App() {
             <Leaderboard
               player={aPlayer}
               players={st.players}
+              sessions={st.sessions}
             />
           )}
           {tab === 'stats' && (
