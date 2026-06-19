@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Lock, CheckCircle, AlertCircle, Eye, EyeOff, Flame } from 'lucide-react'
-import { getWeekStart, calcXP, getLevel } from '../../utils/stats.js'
-import { getPSessions, dayStreak } from '../../utils/badgeHelpers.js'
+import { playerStats } from '../../utils/stats.js'
 import { C } from '../../styles.js'
 import { getStreakAuraClass } from '../../utils/streakAura.js'
 import Scaffold from '../shared/Scaffold.jsx'
@@ -14,18 +13,14 @@ export default function PlayerSelectScreen({ players, sessions, onSelect, onBack
   const [err,  setErr]  = useState(false)
   const [show, setShow] = useState(false)
 
-  const ws = getWeekStart()
-
   if (selectedPlayer) {
+    const { li: selectedLi } = playerStats(selectedPlayer, sessions)
     return (
       <Scaffold onBack={() => { setSelectedPlayer(null); setPw(''); setErr(false) }} title="">
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 28, fontWeight: 900, color: 'var(--text-1)' }}>{selectedPlayer.name}</div>
           {selectedPlayer.jerseyNum && <div style={{ color: '#60a5fa', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16 }}>#{selectedPlayer.jerseyNum}</div>}
-          <LevelBadge li={getLevel(calcXP(
-            getPSessions(selectedPlayer, sessions).flatMap(s => s.sets).length * 10,
-            getPSessions(selectedPlayer, sessions).flatMap(s => s.sets).reduce((a, x) => a + x.hits, 0),
-          )).li} />
+          <LevelBadge li={selectedLi} />
         </div>
 
         {selectedPlayer.password ? (
@@ -71,14 +66,7 @@ export default function PlayerSelectScreen({ players, sessions, onSelect, onBack
           No players yet — ask your coach!
         </div>
       ) : players.map(p => {
-        const pss      = sessions.filter(s => s.playerId === p.id)
-        const allSets  = pss.flatMap(s => s.sets)
-        const shots    = allSets.length * 10
-        const hits     = allSets.reduce((a, x) => a + x.hits, 0)
-        const xp       = calcXP(shots, hits)
-        const { li }   = getLevel(xp)
-        const str      = dayStreak(p, sessions)
-        const weekShots = pss.filter(s => new Date(s.date) >= ws).flatMap(s => s.sets).length * 10
+        const { li, streak: str, weekShots } = playerStats(p, sessions)
 
         return (
           <button
