@@ -37,7 +37,7 @@ export default function ChallengesTab({
           <div className="text-3d-purple" style={{ fontFamily: "'Bangers',sans-serif", fontSize: 28, letterSpacing: '0.06em', lineHeight: 1 }}>
             ⚔️ VERSUS
           </div>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#64748b', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 2 }}>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#f97316', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 2 }}>
             Peer Showdowns · 3 or 5 Shots
           </div>
         </div>
@@ -77,8 +77,8 @@ export default function ChallengesTab({
       </div>
 
       {/* ── Active Showdowns ─────────────────────────────────────────────────── */}
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-        <Clock size={11} /> ACTIVE SHOWDOWNS
+      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#a855f7', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
+        <Clock size={11} color="#a855f7" /> ACTIVE SHOWDOWNS
         {hasActive && (
           <span style={{ background: '#a855f7', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 9, fontWeight: 700, marginLeft: 4 }}>
             {incoming.length + outgoing.length}
@@ -105,8 +105,8 @@ export default function ChallengesTab({
 
       {/* Incoming first — most urgent */}
       {incoming.length > 0 && (
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#ef4444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>
-          🔥 Waiting on you
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#ef4444', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8, textShadow: '0 0 8px #ef444466' }}>
+          🔥 WAITING ON YOU — YOUR TURN!
         </div>
       )}
       {incoming.map(c => (
@@ -114,8 +114,8 @@ export default function ChallengesTab({
       ))}
 
       {outgoing.length > 0 && (
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#3b82f6', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8, marginTop: incoming.length > 0 ? 12 : 0 }}>
-          ⏳ Waiting on them
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#fbbf24', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8, marginTop: incoming.length > 0 ? 12 : 0 }}>
+          ⏳ WAITING ON THEM
         </div>
       )}
       {outgoing.map(c => (

@@ -179,11 +179,13 @@ export default function RanksTab({ stats, openDetail, onDetailClose }) {
       )}
 
       {/* ── Rank list ─────────────────────────────────────────────────────── */}
-      <div style={{
-        fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, letterSpacing: '0.12em',
-        color: 'var(--text-2)', textTransform: 'uppercase', marginBottom: 12,
-      }}>
-        All Ranks — {xp} XP Total
+      <div style={{ marginBottom: 14, display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.1em', color: '#f1f5f9' }}>
+          ALL RANKS
+        </span>
+        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#39ff14', letterSpacing: '0.1em' }}>
+          — {xp.toLocaleString()} XP TOTAL
+        </span>
       </div>
 
       {LEVELS.map((l, i) => {
@@ -237,15 +239,19 @@ export default function RanksTab({ stats, openDetail, onDetailClose }) {
                   )}
                   {isUnlocked && !isCur && <CheckCircle size={13} color="#34d399" />}
                 </div>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: 'var(--text-muted)' }}>
-                  {l.xpNeeded.toLocaleString()} XP{nextXp ? ` → ${nextXp.toLocaleString()} XP` : ''}
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700 }}>
+                  <span style={{ color: '#f1f5f9' }}>{l.xpNeeded.toLocaleString()} XP</span>
+                  {nextXp && <span style={{ color: '#475569' }}> → </span>}
+                  {nextXp && <span style={{ color: '#94a3b8' }}>{nextXp.toLocaleString()} XP</span>}
                 </div>
               </div>
 
               {!isUnlocked && (
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-muted)', textAlign: 'right', flexShrink: 0 }}>
-                  {(l.xpNeeded - xp).toLocaleString()}<br />
-                  <span style={{ fontSize: 10 }}>XP away</span>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: '#f97316', letterSpacing: '0.04em', lineHeight: 1 }}>
+                    {(l.xpNeeded - xp).toLocaleString()}
+                  </div>
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#f97316', letterSpacing: '0.1em' }}>XP AWAY</div>
                 </div>
               )}
             </div>
@@ -253,10 +259,10 @@ export default function RanksTab({ stats, openDetail, onDetailClose }) {
             {(isCur || (!isUnlocked && i === li + 1)) && nextXp && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: 'var(--text-2)' }}>
-                    {isCur ? `${tierEarned} / ${tierNeeded} XP` : `${Math.max(0, l.xpNeeded - xp)} XP to unlock`}
+                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: isCur ? '#39ff14' : '#f97316' }}>
+                    {isCur ? `${tierEarned.toLocaleString()} / ${tierNeeded.toLocaleString()} XP` : `${Math.max(0, l.xpNeeded - xp).toLocaleString()} XP TO UNLOCK`}
                   </span>
-                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: 'var(--text-muted)' }}>{tierPct.toFixed(0)}%</span>
+                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#f1f5f9' }}>{tierPct.toFixed(0)}%</span>
                 </div>
                 <div style={{ height: 6, background: 'var(--progress-track)', borderRadius: 3, overflow: 'hidden', border: 'var(--card-border)' }}>
                   <div style={{ height: '100%', width: `${tierPct}%`, background: `linear-gradient(90deg,${l.color},${LEVELS[Math.min(i + 1, LEVELS.length - 1)].color})`, borderRadius: 3, transition: 'width 0.6s' }} />

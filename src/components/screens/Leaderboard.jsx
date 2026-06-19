@@ -119,7 +119,7 @@ export default function Leaderboard({ player, players, sessions = [] }) {
         <div className="text-3d-gold" style={{ fontFamily: "'Bangers',sans-serif", fontSize: 30, letterSpacing: '0.06em' }}>
           🏒 SNIPER LEADERBOARD
         </div>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#64748b', marginTop: 2, letterSpacing: '0.1em' }}>
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#f1f5f9', marginTop: 2, letterSpacing: '0.1em' }}>
           {SUBTITLES[sortBy]}
         </div>
       </div>
@@ -211,7 +211,7 @@ export default function Leaderboard({ player, players, sessions = [] }) {
                 <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: rank.color, letterSpacing: '0.1em' }}>
                   {rank.label.toUpperCase()}
                 </span>
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#475569' }}>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: '#94a3b8' }}>
                   {wins}W
                 </span>
               </div>

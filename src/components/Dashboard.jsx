@@ -63,19 +63,22 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
           />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, letterSpacing: '0.15em', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: 3 }}>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, letterSpacing: '0.18em', color: '#06b6d4', textTransform: 'uppercase', marginBottom: 3, textShadow: '0 0 8px #06b6d466' }}>
             Current Rank
           </div>
           <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 30, color: cur.color, lineHeight: 1, marginBottom: 5 }}>
             {cur.name}
           </div>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: 'var(--text-muted)', marginBottom: 7 }}>
-            {stats.xp} XP{next ? ` · ${(next.xpNeeded - stats.xp).toLocaleString()} to ${next.name}` : ' · Max Rank!'}
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, marginBottom: 7 }}>
+            <span style={{ color: '#39ff14', fontWeight: 800 }}>{stats.xp} XP</span>
+            {next
+              ? <span style={{ color: '#f1f5f9' }}> · <span style={{ color: '#fbbf24' }}>{(next.xpNeeded - stats.xp).toLocaleString()}</span> to {next.name}</span>
+              : <span style={{ color: '#fbbf24' }}> · Max Rank!</span>}
           </div>
           <XPBar li={stats.li} xp={stats.xp} compact />
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#64748b' }}>
-              ELO <strong style={{ color: '#f1f5f9' }}>{player.elo ?? 1000}</strong>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: '#94a3b8' }}>
+              ELO <strong style={{ color: '#fbbf24', textShadow: '0 0 8px #fbbf2444' }}>{player.elo ?? 1000}</strong>
             </span>
             {player.hasEloShield && (
               <span style={{
@@ -185,9 +188,13 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
       {/* ── Recent badges ─────────────────────────────────────────────────── */}
       {earnedBadges.length > 0 && (
         <div style={C.card}>
-          <div style={{ ...C.label, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => onNavigate?.('badges')}>
-            <span>Recent Badges ({earnedBadges.length}/{BADGES.length})</span>
-            <ChevronRight size={13} color="#64748b" />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', marginBottom: 12 }} onClick={() => onNavigate?.('badges')}>
+            <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, letterSpacing: '0.1em', color: '#fbbf24', textShadow: '0 0 10px #fbbf2444' }}>
+              RECENT BADGES
+              <span style={{ color: '#39ff14', marginLeft: 6 }}>{earnedBadges.length}</span>
+              <span style={{ color: '#94a3b8', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700 }}>/{BADGES.length}</span>
+            </span>
+            <ChevronRight size={13} color="#fbbf24" />
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
             {earnedBadges

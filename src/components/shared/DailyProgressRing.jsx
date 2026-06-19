@@ -58,19 +58,23 @@ export default function DailyProgressRing({ shots }) {
         <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color, letterSpacing: '0.05em', marginBottom: 4 }}>
           {done ? (over ? `${shots - DAILY_GOAL} OVER GOAL! 🔥` : 'DAILY GOAL SMASHED! 🏆') : 'DAILY PROGRESS'}
         </div>
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-1)', marginBottom: 6 }}>
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
           {done
-            ? `${shots} shots today — you're locked in!`
-            : `${shots} of ${DAILY_GOAL} shots today`}
+            ? <span style={{ color: '#39ff14' }}>{shots} shots today — you're locked in!</span>
+            : <>
+                <span style={{ color: '#39ff14', fontWeight: 800 }}>{shots}</span>
+                <span style={{ color: '#94a3b8' }}> of </span>
+                <span style={{ color: '#f1f5f9', fontWeight: 800 }}>{DAILY_GOAL}</span>
+                <span style={{ color: '#94a3b8' }}> shots today</span>
+              </>}
         </div>
         {!done && (
           <>
-            {/* Mini progress bar */}
             <div style={{ height: 5, background: '#0f172a', borderRadius: 3, overflow: 'hidden', border: '1px solid #1e293b', marginBottom: 5 }}>
               <div style={{ height: '100%', width: `${pct * 100}%`, background: color, borderRadius: 3, transition: 'width 0.75s cubic-bezier(0.22,1,0.36,1)' }} />
             </div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#475569', letterSpacing: '0.06em' }}>
-              {remaining} more to hit your goal
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#f97316', letterSpacing: '0.08em' }}>
+              {remaining} MORE TO HIT YOUR GOAL 🎯
             </div>
           </>
         )}

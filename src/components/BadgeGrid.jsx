@@ -18,9 +18,9 @@ export default function BadgeGrid({ player, sessions, newBadgeIds, onBadgeClick 
       {/* Earned count + tier key */}
       <div style={{ background: 'var(--card-bg)', borderRadius: 12, padding: '14px 16px', border: 'var(--card-border)', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: 2 }}>Badges Earned</div>
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 800, color: 'var(--text-1)' }}>{earned.length}</span>
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, color: 'var(--text-muted)', marginLeft: 4 }}>/ {BADGES.length}</span>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#fbbf24', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: 2, textShadow: '0 0 8px #fbbf2444' }}>Badges Earned</div>
+          <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, color: '#fbbf24', textShadow: '0 0 12px #fbbf2455' }}>{earned.length}</span>
+          <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: '#f1f5f9', marginLeft: 4 }}>/ {BADGES.length}</span>
         </div>
         <button
           onClick={() => setShowTierKey(true)}
@@ -159,11 +159,11 @@ export default function BadgeGrid({ player, sessions, newBadgeIds, onBadgeClick 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <cat.Icon size={13} color="#64748b" />
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: '#64748b', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#94a3b8', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
                   {cat.label}
                 </span>
               </div>
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: earnedInCat > 0 ? '#94a3b8' : '#334155', letterSpacing: '0.08em' }}>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: earnedInCat > 0 ? '#39ff14' : '#334155', letterSpacing: '0.08em' }}>
                 {earnedInCat}/{catBadges.length}
               </span>
             </div>
