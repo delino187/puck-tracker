@@ -14,7 +14,10 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
 
   const level     = LEVELS[stats.li]
   const earnedIds = Object.keys(player.earnedBadges || {})
-  const medals    = BADGES.filter(b => earnedIds.includes(b.id)).slice(0, 12)
+  const medals    = BADGES
+    .filter(b => earnedIds.includes(b.id))
+    .sort((a, b) => (player.earnedBadges?.[b.id]?.ts || 0) - (player.earnedBadges?.[a.id]?.ts || 0))
+    .slice(0, 8)
 
   async function handleFileSelected(e) {
     const file = e.target.files?.[0]
@@ -275,11 +278,11 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
 
         {/* ── Medals ────────────────────────────────────────────────────────── */}
         {medals.length > 0 && (
-          <div style={{ width: '100%', overflow: 'hidden', padding: '0 2px' }}>
+          <div style={{ width: '100%' }}>
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.12em', color: '#f1f5f9', textTransform: 'uppercase', marginBottom: 10 }}>
               Badges <span style={{ color: '#06b6d4' }}>({medals.length})</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, justifyItems: 'center', alignItems: 'center', width: '100%', maxWidth: '100%' }}>
+            <div className="flex flex-wrap justify-center items-center gap-4 w-full px-4 pb-4">
               {medals.map(b => (
                 <div
                   key={b.id}

@@ -61,6 +61,7 @@ export default function App() {
   const [npName,        setNpName]       = useState('')
   const [npNum,         setNpNum]        = useState('')
   const [npPw,          setNpPw]         = useState('')
+  const [npEmail,       setNpEmail]      = useState('')
   const [rankDetailOpen,  setRankDetailOpen]   = useState(false)
   const [peerChallenges,  setPeerChallenges]   = useState([])
   const [challengeScreen, setChallengeScreen]  = useState(null) // null | 'create' | { mode:'respond', challenge }
@@ -518,6 +519,95 @@ export default function App() {
       <>
         <GlobalStyles />
         <CoachPortal st={st} upd={upd} />
+      </>
+    )
+  }
+
+  // ── Public player self-registration ─────────────────────────────────────────
+  if (st.view === 'playerSignup') {
+    const [signupErr, setSignupErr] = [null, () => {}] // static — error shown inline
+    return (
+      <>
+        <GlobalStyles />
+        <Scaffold onBack={() => { setNpName(''); setNpNum(''); setNpPw(''); setNpEmail(''); upd({ view: 'home' }) }} title="Create Your Profile">
+          <div style={C.card}>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#60a5fa', letterSpacing: '0.1em', textAlign: 'center', marginBottom: 16 }}>
+              🏒 JOIN YOUR TEAM — ALPHA SIGN-UP
+            </div>
+
+            <label style={C.label}>Your Name *</label>
+            <input
+              value={npName}
+              onChange={e => setNpName(e.target.value)}
+              placeholder="e.g. Connor"
+              style={C.inp}
+            />
+
+            <label style={C.label}>Email Address *</label>
+            <input
+              type="email"
+              value={npEmail}
+              onChange={e => setNpEmail(e.target.value)}
+              placeholder="e.g. connor@team.com"
+              style={C.inp}
+            />
+
+            <label style={C.label}>Jersey # (optional)</label>
+            <input
+              value={npNum}
+              onChange={e => setNpNum(e.target.value)}
+              placeholder="e.g. 97"
+              style={C.inp}
+            />
+
+            <label style={C.label}>Password *</label>
+            <input
+              type="password"
+              value={npPw}
+              onChange={e => setNpPw(e.target.value)}
+              placeholder="Choose a password you'll remember"
+              style={C.inp}
+            />
+
+            <button
+              style={C.btnP}
+              onClick={() => {
+                if (!npName.trim() || !npEmail.trim() || !npPw.trim()) return
+                if (!npEmail.includes('@')) return
+                const p = {
+                  id:             newId(),
+                  name:           npName.trim(),
+                  email:          npEmail.trim().toLowerCase(),
+                  jerseyNum:      npNum.trim(),
+                  password:       npPw.trim(),
+                  role:           'player',
+                  earnedBadges:   {},
+                  diamonds:       0,
+                  streak_freezes: 0,
+                  last_quest_spin: null,
+                  daily_quests:   [],
+                  photoURL:       null,
+                  totalWins:      0,
+                  streakCount:    0,
+                  lastActivity:   null,
+                  elo:            1000,
+                  eloLastDelta:   0,
+                  eloLastUpdated: null,
+                  hasEloShield:   false,
+                  createdAt:      Date.now(),
+                }
+                upd({ players: [...st.players, p], activePlayerId: p.id, activeSessionId: null, view: 'player' })
+                setNpName(''); setNpNum(''); setNpPw(''); setNpEmail('')
+              }}
+            >
+              <Plus size={16} /> Create My Profile
+            </button>
+
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#475569', textAlign: 'center', marginTop: 10, letterSpacing: '0.06em' }}>
+              Your coach will see your profile in the roster. Fields marked * are required.
+            </div>
+          </div>
+        </Scaffold>
       </>
     )
   }

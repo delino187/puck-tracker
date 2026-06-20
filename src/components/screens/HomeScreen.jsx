@@ -146,6 +146,24 @@ export default function HomeScreen({ st, upd }) {
         >
           <Lock size={14} /> COACH MODE
         </button>
+
+        {/* ── New Player sign-up ────────────────────────────────────────────── */}
+        <button
+          onClick={() => upd({ view: 'playerSignup' })}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            width: '100%',
+            padding: '10px 0 0',
+            fontFamily: "'Barlow Condensed',sans-serif",
+            fontSize: 14, fontWeight: 700,
+            color: '#60a5fa',
+            letterSpacing: '0.08em',
+          }}
+        >
+          New Player? Create a Profile 🏒
+        </button>
       </div>
     </div>
   )

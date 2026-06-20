@@ -2,7 +2,7 @@ import { useState } from 'react'
 import {
   Plus, Trash2, Shuffle, CheckCircle, X,
   Swords, Users, Lock, ChevronLeft, History, Eye, EyeOff,
-  AlertCircle, Edit2, KeyRound, Trophy, Sun, Moon, MessageSquare,
+  AlertCircle, Edit2, KeyRound, Trophy, Sun, Moon, MessageSquare, Mail,
 } from 'lucide-react'
 import CoachLeaderboard from './CoachLeaderboard.jsx'
 import CoachFeedback    from './CoachFeedback.jsx'
@@ -11,6 +11,7 @@ import { getPSessions } from '../utils/badgeHelpers.js'
 import { useTheme } from '../hooks/useTheme.js'
 import { C } from '../styles.js'
 import LevelBadge from './shared/LevelBadge.jsx'
+import { deletePlayerData } from '../utils/firestoreSync.js'
 
 // ─── Matchup editor ────────────────────────────────────────────────────────────
 function CoachMatchups({ st, upd }) {
@@ -220,24 +221,40 @@ function CoachRoster({ st, upd }) {
         const hasPw = !!p.password
         return (
           <div key={p.id} style={{ background: '#1e293b', borderRadius: 10, padding: '12px 14px', marginBottom: 8, border: '1px solid #334155' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+              {/* Player info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3, flexWrap: 'wrap' }}>
                   <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 17, fontWeight: 800, color: '#f1f5f9' }}>
                     {p.name}{p.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{p.jerseyNum}</span> : ''}
                   </span>
                   <LevelBadge li={stats.li} />
+                  {p.role === 'player' && (
+                    <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, fontWeight: 800, color: '#34d399', background: '#052e16', border: '1px solid #166534', borderRadius: 4, padding: '1px 5px', letterSpacing: '0.1em' }}>
+                      SELF-REG
+                    </span>
+                  )}
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+
+                {/* Email */}
+                {p.email && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#94a3b8' }}>
+                    <Mail size={10} /> {p.email}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#cbd5e1' }}>
                     {stats.totalShots} shots · {stats.totalShots > 0 ? stats.acc.toFixed(0) : 0}%
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 3, color: hasPw ? '#34d399' : '#94a3b8', fontSize: 11, fontFamily: "'Barlow Condensed',sans-serif" }}>
-                    <Lock size={10} /> {hasPw ? 'Protected' : 'No password'}
+                    <Lock size={10} /> {hasPw ? `PW: ${p.password}` : 'No password'}
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
                 <button
                   style={{ background: '#1e3a5f', color: '#60a5fa', border: 'none', borderRadius: 6, padding: '6px 10px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}
                   onClick={() => { setSelectedPlayer(p.id); setEditPw(''); setMsgDraft(''); setMsgSaved(false) }}
@@ -245,10 +262,17 @@ function CoachRoster({ st, upd }) {
                   <History size={11} /> View
                 </button>
                 <button
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 4 }}
-                  onClick={() => { if (confirm(`Remove ${p.name}?`)) upd({ players: st.players.filter(x => x.id !== p.id), sessions: st.sessions.filter(s => s.playerId !== p.id) }) }}
+                  style={{ background: '#1a0606', color: '#ef4444', border: '1px solid #ef444444', borderRadius: 6, padding: '6px 10px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3, letterSpacing: '0.06em', whiteSpace: 'nowrap' }}
+                  onClick={async () => {
+                    if (!confirm(`Permanently delete ${p.name} and all their data? This cannot be undone.`)) return
+                    upd({
+                      players:  st.players.filter(x => x.id !== p.id),
+                      sessions: st.sessions.filter(s => s.playerId !== p.id),
+                    })
+                    await deletePlayerData(p.id)
+                  }}
                 >
-                  <Trash2 size={15} />
+                  <Trash2 size={10} /> DELETE 🗑️
                 </button>
               </div>
             </div>
