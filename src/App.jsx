@@ -35,6 +35,7 @@ import GlobalStyles  from './components/shared/GlobalStyles.jsx'
 import Scaffold      from './components/shared/Scaffold.jsx'
 
 import BadgePopup           from './components/overlays/BadgePopup.jsx'
+import OnboardingModal     from './components/overlays/OnboardingModal.jsx'
 import EpicCelebration     from './components/overlays/EpicCelebration.jsx'
 import CelebOverlay        from './components/overlays/CelebOverlay.jsx'
 import CoachMsgPopup       from './components/overlays/CoachMsgPopup.jsx'
@@ -616,26 +617,27 @@ export default function App() {
                 if (!npName.trim() || !npEmail.trim() || !npPw.trim()) return
                 if (!npEmail.includes('@')) return
                 const p = {
-                  id:             newId(),
-                  name:           npName.trim(),
-                  email:          npEmail.trim().toLowerCase(),
-                  jerseyNum:      npNum.trim(),
-                  password:       npPw.trim(),
-                  role:           'player',
-                  earnedBadges:   {},
-                  diamonds:       0,
-                  streak_freezes: 0,
-                  last_quest_spin: null,
-                  daily_quests:   [],
-                  photoURL:       null,
-                  totalWins:      0,
-                  streakCount:    0,
-                  lastActivity:   null,
-                  elo:            1000,
-                  eloLastDelta:   0,
-                  eloLastUpdated: null,
-                  hasEloShield:   false,
-                  createdAt:      Date.now(),
+                  id:                 newId(),
+                  name:               npName.trim(),
+                  email:              npEmail.trim().toLowerCase(),
+                  jerseyNum:          npNum.trim(),
+                  password:           npPw.trim(),
+                  role:               'player',
+                  earnedBadges:       {},
+                  diamonds:           0,
+                  streak_freezes:     0,
+                  last_quest_spin:    null,
+                  daily_quests:       [],
+                  photoURL:           null,
+                  totalWins:          0,
+                  streakCount:        0,
+                  lastActivity:       null,
+                  elo:                1000,
+                  eloLastDelta:       0,
+                  eloLastUpdated:     null,
+                  hasEloShield:       false,
+                  hasSeenOnboarding:  false,
+                  createdAt:          Date.now(),
                 }
                 upd({ players: [...st.players, p], activePlayerId: p.id, activeSessionId: null, view: 'player' })
                 setNpName(''); setNpNum(''); setNpPw(''); setNpEmail('')
@@ -687,24 +689,25 @@ export default function App() {
                 const base  = npName.trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 6) || 'player'
                 const autoPw = `${base}${Math.floor(100 + Math.random() * 900)}`
                 const p = {
-                  id: newId(),
-                  name: npName.trim(),
-                  jerseyNum: npNum.trim(),
-                  password: npPw.trim() || autoPw,
-                  earnedBadges: {},
-                  diamonds: 0,
-                  streak_freezes: 0,
-                  last_quest_spin: null,
-                  daily_quests: [],
-                  photoURL:       null,
-                  totalWins:      0,
-                  streakCount:    0,
-                  lastActivity:   null,
-                  elo:            1000,
-                  eloLastDelta:   0,
-                  eloLastUpdated: null,
-                  hasEloShield:   false,
-                  createdAt:      Date.now(),
+                  id:                newId(),
+                  name:              npName.trim(),
+                  jerseyNum:         npNum.trim(),
+                  password:          npPw.trim() || autoPw,
+                  earnedBadges:      {},
+                  diamonds:          0,
+                  streak_freezes:    0,
+                  last_quest_spin:   null,
+                  daily_quests:      [],
+                  photoURL:          null,
+                  totalWins:         0,
+                  streakCount:       0,
+                  lastActivity:      null,
+                  elo:               1000,
+                  eloLastDelta:      0,
+                  eloLastUpdated:    null,
+                  hasEloShield:      false,
+                  hasSeenOnboarding: false,
+                  createdAt:         Date.now(),
                 }
                 upd({ players: [...st.players, p], view: 'coach' })
                 setNpName(''); setNpNum(''); setNpPw('')
@@ -763,6 +766,17 @@ export default function App() {
             message={aPlayer.coachMsg}
             onAck={() => upd({
               players: st.players.map(p => p.id === aPlayer.id ? { ...p, coachMsg: '' } : p)
+            })}
+          />
+        )}
+
+        {/* ── New-user onboarding modal ────────────────────────────────── */}
+        {aPlayer.hasSeenOnboarding === false && (
+          <OnboardingModal
+            onComplete={() => upd({
+              players: st.players.map(p =>
+                p.id === aPlayer.id ? { ...p, hasSeenOnboarding: true } : p
+              ),
             })}
           />
         )}
