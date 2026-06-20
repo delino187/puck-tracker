@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X, Send } from 'lucide-react'
+import { audioEngine } from '../../services/audioEngine.js'
 
 // ── Default appearance configs ─────────────────────────────────────────────────
 const RAGE_CONFIG = {
@@ -152,7 +153,11 @@ function MailboxReceiverModal({ notification, onDismiss, cfg }) {
       padding: '0 20px',
     }}>
       {!opened ? (
-        <div onClick={() => setOpened(true)} style={{
+        <div onClick={() => {
+          if (notification.type === 'rage_bait') audioEngine.playRageBaitReveal()
+          else if (notification.type === 'compliment') audioEngine.playComplimentReveal()
+          setOpened(true)
+        }} style={{
           width: '100%', maxWidth: 340,
           background: 'linear-gradient(160deg,#1e1b4b,#312e81)',
           border: '3px solid #fbbf24', borderRadius: 20,

@@ -216,6 +216,16 @@ class AudioEngine {
     this.playMp3('/mail-received.mp3', 0.88)
   }
 
+  /** Explosive reveal sting — fires when a rage bait envelope is opened */
+  playRageBaitReveal() {
+    this.playMp3('/rage-bait-explode.mp3', 0.9)
+  }
+
+  /** Sparkle shine — fires when a compliment envelope is opened */
+  playComplimentReveal() {
+    this.playMp3('/compliment-shine.mp3', 0.9)
+  }
+
   /** Sword swish — fires when a versus challenge is successfully dispatched */
   playChallengeSent() {
     this.playMp3('/swift-sword-strike.mp3', 0.88)
