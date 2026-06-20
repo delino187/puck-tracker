@@ -4,6 +4,8 @@ import { AlertCircle, Plus, Lock } from 'lucide-react'
 import { loadSt, saveSt, DEFAULT_STATE } from './utils/storage.js'
 import { saveToFirestore, deletePlayerData } from './utils/firestoreSync.js'
 import { audioEngine } from './services/audioEngine.js'
+import { sendRageBait, subscribeToRageBaits, dismissRageBait, sendCompliment, subscribeToCompliments, dismissNotification } from './services/rageBaitService.js'
+import { RageBaitSenderModal, RageBaitReceiverModal, ComplimentSenderModal, ComplimentReceiverModal } from './components/overlays/RageBaitModal.jsx'
 import { playerStats, newId, getWeekStart } from './utils/stats.js'
 import { BADGES }                        from './constants/badges.js'
 import { useAudio }                      from './hooks/useAudio.js'
@@ -73,11 +75,17 @@ export default function App() {
   const [feedbackToast,    setFeedbackToast]    = useState(false)
   const [isSaving,         setIsSaving]         = useState(false)
   const [weakConnToast,    setWeakConnToast]    = useState(false)
+  const [rageBaitSender,     setRageBaitSender]     = useState(false)
+  const [rageBaitReceived,   setRageBaitReceived]   = useState(null)
+  const [complimentSender,   setComplimentSender]   = useState(false)
+  const [complimentReceived, setComplimentReceived] = useState(null)
 
   const badgeQRef               = useRef([])
   const epicAudioRef            = useRef(null)
   const streakInsuranceCheckedRef = useRef(null)
   const weakConnTimerRef        = useRef(null)
+  const rageBaitUnsubRef        = useRef(null)
+  const complimentUnsubRef      = useRef(null)
   const play         = useAudio()
   const { theme, toggleOutsideMode } = useTheme()
 
@@ -100,6 +108,30 @@ export default function App() {
     loadChallengesForPlayer(st.activePlayerId).then(setPeerChallenges)
     loadPuckGamesForPlayer(st.activePlayerId).then(setPuckGames)
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Real-time rage bait listener ─────────────────────────────────────────
+  useEffect(() => {
+    if (!st?.activePlayerId || st.view !== 'player') {
+      rageBaitUnsubRef.current?.()
+      rageBaitUnsubRef.current = null
+      return
+    }
+    const unsub = subscribeToRageBaits(st.activePlayerId, notif => setRageBaitReceived(notif))
+    rageBaitUnsubRef.current = unsub
+    return () => { unsub(); rageBaitUnsubRef.current = null }
+  }, [st?.activePlayerId, st?.view]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Real-time compliment listener ─────────────────────────────────────────
+  useEffect(() => {
+    if (!st?.activePlayerId || st.view !== 'player') {
+      complimentUnsubRef.current?.()
+      complimentUnsubRef.current = null
+      return
+    }
+    const unsub = subscribeToCompliments(st.activePlayerId, notif => setComplimentReceived(notif))
+    complimentUnsubRef.current = unsub
+    return () => { unsub(); complimentUnsubRef.current = null }
+  }, [st?.activePlayerId, st?.view]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Retroactive badge check — runs once when a player session opens ───────
   // Catches badges that should have been awarded from technique-mode pucks
@@ -727,6 +759,54 @@ export default function App() {
             })}
           />
         )}
+
+        {/* ── Rage Bait — sender picker ─────────────────────────────────── */}
+        {rageBaitSender && (
+          <RageBaitSenderModal
+            player={aPlayer}
+            players={st.players}
+            onSend={async targetId => {
+              await sendRageBait(aPlayer.id, aPlayer.name, targetId)
+              setRageBaitSender(false)
+            }}
+            onCancel={() => setRageBaitSender(false)}
+          />
+        )}
+
+        {/* ── Rage Bait — receiver envelope ────────────────────────────── */}
+        {rageBaitReceived && !rageBaitSender && (
+          <RageBaitReceiverModal
+            notification={rageBaitReceived}
+            onDismiss={async () => {
+              await dismissRageBait(rageBaitReceived.id)
+              setRageBaitReceived(null)
+            }}
+          />
+        )}
+
+        {/* ── Compliment — sender picker ────────────────────────────────── */}
+        {complimentSender && (
+          <ComplimentSenderModal
+            player={aPlayer}
+            players={st.players}
+            onSend={async targetId => {
+              await sendCompliment(aPlayer.id, aPlayer.name, targetId)
+              setComplimentSender(false)
+            }}
+            onCancel={() => setComplimentSender(false)}
+          />
+        )}
+
+        {/* ── Compliment — receiver envelope ───────────────────────────── */}
+        {complimentReceived && !complimentSender && (
+          <ComplimentReceiverModal
+            notification={complimentReceived}
+            onDismiss={async () => {
+              await dismissNotification(complimentReceived.id)
+              setComplimentReceived(null)
+            }}
+          />
+        )}
         {badgePreview && (
           <BadgePopup
             badge={badgePreview.badge}
@@ -896,6 +976,12 @@ export default function App() {
                 } else if (itemId === 'sadTrombone') {
                   if (aPlayer.sadTromboneUnlocked) return
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, sadTromboneUnlocked: true } : p) })
+                } else if (itemId === 'rageBait') {
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost } : p) })
+                  setRageBaitSender(true)
+                } else if (itemId === 'compliment') {
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost } : p) })
+                  setComplimentSender(true)
                 }
               }}
             />

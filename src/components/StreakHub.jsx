@@ -5,6 +5,8 @@ const FREEZE_COST       = 75
 const WEEK_FREEZE_COST  = 400
 const DOUBLE_XP_COST    = 200
 const TROMBONE_COST     = 300
+const RAGE_BAIT_COST    = 15
+const COMPLIMENT_COST   = 15
 const SHIELD_COST       = 100
 const ELO_RESET_COST    = 200
 const GLOW_COST         = 150
@@ -12,7 +14,7 @@ const PFP_COST          = 50
 const BASE_ELO       = 1000
 
 // ── Individual showcase card inside the stall grid ────────────────────────────
-function ItemCard({ emoji, name, desc, tag, cost, balance, canBuy, isOwned, owned, onBuy, onInsufficientFunds, isEquipped, onEquip }) {
+function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwned, owned, onBuy, onInsufficientFunds, isEquipped, onEquip }) {
   // Three mutually exclusive states when owned:
   //   isOwned + onEquip → equippable toggle (border glow)
   //   isOwned only      → permanently consumed (shield, pfp, etc.)
@@ -61,10 +63,22 @@ function ItemCard({ emoji, name, desc, tag, cost, balance, canBuy, isOwned, owne
         }}>{tag}</div>
       )}
 
-      {/* Big item emoji */}
-      <div style={{ fontSize: 44, lineHeight: 1, filter: isOwned ? 'drop-shadow(0 0 6px #22c55e88)' : 'none' }}>
-        {emoji}
-      </div>
+      {/* Big item icon — either an image preview or an emoji */}
+      {imgSrc ? (
+        <img
+          src={imgSrc}
+          alt={name}
+          style={{
+            width: 56, height: 56, objectFit: 'cover', borderRadius: 8,
+            border: isOwned ? '2px solid #22c55e' : '2px solid #d97706',
+            filter: isOwned ? 'drop-shadow(0 0 6px #22c55e88)' : 'none',
+          }}
+        />
+      ) : (
+        <div style={{ fontSize: 44, lineHeight: 1, filter: isOwned ? 'drop-shadow(0 0 6px #22c55e88)' : 'none' }}>
+          {emoji}
+        </div>
+      )}
 
       {/* Name */}
       <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.04em', color: '#7c2d12', lineHeight: 1.1 }}>
@@ -358,6 +372,32 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 canBuy={totalDiamonds >= DOUBLE_XP_COST}
                 isOwned={false}
                 onBuy={() => buyItem('doubleXpToken', DOUBLE_XP_COST)}
+                balance={totalDiamonds}
+                onInsufficientFunds={() => setShowLowBalance(true)}
+              />
+              <ItemCard
+                imgSrc="/rage-bait.png"
+                name="RAGE BAIT"
+                desc="Send a hilarious reality check straight to a friend's screen. One-time use!"
+                tag="NEW"
+                cost={RAGE_BAIT_COST}
+                owned={0}
+                canBuy={totalDiamonds >= RAGE_BAIT_COST}
+                isOwned={false}
+                onBuy={() => buyItem('rageBait', RAGE_BAIT_COST)}
+                balance={totalDiamonds}
+                onInsufficientFunds={() => setShowLowBalance(true)}
+              />
+              <ItemCard
+                imgSrc="/compliment.png"
+                name="COMPLIMENT"
+                desc="Send some positive reinforcement straight to a friend's screen. One-time use!"
+                tag="NEW"
+                cost={COMPLIMENT_COST}
+                owned={0}
+                canBuy={totalDiamonds >= COMPLIMENT_COST}
+                isOwned={false}
+                onBuy={() => buyItem('compliment', COMPLIMENT_COST)}
                 balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
