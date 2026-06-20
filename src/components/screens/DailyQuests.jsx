@@ -475,6 +475,8 @@ export default function DailyQuests({
     setSlotLeverPulled(true)
     setTimeout(() => setSlotLeverPulled(false), 600)
 
+    audioEngine.playQuestSpin()
+
     const picked = pickWeeklyQuests()
     setSlotSpinning(true)
 

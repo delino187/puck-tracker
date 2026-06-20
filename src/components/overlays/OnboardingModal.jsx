@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronRight } from 'lucide-react'
+import { audioEngine } from '../../services/audioEngine.js'
 
 const SLIDES = [
   {
@@ -96,7 +97,7 @@ export default function OnboardingModal({ onComplete }) {
         {/* CTA */}
         {isLast ? (
           <button
-            onClick={onComplete}
+            onClick={() => { audioEngine.playSuccess(); audioEngine.playStreakIgnite(); onComplete() }}
             style={{
               width: '100%', padding: '16px',
               background: 'linear-gradient(135deg,#7f1d1d,#ef4444)',
