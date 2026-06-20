@@ -33,7 +33,8 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
   const earnedBadges = BADGES.filter(b => player.earnedBadges?.[b.id])
   const recent       = sessions.filter(s => s.playerId === player.id).slice(-5).reverse()
   // Highest streak milestone badge the player's current streak qualifies for
-  const activeStreakBadge = [...STREAK_BADGES].reverse().find(b => stats.streak >= b.milestone) ?? null
+  const currentStreak     = stats?.streak ?? 0
+  const activeStreakBadge = [...STREAK_BADGES].reverse().find(b => currentStreak >= b.milestone) ?? null
 
   // Today's shots (session-based only — technique pucks are session-less)
   const todayShots = sessions
@@ -119,7 +120,7 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
           </div>
 
           {/* Streak — earned badge with day count, or locked Spark as motivational goal */}
-          <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => onNavigate?.('streak')}>
+          <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => onNavigate?.('store')}>
             {(() => {
               const displayBadge = activeStreakBadge ?? STREAK_BADGES[0]
               const isActive     = !!activeStreakBadge
@@ -148,7 +149,7 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
                     {isActive
-                      ? <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 900, color: '#fff' }}>{stats.streak}d</span>
+                      ? <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 900, color: '#fff' }}>{currentStreak}d</span>
                       : <Lock size={14} color="rgba(255,255,255,0.55)" />
                     }
                   </div>

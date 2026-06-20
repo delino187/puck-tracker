@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { audioEngine } from '../services/audioEngine.js'
+import PageHelpButton from './shared/PageHelpButton.jsx'
 
 const FREEZE_COST       = 75
 const WEEK_FREEZE_COST  = 400
@@ -329,8 +330,8 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
             </div>
           </div>
 
-          {/* Diamond balance pill */}
-          <div style={{ marginTop: 10 }}>
+          {/* Diamond balance pill + help button */}
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               background: 'rgba(0,0,0,0.35)',
@@ -342,6 +343,10 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
             }}>
               💎 {totalDiamonds.toLocaleString()} DIAMONDS
             </span>
+            <PageHelpButton
+              title="Pro Shop"
+              content="Welcome to the Pro Shop! Spend your earned diamonds to unlock premium taunts, or buy consumable items like 'Rage Bait' and 'Compliments' to send interactive pranks or positive vibes straight to your friends' screens in real-time."
+            />
           </div>
         </div>
 
@@ -526,6 +531,30 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
           </div>
         </div>
       </div>
+
+      {/* ── Streak zero-state motivational banner ────────────────────────── */}
+      {(stats?.streak ?? 0) === 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg,#0c1a2e,#1e3a5f)',
+          border: '1px dashed #3b82f644',
+          borderRadius: 14, padding: '16px 18px', marginBottom: 14,
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: 28, marginBottom: 6 }}>🔥</div>
+          <div style={{
+            fontFamily: "'Bangers',sans-serif", fontSize: 18,
+            letterSpacing: '0.08em', color: '#f97316', marginBottom: 6,
+          }}>
+            GET TO WORK TO IGNITE YOUR STREAK!
+          </div>
+          <div style={{
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12,
+            color: '#64748b', lineHeight: 1.5,
+          }}>
+            Log at least 10 pucks in Target Practice today to start your streak. Then come back here to protect it with a Streak Freeze!
+          </div>
+        </div>
+      )}
 
       {/* ── Consumable inventory ──────────────────────────────────────────── */}
       {(player.streak_freezes > 0 || weekFreezeQty > 0 || doubleXpQty > 0) && (

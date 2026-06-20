@@ -18,6 +18,7 @@ import TechniqueTracker  from './TechniqueTracker.jsx'
 import AroundTheWorld    from './AroundTheWorld.jsx'
 import PuckGame          from './screens/PuckGame.jsx'
 import { syncQueue }     from '../services/syncQueue.js'
+import PageHelpButton    from './shared/PageHelpButton.jsx'
 
 export default function ShootTracker({
   player, sessions = [], players = [],
@@ -233,8 +234,14 @@ export default function ShootTracker({
           <ChevronLeft size={16} /> Back
         </button>
         <Target size={38} color="#3b82f6" style={{ marginBottom: 10 }} />
-        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 900, marginBottom: 18, color: 'var(--text-1)' }}>
-          Start a Session
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 18 }}>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 900, color: 'var(--text-1)' }}>
+            Start a Session
+          </div>
+          <PageHelpButton
+            title="Target Practice"
+            content="Ready to train? Select your target layout parameters, start the session, and track your performance. Completing valid sets extends your daily streak, awards milestone badges, and pumps diamonds into your wallet!"
+          />
         </div>
         <div style={{ ...C.card, textAlign: 'left', marginBottom: 18 }}>
           <div style={C.label}>Session Goal (sets of 10)</div>

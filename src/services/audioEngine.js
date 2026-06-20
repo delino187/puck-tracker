@@ -216,6 +216,11 @@ class AudioEngine {
     this.playMp3('/mail-received.mp3', 0.88)
   }
 
+  /** Quest spin — fires when the daily quest lever is pulled */
+  playQuestSpin() {
+    this.playMp3('/store-spin.mp3', 0.85)
+  }
+
   /** Explosive reveal sting — fires when a rage bait envelope is opened */
   playRageBaitReveal() {
     this.playMp3('/rage-bait-explode.mp3', 0.9)

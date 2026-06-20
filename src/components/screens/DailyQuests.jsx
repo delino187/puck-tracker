@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { computeQuestProgress, parseQuestTarget, parseQuestSuffix } from '../../utils/questHelpers.js'
 import { playCashRegister } from '../../utils/arcadeSounds.js'
 import { getWeekStart } from '../../utils/stats.js'
+import { audioEngine } from '../../services/audioEngine.js'
 
 // ── Quest pool — strictly achievable within 24 hours ─────────────────────────
 const QUEST_POOL = {
@@ -529,6 +530,8 @@ export default function DailyQuests({
 
   function handleSpin() {
     if (!spinAvailable || spinning) return
+
+    audioEngine.playQuestSpin()
 
     // ── Audio: must be created inside user-gesture handler for mobile ─────────
     const spinAudio = new Audio('https://actions.google.com/sounds/v1/science_fiction/glitchy_digital_texture.ogg')
