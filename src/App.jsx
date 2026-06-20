@@ -3,6 +3,7 @@ import { AlertCircle, Plus, Lock } from 'lucide-react'
 
 import { loadSt, saveSt, DEFAULT_STATE } from './utils/storage.js'
 import { saveToFirestore, deletePlayerData } from './utils/firestoreSync.js'
+import { audioEngine } from './services/audioEngine.js'
 import { playerStats, newId, getWeekStart } from './utils/stats.js'
 import { BADGES }                        from './constants/badges.js'
 import { useAudio }                      from './hooks/useAudio.js'
@@ -231,7 +232,7 @@ export default function App() {
     if (badgeQRef.current.length === 0) return
     const next = badgeQRef.current.shift()
     setEpicCeleb({ type: 'badge', badge: next })
-    play('badge')
+    audioEngine.playBadgeUnlock()
   }
 
   function handleBadgeClose() {
@@ -338,6 +339,7 @@ export default function App() {
     })
 
     upd(patch)
+    audioEngine.playStreakIgnite()
     setTab('dashboard')
     if (aPlayer) updateStreak(aPlayer.id).catch(() => {})
   }
@@ -390,7 +392,7 @@ export default function App() {
       setEpicCeleb(cur => {
         if (cur) return cur
         const next = badgeQRef.current.shift()
-        if (next) play('badge')
+        if (next) audioEngine.playBadgeUnlock()
         return next ? { type: 'badge', badge: next } : null
       })
     }
@@ -444,7 +446,7 @@ export default function App() {
       setEpicCeleb(cur => {
         if (cur) return cur
         const next = badgeQRef.current.shift()
-        if (next) play('badge')
+        if (next) audioEngine.playBadgeUnlock()
         return next ? { type: 'badge', badge: next } : null
       })
     }
@@ -871,8 +873,10 @@ export default function App() {
                 if (diamonds < cost) return
                 if (itemId === 'streakFreeze') {
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) })
+                  audioEngine.playUtilitySuccess()
                 } else if (itemId === 'weekStreakFreeze') {
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, week_streak_freezes: (p.week_streak_freezes || 0) + 1 } : p) })
+                  audioEngine.playUtilitySuccess()
                 } else if (itemId === 'doubleXpToken') {
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, doubleXpTokens: (p.doubleXpTokens || 0) + 1 } : p) })
                 } else if (itemId === 'eloShield') {
@@ -885,9 +889,13 @@ export default function App() {
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, boughtBorderGlow: true, hasBorderGlow: true } : p) })
                 } else if (itemId === 'toggleBorderGlow') {
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, hasBorderGlow: !p.hasBorderGlow } : p) })
+                  audioEngine.playUtilitySuccess()
                 } else if (itemId === 'unlockPfp') {
                   if (aPlayer.canChangePfp) return
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, canChangePfp: true } : p) })
+                } else if (itemId === 'sadTrombone') {
+                  if (aPlayer.sadTromboneUnlocked) return
+                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, sadTromboneUnlocked: true } : p) })
                 }
               }}
             />

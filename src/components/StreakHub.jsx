@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { audioEngine } from '../services/audioEngine.js'
 
 const FREEZE_COST       = 75
 const WEEK_FREEZE_COST  = 400
 const DOUBLE_XP_COST    = 200
+const TROMBONE_COST     = 300
 const SHIELD_COST       = 100
 const ELO_RESET_COST    = 200
 const GLOW_COST         = 150
@@ -141,13 +143,20 @@ function ItemCard({ emoji, name, desc, tag, cost, balance, canBuy, isOwned, owne
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function StreakHub({ player, stats, onPurchaseItem, onNavigate }) {
-  const totalDiamonds    = player.diamonds            || 0
-  const hasEloShield     = player.hasEloShield        || false
-  const boughtBorderGlow = player.boughtBorderGlow    || false
-  const hasBorderGlow    = player.hasBorderGlow       || false
-  const canChangePfp     = player.canChangePfp        || false
-  const weekFreezeQty    = player.week_streak_freezes || 0
-  const doubleXpQty      = player.doubleXpTokens      || 0
+  const totalDiamonds       = player.diamonds            || 0
+  const hasEloShield        = player.hasEloShield        || false
+  const boughtBorderGlow    = player.boughtBorderGlow    || false
+  const hasBorderGlow       = player.hasBorderGlow       || false
+  const canChangePfp        = player.canChangePfp        || false
+  const weekFreezeQty       = player.week_streak_freezes || 0
+  const doubleXpQty         = player.doubleXpTokens      || 0
+  const hasTrombone         = player.sadTromboneUnlocked || false
+
+  // Plays the purchase chime then fires the purchase handler
+  function buyItem(itemId, cost) {
+    audioEngine.playMp3('/retro-game-notification.mp3', 0.85)
+    onPurchaseItem?.(itemId, cost)
+  }
   const [showLowBalance, setShowLowBalance] = useState(false)
 
   return (
@@ -322,7 +331,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 owned={player.streak_freezes || 0}
                 canBuy={totalDiamonds >= FREEZE_COST}
                 isOwned={false}
-                onBuy={() => onPurchaseItem?.('streakFreeze', FREEZE_COST)}
+                onBuy={() => buyItem('streakFreeze', FREEZE_COST)}
                 balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
@@ -335,7 +344,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 owned={weekFreezeQty}
                 canBuy={totalDiamonds >= WEEK_FREEZE_COST}
                 isOwned={false}
-                onBuy={() => onPurchaseItem?.('weekStreakFreeze', WEEK_FREEZE_COST)}
+                onBuy={() => buyItem('weekStreakFreeze', WEEK_FREEZE_COST)}
                 balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
@@ -348,7 +357,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 owned={doubleXpQty}
                 canBuy={totalDiamonds >= DOUBLE_XP_COST}
                 isOwned={false}
-                onBuy={() => onPurchaseItem?.('doubleXpToken', DOUBLE_XP_COST)}
+                onBuy={() => buyItem('doubleXpToken', DOUBLE_XP_COST)}
                 balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
@@ -375,7 +384,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 owned={hasEloShield ? 1 : 0}
                 canBuy={!hasEloShield && totalDiamonds >= SHIELD_COST}
                 isOwned={hasEloShield}
-                onBuy={() => onPurchaseItem?.('eloShield', SHIELD_COST)}
+                onBuy={() => buyItem('eloShield', SHIELD_COST)}
                 balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
@@ -388,7 +397,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 owned={0}
                 canBuy={totalDiamonds >= ELO_RESET_COST}
                 isOwned={false}
-                onBuy={() => onPurchaseItem?.('eloReset', ELO_RESET_COST)}
+                onBuy={() => buyItem('eloReset', ELO_RESET_COST)}
                 balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
@@ -403,7 +412,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 isOwned={boughtBorderGlow}
                 isEquipped={hasBorderGlow}
                 onEquip={boughtBorderGlow ? () => onPurchaseItem?.('toggleBorderGlow', 0) : undefined}
-                onBuy={() => onPurchaseItem?.('borderGlow', GLOW_COST)}
+                onBuy={() => buyItem('borderGlow', GLOW_COST)}
                 balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
@@ -416,7 +425,20 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 owned={canChangePfp ? 1 : 0}
                 canBuy={!canChangePfp && totalDiamonds >= PFP_COST}
                 isOwned={canChangePfp}
-                onBuy={() => onPurchaseItem?.('unlockPfp', PFP_COST)}
+                onBuy={() => buyItem('unlockPfp', PFP_COST)}
+                balance={totalDiamonds}
+                onInsufficientFunds={() => setShowLowBalance(true)}
+              />
+              <ItemCard
+                emoji="🎺"
+                name="SAD TROMBONE TAUNT"
+                desc="When you defeat an opponent in HORSE or Versus, they will automatically hear this sad trombone blast over their phone!"
+                tag={hasTrombone ? undefined : 'HOT'}
+                cost={TROMBONE_COST}
+                owned={hasTrombone ? 1 : 0}
+                canBuy={!hasTrombone && totalDiamonds >= TROMBONE_COST}
+                isOwned={hasTrombone}
+                onBuy={() => buyItem('sadTrombone', TROMBONE_COST)}
                 balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />

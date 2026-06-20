@@ -6,6 +6,7 @@ import { useAppStore } from '../../store/useAppStore.js'
 import { uploadChallengeVideo, createChallenge, WARN_FILE_BYTES } from '../../services/peerChallengeService.js'
 import CopyButton, { buildInviteText } from '../shared/CopyButton.jsx'
 import { updateStreak } from '../../utils/streakService.js'
+import { audioEngine } from '../../services/audioEngine.js'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
 import { playScoreSound } from '../../utils/arcadeSounds.js'
 
@@ -86,6 +87,7 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
       // Award XP via technique shots — +1 XP per puck, shows in career total
       logTechniqueShots(player.id, shotCount)
       updateStreak(player.id).catch(() => {})
+      audioEngine.playChallengeSent()
       setStep(3)
       onSubmit({ challenge })
     } catch (err) {

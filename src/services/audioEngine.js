@@ -176,6 +176,36 @@ class AudioEngine {
     ;[523, 659, 784, 1047].forEach((f, i) => this._note(f, i * 0.07, 0.22, 'sine', 0.16))
   }
 
+  // ── MP3 file player — for pre-recorded sound assets in /public ───────────
+  playMp3(path, volume = 0.9) {
+    if (this.isMuted) return
+    try {
+      const audio = new Audio(path)
+      audio.volume = volume
+      audio.play().catch(() => {})
+    } catch {}
+  }
+
+  /** Cinematic impact sting — fires when a new badge achievement unlocks */
+  playBadgeUnlock() {
+    this.playMp3('/movie-trailer-epic-impact.mp3', 0.8)
+  }
+
+  /** Melodic flute chime — fires on streak freeze use or cosmetic equip */
+  playUtilitySuccess() {
+    this.playMp3('/melodical-flute-music-notification.mp3', 0.85)
+  }
+
+  /** Fire whoosh — fires when a valid session ends and the streak increments */
+  playStreakIgnite() {
+    this.playMp3('/short-fire-whoosh.mp3', 0.9)
+  }
+
+  /** Sword swish — fires when a versus challenge is successfully dispatched */
+  playChallengeSent() {
+    this.playMp3('/swift-sword-strike.mp3', 0.88)
+  }
+
   // ── Universal dispatcher (maps legacy type strings) ────────────────────────
   play(type) {
     if (this.isMuted) return

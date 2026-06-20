@@ -12,6 +12,7 @@ import {
 import PuckGameOverlay from '../overlays/PuckGameOverlay.jsx'
 import CopyButton, { buildInviteText } from '../shared/CopyButton.jsx'
 import { updateStreak } from '../../utils/streakService.js'
+import { audioEngine } from '../../services/audioEngine.js'
 
 function uploadErrMsg(err) {
   if (err?.message === 'FILE_TOO_LARGE')
@@ -93,6 +94,8 @@ function VideoPicker({ previewUrl, onSelect, onClear, error, maxSecs = MAX_SECS 
 export default function PuckGame({ player, players, puckGames, onBack, onUpdate }) {
   const [view,          setView]         = useState('list')   // 'list' | 'new' | 'game' | 'set' | 'match'
   const [selectedGame,  setSelectedGame] = useState(null)
+  // Tracks which game's trombone has already played so it only fires once per loss view
+  const trombonePlayedRef = useRef(null)
   const [showOverlay,   setShowOverlay]  = useState(false)
   const [friendId,      setFriendId]     = useState('')
   const [zone,          setZone]         = useState(ZONES[0].id)
@@ -256,6 +259,16 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
       const iWon = (g.status === 'p1_wins' && g.p1Id === player.id) || (g.status === 'p2_wins' && g.p2Id === player.id)
       const playerElo = {
         delta: g.p1Id === player.id ? g.eloResult?.p1Delta || 0 : g.eloResult?.p2Delta || 0,
+      }
+
+      // Sad Trombone taunt — plays once when the loser first opens this result screen
+      if (!iWon && trombonePlayedRef.current !== g.id) {
+        const winnerId = g.status === 'p1_wins' ? g.p1Id : g.p2Id
+        const winner   = players.find(p => p.id === winnerId)
+        if (winner?.sadTromboneUnlocked) {
+          trombonePlayedRef.current = g.id
+          setTimeout(() => audioEngine.playMp3('/sad-game-over-trombone.mp3', 0.85), 400)
+        }
       }
 
       return (

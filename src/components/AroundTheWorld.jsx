@@ -89,6 +89,7 @@ export default function AroundTheWorld({ player, sessions, onSubmitGame, onBack 
     if (phase !== 'PLAYING') return
     if (zoneSeconds <= 0) {
       if (currentZone >= ATW_ZONES.length - 1) {
+        audioEngine.playMp3('/ice-hockey-sports-buzzer.mp3', 0.85)
         setPhase('LOGGING')
       } else {
         audioEngine.playSuccess()
