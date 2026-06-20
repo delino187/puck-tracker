@@ -116,7 +116,10 @@ export default function App() {
       rageBaitUnsubRef.current = null
       return
     }
-    const unsub = subscribeToRageBaits(st.activePlayerId, notif => setRageBaitReceived(notif))
+    const unsub = subscribeToRageBaits(st.activePlayerId, notif => {
+      setRageBaitReceived(notif)
+      audioEngine.playMailReceived()
+    })
     rageBaitUnsubRef.current = unsub
     return () => { unsub(); rageBaitUnsubRef.current = null }
   }, [st?.activePlayerId, st?.view]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -128,7 +131,10 @@ export default function App() {
       complimentUnsubRef.current = null
       return
     }
-    const unsub = subscribeToCompliments(st.activePlayerId, notif => setComplimentReceived(notif))
+    const unsub = subscribeToCompliments(st.activePlayerId, notif => {
+      setComplimentReceived(notif)
+      audioEngine.playMailReceived()
+    })
     complimentUnsubRef.current = unsub
     return () => { unsub(); complimentUnsubRef.current = null }
   }, [st?.activePlayerId, st?.view]) // eslint-disable-line react-hooks/exhaustive-deps

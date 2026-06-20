@@ -211,6 +211,11 @@ class AudioEngine {
     this.playMp3('/sad-game-over-trombone.mp3', 0.85)
   }
 
+  /** Mail received chime — fires once when a rage bait or compliment envelope appears */
+  playMailReceived() {
+    this.playMp3('/mail-received.mp3', 0.88)
+  }
+
   /** Sword swish — fires when a versus challenge is successfully dispatched */
   playChallengeSent() {
     this.playMp3('/swift-sword-strike.mp3', 0.88)
