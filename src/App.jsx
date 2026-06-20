@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { AlertCircle, Plus, Lock } from 'lucide-react'
 
 import { loadSt, saveSt, DEFAULT_STATE } from './utils/storage.js'
+import { saveToFirestore, deletePlayerData } from './utils/firestoreSync.js'
 import { playerStats, newId, getWeekStart } from './utils/stats.js'
 import { BADGES }                        from './constants/badges.js'
 import { useAudio }                      from './hooks/useAudio.js'
@@ -68,10 +69,13 @@ export default function App() {
   const [streakBrokenData, setStreakBrokenData] = useState(null)
   const [feedbackOpen,     setFeedbackOpen]     = useState(false)
   const [feedbackToast,    setFeedbackToast]    = useState(false)
+  const [isSaving,         setIsSaving]         = useState(false)
+  const [weakConnToast,    setWeakConnToast]    = useState(false)
 
   const badgeQRef               = useRef([])
   const epicAudioRef            = useRef(null)
   const streakInsuranceCheckedRef = useRef(null)
+  const weakConnTimerRef        = useRef(null)
   const play         = useAudio()
   const { theme, toggleOutsideMode } = useTheme()
 
@@ -157,6 +161,47 @@ export default function App() {
 
   const upd = patch => setSt(prev => ({ ...prev, ...patch }))
 
+  // ── Alpha-test career reset ───────────────────────────────────────────────
+  async function handleResetCareer() {
+    if (!aPlayer) return
+    const confirmed = window.confirm(
+      'Are you sure you want to completely wipe your career data? This cannot be undone during the alpha test.'
+    )
+    if (!confirmed) return
+
+    const clearedSessions = st.sessions.filter(s => s.playerId !== aPlayer.id)
+    const resetPlayer = {
+      ...aPlayer,
+      elo:                1000,
+      streakCount:        0,
+      lastActivity:       null,
+      streak_freezes:     0,
+      week_streak_freezes: 0,
+      doubleXpTokens:     0,
+      earnedBadges:       {},
+      diamonds:           0,
+      hasEloShield:       false,
+      hasBorderGlow:      false,
+      protectedDates:     [],
+      daily_quests:       [],
+      weekly_quests:      [],
+    }
+    const patch = {
+      sessions:        clearedSessions,
+      players:         st.players.map(p => p.id === aPlayer.id ? resetPlayer : p),
+      activeSessionId: null,
+    }
+
+    upd(patch)
+    useAppStore.getState().clearPlayerEconomy(aPlayer.id)
+    useAppStore.getState().clearPlayerTechnique(aPlayer.id)
+    setTab('dashboard')
+
+    const nextSt = { ...st, ...patch }
+    saveSt(nextSt)
+    await deletePlayerData(aPlayer.id)
+  }
+
   // ── Loading splash ────────────────────────────────────────────────────────
   if (loading || !st) {
     return (
@@ -240,32 +285,24 @@ export default function App() {
     upd({ sessions: [...st.sessions, s], activeSessionId: sid })
   }
 
-  function endSession() {
+  async function endSession() {
     if (!aSess) return
     const shots = aSess.sets.length * 10
-    const hits  = aSess.sets.reduce((a, s) => a + s.hits, 0)
-    play('confetti')
+    if (shots < 10) {
+      alert('shoot at least 10 pucks to log this session')
+      return
+    }
+    const hits = aSess.sets.reduce((a, s) => a + s.hits, 0)
 
     // ── Quest progress — mark completed, no auto-reward (tap-to-claim) ────
     const questResult = aPlayer ? applyQuestProgress(aPlayer, st.sessions) : null
-
-    // Count newly-completed quests for the celebration subtitle
     const newlyDone = questResult
       ? questResult.updatedQuests.filter((q, i) =>
           q.completed && !(aPlayer.daily_quests?.[i]?.completed)
         ).length
       : 0
 
-    setCeleb({
-      emoji: '💪',
-      title: 'Session Done!',
-      subtitle: newlyDone > 0
-        ? `${shots} shots · ${shots > 0 ? (hits / shots * 100).toFixed(0) : 0}% acc · ${newlyDone} quest${newlyDone > 1 ? 's' : ''} ready to claim! 💎`
-        : `${shots} shots · ${shots > 0 ? (hits / shots * 100).toFixed(0) : 0}% accuracy`,
-    })
-
-    // Single upd() — quest completion flags only, no diamond change yet
-    upd({
+    const patch = {
       activeSessionId: null,
       ...(questResult ? {
         players: st.players.map(p =>
@@ -274,10 +311,33 @@ export default function App() {
             : p
         ),
       } : {}),
+    }
+
+    // ── Saving state: block double-taps, show feedback ─────────────────────
+    setIsSaving(true)
+    weakConnTimerRef.current = setTimeout(() => setWeakConnToast(true), 5000)
+
+    // Write to localStorage immediately, then await Firestore
+    const nextSt = { ...st, ...patch }
+    saveSt(nextSt)
+    try { await saveToFirestore(nextSt) } catch {}
+
+    clearTimeout(weakConnTimerRef.current)
+    setWeakConnToast(false)
+    setIsSaving(false)
+
+    // ── Navigate + celebrate ───────────────────────────────────────────────
+    play('confetti')
+    setCeleb({
+      emoji: '💪',
+      title: 'Session Done!',
+      subtitle: newlyDone > 0
+        ? `${shots} shots · ${shots > 0 ? (hits / shots * 100).toFixed(0) : 0}% acc · ${newlyDone} quest${newlyDone > 1 ? 's' : ''} ready to claim! 💎`
+        : `${shots} shots · ${shots > 0 ? (hits / shots * 100).toFixed(0) : 0}% accuracy`,
     })
 
+    upd(patch)
     setTab('dashboard')
-    // Persist streak to Firestore; fire-and-forget so it never blocks the UI
     if (aPlayer) updateStreak(aPlayer.id).catch(() => {})
   }
 
@@ -614,6 +674,7 @@ export default function App() {
           onThemeToggle={toggleOutsideMode}
           onStreakClick={() => setTab('store')}
           onPhotoUpload={url => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, photoURL: url } : p) })}
+          onResetCareer={handleResetCareer}
         />
         <TabBar active={tab} onChange={setTab} hasSess={!!aSess} hasPendingVersus={hasPendingVersus} hasPendingGames={hasPendingGames} hasClaimableQuests={hasClaimableQuests} />
 
@@ -644,6 +705,8 @@ export default function App() {
               onLogAll={handleLogAll}
               onEndSession={endSession}
               onStart={startSession}
+              isSaving={isSaving}
+              weakConnToast={weakConnToast}
               flashZone={flashZone}
               flashType={flashType}
               puckAnim={puckAnim}

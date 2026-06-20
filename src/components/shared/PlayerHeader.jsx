@@ -7,7 +7,7 @@ import Avatar from './Avatar.jsx'
 import ManageProfileModal from '../overlays/ManageProfileModal.jsx'
 import { getStreakAuraClass } from '../../utils/streakAura.js'
 
-export default function PlayerHeader({ player, stats, onBack, theme, onThemeToggle, onStreakClick, onPhotoUpload }) {
+export default function PlayerHeader({ player, stats, onBack, theme, onThemeToggle, onStreakClick, onPhotoUpload, onResetCareer }) {
   const cur    = LEVELS[stats.li]
   const next   = LEVELS[stats.li + 1]
   const earned = stats.xp - cur.xpNeeded
@@ -186,6 +186,7 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
           player={player}
           stats={stats}
           onPhotoUpload={url => { onPhotoUpload?.(url); setShowManageModal(false) }}
+          onResetCareer={onResetCareer}
           onClose={() => setShowManageModal(false)}
         />
       )}

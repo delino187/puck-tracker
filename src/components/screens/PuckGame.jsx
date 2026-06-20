@@ -21,7 +21,7 @@ function uploadErrMsg(err) {
   return 'Upload failed — check your connection and try again.'
 }
 
-const TRICK_STYLES = ['Forehand', 'Backhand', 'One-Timer', 'Slap Shot', 'Snap Shot', 'Wrist Shot', 'Toe Drag']
+const TRICK_STYLES = ['Forehand', 'Backhand', 'One-Timer', 'Slap Shot', 'Snap Shot', 'Wrist Shot', 'Toe Drag', 'Inside Foot', 'Outside Foot']
 const MAX_SECS     = 10   // 3 shots fit comfortably in 10 seconds
 
 // ── Letter display ─────────────────────────────────────────────────────────────

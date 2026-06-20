@@ -6,7 +6,7 @@ import { BADGES } from '../../constants/badges.js'
 import { LEVELS } from '../../constants/levels.js'
 
 // step: 'view' → 'confirm' → 'uploading' → back to 'view'
-export default function ManageProfileModal({ player, stats, onPhotoUpload, onClose }) {
+export default function ManageProfileModal({ player, stats, onPhotoUpload, onResetCareer, onClose }) {
   const [step,       setStep]      = useState('view')
   const [uploadPct,  setUploadPct] = useState(0)
   const [uploadErr,  setUploadErr] = useState('')
@@ -303,6 +303,39 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onClo
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Alpha-test reset ──────────────────────────────────────────────── */}
+        {onResetCareer && (
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #1e293b', width: '100%' }}>
+            <button
+              onClick={onResetCareer}
+              style={{
+                width: '100%',
+                padding: '11px 14px',
+                background: '#0f172a',
+                border: '1px solid #ef444444',
+                borderRadius: 10,
+                cursor: 'pointer',
+                fontFamily: "'Barlow Condensed',sans-serif",
+                fontSize: 12, fontWeight: 800,
+                color: '#ef4444',
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              RESET MY CAREER (WIPE STATS) ⚠️
+            </button>
+            <div style={{
+              fontFamily: "'Barlow Condensed',sans-serif",
+              fontSize: 10, color: '#475569',
+              textAlign: 'center', marginTop: 6,
+              letterSpacing: '0.06em',
+            }}>
+              ALPHA TESTERS ONLY · CANNOT BE UNDONE
             </div>
           </div>
         )}

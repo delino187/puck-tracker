@@ -25,6 +25,7 @@ export default function ShootTracker({
   onLogSet, onLogAll, onEndSession, onStart,
   flashZone, flashType, puckAnim,
   puckGames = [], onSubmitGame, onPuckGameUpdate,
+  isSaving = false, weakConnToast = false,
 }) {
   // null = mode fork  |  'target' = zone tracker  |  'technique' = technique mode
   const [subMode,    setSubMode]    = useState(null)
@@ -419,23 +420,46 @@ export default function ShootTracker({
         </button>
       </div>
 
+      {/* ── Weak-connection toast — appears after 5 s if Firestore is slow ── */}
+      {weakConnToast && (
+        <div style={{
+          background: '#0c1a2e', border: '1px solid #3b82f644',
+          borderRadius: 10, padding: '10px 14px', marginBottom: 8,
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700,
+          color: '#93c5fd', letterSpacing: '0.04em', lineHeight: 1.5,
+          textAlign: 'center',
+        }}>
+          Weak connection detected, but don't worry—we're holding onto your pucks until you're back online! 🥅
+        </div>
+      )}
+
       {/* ── End Session — elevated above the net so it's always reachable ── */}
       <button
-        onClick={onEndSession}
+        onClick={isSaving ? undefined : onEndSession}
+        disabled={isSaving}
         style={{
           width: '100%', marginBottom: 10,
           padding: '15px 0',
-          background: 'linear-gradient(135deg,#064e3b,#059669)',
-          color: '#34d399', border: '1px solid #10b98166',
-          borderRadius: 12, cursor: 'pointer',
+          background: isSaving
+            ? 'linear-gradient(135deg,#1e293b,#0f172a)'
+            : 'linear-gradient(135deg,#064e3b,#059669)',
+          color: isSaving ? '#60a5fa' : '#34d399',
+          border: `1px solid ${isSaving ? '#1e3a5f' : '#10b98166'}`,
+          borderRadius: 12,
+          cursor: isSaving ? 'not-allowed' : 'pointer',
           fontFamily: "'Bangers',sans-serif",
           fontWeight: 400, fontSize: 22, letterSpacing: '0.12em',
           textTransform: 'uppercase',
-          boxShadow: '0 0 20px #10b98122',
+          boxShadow: isSaving ? 'none' : '0 0 20px #10b98122',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+          opacity: isSaving ? 0.8 : 1,
+          pointerEvents: isSaving ? 'none' : 'auto',
         }}
       >
-        <CheckCircle size={17} /> End Session
+        {isSaving
+          ? 'SAVING SHOTS... ⏳'
+          : <><CheckCircle size={17} /> End Session</>
+        }
       </button>
 
       {/* ── Net SVG with shake wrapper ───────────────────────────────────── */}

@@ -1,4 +1,4 @@
-import { Plus, Swords, Clock, Trophy, Info } from 'lucide-react'
+import { Plus, Clock, Trophy, Info } from 'lucide-react'
 import { useState } from 'react'
 import PeerChallengeCard from '../shared/PeerChallengeCard.jsx'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
@@ -12,20 +12,20 @@ export default function ChallengesTab({
   onAcceptChallenge,
 }) {
   const [showTips, setShowTips] = useState(false)
-  const [audioMuted, setAudioMuted] = useState(
-    () => localStorage.getItem('appAudioMuted') === 'true'
-  )
-
-  function handleMuteToggle() {
-    const nowMuted = !audioMuted
-    setAudioMuted(nowMuted)
-    try { localStorage.setItem('appAudioMuted', String(nowMuted)) } catch {}
-  }
 
   const incoming  = peerChallenges.filter(c => c.receiverId   === player.id && c.status === 'pending')
   const outgoing  = peerChallenges.filter(c => c.challengerId === player.id && c.status === 'pending')
   const completed = peerChallenges.filter(c => c.status === 'completed').slice(0, 5)
   const hasActive = incoming.length > 0 || outgoing.length > 0
+
+  // Compute overall career record from all completed challenges
+  let totalWins = 0, totalLosses = 0, totalTies = 0
+  for (const c of peerChallenges.filter(c => c.status === 'completed')) {
+    if (!c.winnerId)               totalTies++
+    else if (c.winnerId === player.id) totalWins++
+    else                           totalLosses++
+  }
+  const hasRecord = totalWins + totalLosses + totalTies > 0
 
   return (
     <div style={{ padding: '14px 16px 80px' }}>
@@ -40,25 +40,31 @@ export default function ChallengesTab({
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#f97316', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 2 }}>
             Peer Showdowns · 3 or 5 Shots
           </div>
+          {/* Career W/L/T record */}
+          {hasRecord ? (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              marginTop: 6,
+              background: 'rgba(168,85,247,0.10)',
+              border: '1px solid #a855f733',
+              borderRadius: 8, padding: '3px 10px',
+            }}>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#94a3b8', letterSpacing: '0.12em' }}>
+                RECORD
+              </span>
+              <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.06em', color: '#22c55e' }}>{totalWins}</span>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#475569' }}>–</span>
+              <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.06em', color: '#ef4444' }}>{totalLosses}</span>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#475569' }}>–</span>
+              <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.06em', color: '#94a3b8' }}>{totalTies}</span>
+            </div>
+          ) : (
+            <div style={{ marginTop: 6, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#475569', letterSpacing: '0.08em' }}>
+              Record: No matches yet
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button
-            onClick={handleMuteToggle}
-            title={audioMuted ? 'Unmute audio' : 'Mute audio'}
-            style={{
-              background: audioMuted ? 'rgba(15,23,42,0.7)' : 'rgba(168,85,247,0.12)',
-              border: `1px solid ${audioMuted ? '#334155' : '#a855f744'}`,
-              borderRadius: 8, padding: '4px 9px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: 4,
-              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9,
-              fontWeight: 800, letterSpacing: '0.1em',
-              color: audioMuted ? '#475569' : '#a855f7',
-              transition: 'all 0.15s',
-            }}
-          >
-            <span>{audioMuted ? '🔇' : '🎵'}</span>
-            <span>{audioMuted ? 'OFF' : 'ON'}</span>
-          </button>
           <button
             onClick={() => setShowTips(true)}
             style={{ background: 'transparent', border: '1px solid #334155', borderRadius: 8, padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, color: '#64748b', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11 }}

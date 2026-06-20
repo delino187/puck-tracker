@@ -107,6 +107,14 @@ export const useAppStore = create(
         })
       },
 
+      clearPlayerTechnique: (playerId) => {
+        set(state => {
+          const next = { ...state.techniqueByPlayer }
+          delete next[playerId]
+          return { techniqueByPlayer: next }
+        })
+      },
+
       // ── Technique actions ──────────────────────────────────────────────────
       // Increments career puck count and awards +1 XP per puck.
       // Bypasses zone/accuracy tracking entirely.

@@ -63,10 +63,12 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
   const { totalShots, totalHits, li } = computePlayerStats(player, sessions)
   const level              = LEVELS[li]
   const earnedIds          = Object.keys(player.earnedBadges || {})
-  const earnedMedals       = BADGES.filter(b => earnedIds.includes(b.id))
+  const earnedMedals       = BADGES
+    .filter(b => earnedIds.includes(b.id))
+    .sort((a, b) => (player.earnedBadges?.[b.id]?.ts || 0) - (player.earnedBadges?.[a.id]?.ts || 0))
   const activeStreak       = player.streakCount || 0
   const liveMedals         = STREAK_EXCLUSIVE_BADGES.filter(b => activeStreak >= b.minStreak)
-  const medals             = [...liveMedals, ...earnedMedals]
+  const medals             = [...liveMedals, ...earnedMedals].slice(0, 8)
   const isSelf             = player.id === currentPlayer?.id
 
   useEffect(() => {
@@ -154,9 +156,20 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
               {player.name}
               {player.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{player.jerseyNum}</span> : null}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}>
-              <img src={level.img} alt={level.name} style={{ width: 18, height: 18, objectFit: 'cover', borderRadius: '50%' }} />
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: level.color, letterSpacing: '0.06em' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 8 }}>
+              <img
+                src={level.img} alt={level.name}
+                style={{ width: 30, height: 30, objectFit: 'cover', borderRadius: '50%', boxShadow: `0 0 12px ${level.color}77` }}
+              />
+              <span style={{
+                fontFamily: "'Bangers',sans-serif",
+                fontSize: 28, letterSpacing: '0.1em', lineHeight: 1.15,
+                color: level.color,
+                textShadow: `0 0 18px ${level.color}77, 0 0 40px ${level.color}33`,
+                background: `${level.color}1a`,
+                border: `1px solid ${level.color}44`,
+                borderRadius: 10, padding: '2px 14px',
+              }}>
                 {level.name}
               </span>
             </div>
@@ -202,16 +215,14 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
 
         {/* ── Stats row ─────────────────────────────────────────────────────── */}
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
+          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
           background: '#0f172a', borderRadius: 12, padding: '12px 8px',
           marginBottom: 16, gap: 4,
         }}>
           {[
-            { label: 'Shots',   value: totalShots > 0 ? totalShots.toLocaleString() : '—' },
-            { label: 'Hits',    value: totalHits  > 0 ? totalHits.toLocaleString()  : '—' },
-            { label: 'Wins',    value: isSelf ? '—' : (h2h?.wins   ?? '…') },
-            { label: 'Losses',  value: isSelf ? '—' : (h2h?.losses ?? '…') },
-            { label: 'Win %',   value: isSelf ? '—' : (loading ? '…' : `${winRate}%`) },
+            { label: 'Total Pucks', value: totalShots > 0 ? totalShots.toLocaleString() : '—' },
+            { label: 'ELO',         value: (player.elo ?? 1000).toLocaleString() },
+            { label: 'Streak',      value: activeStreak > 0 ? `${activeStreak}D` : '—' },
           ].map(({ label, value }) => (
             <div key={label} style={{ textAlign: 'center' }}>
               <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.04em', color: '#f1f5f9', lineHeight: 1 }}>
@@ -230,14 +241,7 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.12em', color: '#f1f5f9', textTransform: 'uppercase', marginBottom: 10 }}>
               Badges <span style={{ color: '#a855f7' }}>({medals.length})</span>
             </div>
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
-              gap: 10, justifyItems: 'center', alignItems: 'start',
-              width: '100%',
-              maxHeight: medals.length > 10 ? 220 : 'none',
-              overflowY: medals.length > 10 ? 'auto' : 'visible',
-              paddingBottom: 4,
-            }}>
+            <div className="flex flex-wrap justify-center items-center gap-4 w-full px-4">
               {medals.map(b => (
                 <div key={b.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div

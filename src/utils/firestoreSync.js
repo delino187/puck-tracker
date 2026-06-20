@@ -1,5 +1,5 @@
 import { db } from '../firebase.js'
-import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore'
 
 // Single fixed team — one doc for team-level data, subcollection for sessions.
 // Structure:
@@ -63,5 +63,30 @@ export async function saveToFirestore(state) {
     )
   } catch (err) {
     console.warn('[Firestore] save failed:', err.message)
+  }
+}
+
+// ── Alpha-test career wipe ─────────────────────────────────────────────────────
+// Deletes all session docs and peer-challenge docs belonging to a single player.
+// Also clears those session IDs from the local sync cache so future saves work.
+export async function deletePlayerData(playerId) {
+  try {
+    const peerChallengesCol = collection(db, 'teams', TEAM_ID, 'peerChallenges')
+
+    const [sessionSnaps, pcQ1, pcQ2] = await Promise.all([
+      getDocs(sessionsCol()),
+      getDocs(query(peerChallengesCol, where('challengerId', '==', playerId))),
+      getDocs(query(peerChallengesCol, where('receiverId',   '==', playerId))),
+    ])
+
+    const sessionDocs    = sessionSnaps.docs.filter(d => d.data().playerId === playerId)
+    const challengeDocs  = [...pcQ1.docs, ...pcQ2.docs]
+
+    await Promise.all([
+      ...sessionDocs.map(d => { syncedSessionIds.delete(d.id); return deleteDoc(d.ref) }),
+      ...challengeDocs.map(d => deleteDoc(d.ref)),
+    ])
+  } catch (err) {
+    console.warn('[Firestore] deletePlayerData failed:', err.message)
   }
 }

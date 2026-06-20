@@ -10,7 +10,7 @@ const PFP_COST          = 50
 const BASE_ELO       = 1000
 
 // ── Individual showcase card inside the stall grid ────────────────────────────
-function ItemCard({ emoji, name, desc, tag, cost, canBuy, isOwned, owned, onBuy, onInsufficientFunds, isEquipped, onEquip }) {
+function ItemCard({ emoji, name, desc, tag, cost, balance, canBuy, isOwned, owned, onBuy, onInsufficientFunds, isEquipped, onEquip }) {
   // Three mutually exclusive states when owned:
   //   isOwned + onEquip → equippable toggle (border glow)
   //   isOwned only      → permanently consumed (shield, pfp, etc.)
@@ -132,7 +132,7 @@ function ItemCard({ emoji, name, desc, tag, cost, canBuy, isOwned, owned, onBuy,
           onMouseDown={e => { if (!isOwned) e.currentTarget.style.transform = 'scale(0.96)' }}
           onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
         >
-          {isOwned ? '— MAX —' : canBuy ? `${cost} 💎` : 'NEED MORE 💎'}
+          {isOwned ? '— MAX —' : canBuy ? `${cost} 💎` : `need ${cost - balance} more 💎`}
         </button>
       )}
     </div>
@@ -323,6 +323,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 canBuy={totalDiamonds >= FREEZE_COST}
                 isOwned={false}
                 onBuy={() => onPurchaseItem?.('streakFreeze', FREEZE_COST)}
+                balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -335,6 +336,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 canBuy={totalDiamonds >= WEEK_FREEZE_COST}
                 isOwned={false}
                 onBuy={() => onPurchaseItem?.('weekStreakFreeze', WEEK_FREEZE_COST)}
+                balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -347,6 +349,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 canBuy={totalDiamonds >= DOUBLE_XP_COST}
                 isOwned={false}
                 onBuy={() => onPurchaseItem?.('doubleXpToken', DOUBLE_XP_COST)}
+                balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
             </div>
@@ -373,6 +376,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 canBuy={!hasEloShield && totalDiamonds >= SHIELD_COST}
                 isOwned={hasEloShield}
                 onBuy={() => onPurchaseItem?.('eloShield', SHIELD_COST)}
+                balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -385,6 +389,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 canBuy={totalDiamonds >= ELO_RESET_COST}
                 isOwned={false}
                 onBuy={() => onPurchaseItem?.('eloReset', ELO_RESET_COST)}
+                balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -399,6 +404,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 isEquipped={hasBorderGlow}
                 onEquip={boughtBorderGlow ? () => onPurchaseItem?.('toggleBorderGlow', 0) : undefined}
                 onBuy={() => onPurchaseItem?.('borderGlow', GLOW_COST)}
+                balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -411,6 +417,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 canBuy={!canChangePfp && totalDiamonds >= PFP_COST}
                 isOwned={canChangePfp}
                 onBuy={() => onPurchaseItem?.('unlockPfp', PFP_COST)}
+                balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
             </div>
