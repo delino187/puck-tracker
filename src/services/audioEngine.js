@@ -201,6 +201,16 @@ class AudioEngine {
     this.playMp3('/short-fire-whoosh.mp3', 0.9)
   }
 
+  /** Streak broken sting — fires when the broken-streak modal initializes */
+  playStreakBroken() {
+    this.playMp3('/streak-broken.mp3', 0.9)
+  }
+
+  /** Sad trombone taunt — fires on opponent's loss screen or as a shop preview */
+  playTauntTrombone() {
+    this.playMp3('/sad-game-over-trombone.mp3', 0.85)
+  }
+
   /** Sword swish — fires when a versus challenge is successfully dispatched */
   playChallengeSent() {
     this.playMp3('/swift-sword-strike.mp3', 0.88)

@@ -439,7 +439,14 @@ export default function DailyQuests({
 
   function handleClaim(questIndex, rect) {
     const quest = currentQuests[questIndex]
-    if (!quest?.completed || quest.claimed) return
+    if (!quest || quest.claimed) return
+
+    // Mirror QuestRow's isDone logic: completed flag OR live progress meeting target.
+    // Without this, clicking "TAP TO CLAIM!" on a progress-complete but not yet
+    // flagged quest silently no-ops because quest.completed is still false.
+    const prog   = quest.reward !== '?' ? computeQuestProgress(quest.text, sessions) : null
+    const isDone = quest.completed || (prog ? prog.current >= prog.target : false)
+    if (!isDone) return
 
     // Optimistic local update — instant visual feedback
     setCurrentQuests(prev =>

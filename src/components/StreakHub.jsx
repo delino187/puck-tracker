@@ -14,7 +14,7 @@ const PFP_COST          = 50
 const BASE_ELO       = 1000
 
 // ── Individual showcase card inside the stall grid ────────────────────────────
-function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwned, owned, onBuy, onInsufficientFunds, isEquipped, onEquip }) {
+function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwned, owned, onBuy, onInsufficientFunds, isEquipped, onEquip, onPreview }) {
   // Three mutually exclusive states when owned:
   //   isOwned + onEquip → equippable toggle (border glow)
   //   isOwned only      → permanently consumed (shield, pfp, etc.)
@@ -63,8 +63,27 @@ function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwn
         }}>{tag}</div>
       )}
 
-      {/* Big item icon — either an image preview or an emoji */}
-      {imgSrc ? (
+      {/* Big item icon — either an image preview or an emoji.
+          When onPreview is provided the icon becomes a tappable audio preview button. */}
+      {onPreview ? (
+        <button
+          onClick={e => { e.stopPropagation(); onPreview() }}
+          title="Tap to preview sound"
+          style={{
+            background: 'rgba(0,0,0,0.08)', border: '1px dashed #d97706',
+            borderRadius: 10, padding: '6px 8px 2px', cursor: 'pointer',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+          }}
+        >
+          <div style={{ fontSize: 38, lineHeight: 1 }}>{emoji}</div>
+          <div style={{
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 7, fontWeight: 800,
+            color: '#b45309', letterSpacing: '0.1em',
+          }}>
+            ▶ PREVIEW
+          </div>
+        </button>
+      ) : imgSrc ? (
         <img
           src={imgSrc}
           alt={name}
@@ -478,6 +497,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 owned={hasTrombone ? 1 : 0}
                 canBuy={!hasTrombone && totalDiamonds >= TROMBONE_COST}
                 isOwned={hasTrombone}
+                onPreview={() => audioEngine.playTauntTrombone()}
                 onBuy={() => buyItem('sadTrombone', TROMBONE_COST)}
                 balance={totalDiamonds}
                 onInsufficientFunds={() => setShowLowBalance(true)}

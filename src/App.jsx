@@ -167,6 +167,7 @@ export default function App() {
     const elapsed  = Date.now() - (p.lastActivity || 0)
     if (p.streakCount > 0 && p.lastActivity && elapsed > MS_36H) {
       setStreakBrokenData({ prevCount: p.streakCount })
+      audioEngine.playStreakBroken()
     }
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 

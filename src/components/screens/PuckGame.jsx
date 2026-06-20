@@ -267,7 +267,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
         const winner   = players.find(p => p.id === winnerId)
         if (winner?.sadTromboneUnlocked) {
           trombonePlayedRef.current = g.id
-          setTimeout(() => audioEngine.playMp3('/sad-game-over-trombone.mp3', 0.85), 400)
+          setTimeout(() => audioEngine.playTauntTrombone(), 400)
         }
       }
 
