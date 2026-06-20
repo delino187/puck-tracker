@@ -142,7 +142,8 @@ function MailboxSenderModal({ player, players, onSend, onCancel, cfg }) {
 
 // ── Shared receiver envelope + reveal ─────────────────────────────────────────
 function MailboxReceiverModal({ notification, onDismiss, cfg }) {
-  const [opened, setOpened] = useState(false)
+  const [opened,       setOpened]       = useState(false)
+  const [isImgLoading, setIsImgLoading] = useState(true)
   const animKey = cfg.animName
 
   return (
@@ -219,11 +220,33 @@ function MailboxReceiverModal({ notification, onDismiss, cfg }) {
             borderRadius: 14,
             boxShadow: `0 0 28px ${cfg.revealBorder}55, inset 0 0 16px rgba(${cfg.revealRgb},0.08)`,
             marginBottom: 20, overflow: 'hidden',
+            position: 'relative', width: 260, height: 260,
           }}>
+            {/* Skeleton spinner while image fetches */}
+            {isImgLoading && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: '#1e293b',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <div style={{
+                  width: 36, height: 36,
+                  border: `3px solid ${cfg.revealBorder}`,
+                  borderTopColor: 'transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 0.7s linear infinite',
+                }} />
+              </div>
+            )}
             <img
               src={`/${notification.image}`}
               alt="mail"
-              style={{ display: 'block', width: 260, height: 260, objectFit: 'cover' }}
+              onLoad={() => setIsImgLoading(false)}
+              style={{
+                display: 'block', width: 260, height: 260, objectFit: 'cover',
+                opacity: isImgLoading ? 0 : 1,
+                transition: 'opacity 0.3s ease',
+              }}
             />
           </div>
 

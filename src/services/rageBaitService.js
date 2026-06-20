@@ -7,8 +7,19 @@ import {
 const TEAM_ID = 'team_main'
 const COL = () => collection(db, 'teams', TEAM_ID, 'notifications')
 
+// ── Allowed payload contracts — strict allowlist ───────────────────────────────
+const ALLOWED_TYPES  = new Set(['rage_bait', 'compliment'])
+const ALLOWED_IMAGES = new Set(['rage-bait.png', 'compliment.png'])
+
 // ── Generic helpers ───────────────────────────────────────────────────────────
 async function sendNotification(senderId, senderName, receiverId, type, image) {
+  if (!ALLOWED_TYPES.has(type) || !ALLOWED_IMAGES.has(image)) {
+    console.error(
+      `[rageBaitService] Blocked invalid notification payload — type: "${type}", image: "${image}". ` +
+      `Allowed types: ${[...ALLOWED_TYPES].join(', ')}. Allowed images: ${[...ALLOWED_IMAGES].join(', ')}.`
+    )
+    return
+  }
   await addDoc(COL(), {
     type, senderId, senderName, receiverId,
     image, status: 'unread', createdAt: Date.now(),

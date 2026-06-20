@@ -14,7 +14,7 @@ const PFP_COST          = 50
 const BASE_ELO       = 1000
 
 // ── Individual showcase card inside the stall grid ────────────────────────────
-function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwned, owned, onBuy, onInsufficientFunds, isEquipped, onEquip, onPreview }) {
+function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwned, owned, onBuy, onInsufficientFunds, isEquipped, onEquip, onPreview, processing }) {
   // Three mutually exclusive states when owned:
   //   isOwned + onEquip → equippable toggle (border glow)
   //   isOwned only      → permanently consumed (shield, pfp, etc.)
@@ -142,16 +142,17 @@ function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwn
         </button>
       ) : (
         <button
-          disabled={isOwned}
-          onClick={isOwned ? undefined : canBuy ? onBuy : onInsufficientFunds}
+          disabled={isOwned || processing}
+          onClick={isOwned || processing ? undefined : canBuy ? onBuy : onInsufficientFunds}
+          className="active:scale-95 transition-transform"
           style={{
             width: '100%', marginTop: 4,
-            background: isOwned
+            background: isOwned || processing
               ? '#6b7280'
               : canBuy
                 ? 'linear-gradient(180deg,#4ade80,#16a34a)'
                 : 'linear-gradient(180deg,#ef4444,#b91c1c)',
-            border: isOwned
+            border: isOwned || processing
               ? '2px solid #4b5563'
               : canBuy
                 ? '2px solid #15803d'
@@ -159,15 +160,18 @@ function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwn
             borderRadius: 20, padding: '7px 6px',
             fontFamily: "'Bangers',sans-serif", fontSize: 15, letterSpacing: '0.06em',
             color: '#fff',
-            cursor: isOwned ? 'not-allowed' : 'pointer',
-            boxShadow: canBuy && !isOwned ? '0 3px 0 #15803d, 0 0 10px #4ade8055' : 'none',
+            cursor: isOwned || processing ? 'not-allowed' : 'pointer',
+            boxShadow: canBuy && !isOwned && !processing ? '0 3px 0 #15803d, 0 0 10px #4ade8055' : 'none',
             textShadow: '0 1px 2px rgba(0,0,0,0.35)',
-            transition: 'transform 0.1s',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}
-          onMouseDown={e => { if (!isOwned) e.currentTarget.style.transform = 'scale(0.96)' }}
-          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
         >
-          {isOwned ? '— MAX —' : canBuy ? `${cost} 💎` : `need ${cost - balance} more 💎`}
+          {processing ? (
+            <>
+              <div style={{ width: 10, height: 10, border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+              ...
+            </>
+          ) : isOwned ? '— MAX —' : canBuy ? `${cost} 💎` : `need ${cost - balance} more 💎`}
         </button>
       )}
     </div>
@@ -185,12 +189,18 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
   const doubleXpQty         = player.doubleXpTokens      || 0
   const hasTrombone         = player.sadTromboneUnlocked || false
 
-  // Plays the purchase chime then fires the purchase handler
+  const [showLowBalance,       setShowLowBalance]       = useState(false)
+  const [isProcessingPurchase, setIsProcessingPurchase] = useState(false)
+
+  // Plays the purchase chime then fires the purchase handler.
+  // Locks for 600 ms to prevent accidental double-billing.
   function buyItem(itemId, cost) {
+    if (isProcessingPurchase) return
+    setIsProcessingPurchase(true)
     audioEngine.playMp3('/retro-game-notification.mp3', 0.85)
     onPurchaseItem?.(itemId, cost)
+    setTimeout(() => setIsProcessingPurchase(false), 600)
   }
-  const [showLowBalance, setShowLowBalance] = useState(false)
 
   return (
     <div style={{ padding: '14px 14px 80px' }}>
@@ -366,6 +376,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 isOwned={false}
                 onBuy={() => buyItem('streakFreeze', FREEZE_COST)}
                 balance={totalDiamonds}
+                processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -379,6 +390,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 isOwned={false}
                 onBuy={() => buyItem('weekStreakFreeze', WEEK_FREEZE_COST)}
                 balance={totalDiamonds}
+                processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -392,6 +404,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 isOwned={false}
                 onBuy={() => buyItem('doubleXpToken', DOUBLE_XP_COST)}
                 balance={totalDiamonds}
+                processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -405,6 +418,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 isOwned={false}
                 onBuy={() => buyItem('rageBait', RAGE_BAIT_COST)}
                 balance={totalDiamonds}
+                processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -418,6 +432,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 isOwned={false}
                 onBuy={() => buyItem('compliment', COMPLIMENT_COST)}
                 balance={totalDiamonds}
+                processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
             </div>
@@ -445,6 +460,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 isOwned={hasEloShield}
                 onBuy={() => buyItem('eloShield', SHIELD_COST)}
                 balance={totalDiamonds}
+                processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -458,6 +474,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 isOwned={false}
                 onBuy={() => buyItem('eloReset', ELO_RESET_COST)}
                 balance={totalDiamonds}
+                processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -473,6 +490,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 onEquip={boughtBorderGlow ? () => onPurchaseItem?.('toggleBorderGlow', 0) : undefined}
                 onBuy={() => buyItem('borderGlow', GLOW_COST)}
                 balance={totalDiamonds}
+                processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -486,6 +504,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 isOwned={canChangePfp}
                 onBuy={() => buyItem('unlockPfp', PFP_COST)}
                 balance={totalDiamonds}
+                processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
               <ItemCard
@@ -500,6 +519,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
                 onPreview={() => audioEngine.playTauntTrombone()}
                 onBuy={() => buyItem('sadTrombone', TROMBONE_COST)}
                 balance={totalDiamonds}
+                processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
             </div>
