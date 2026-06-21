@@ -372,8 +372,8 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4" style={{ marginBottom: 14 }}>
               <ItemCard
                 emoji="🧊"
-                name="1-DAY FREEZE"
-                desc="Chills your streak for 24 hours if you miss a day on the ice. Ingested automatically upon a missed day."
+                name="STREAK SHIELD"
+                desc="Streak Shield! Automatically protects your daily streak if you miss a day on the ice. Use it to keep your hard work alive!"
                 tag="HOT"
                 cost={FREEZE_COST}
                 owned={player.streak_freezes || 0}
