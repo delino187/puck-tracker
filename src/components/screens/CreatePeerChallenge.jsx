@@ -20,9 +20,9 @@ function uploadErrMsg(err) {
   return 'Upload failed — check your connection and try again.'
 }
 
-export default function CreatePeerChallenge({ player, players, onBack, onSubmit }) {
+export default function CreatePeerChallenge({ player, players, onBack, onSubmit, defaultFriendId = '' }) {
   const [step,       setStep]       = useState(1)
-  const [friendId,   setFriendId]   = useState('')
+  const [friendId,   setFriendId]   = useState(defaultFriendId)
   const [zone,       setZone]       = useState(ZONES[0].id)
   const [shotCount,  setShotCount]  = useState(5)
   const [videoFile,  setVideoFile]  = useState(null)

@@ -43,6 +43,8 @@ import CelebOverlay        from './components/overlays/CelebOverlay.jsx'
 import CoachMsgPopup       from './components/overlays/CoachMsgPopup.jsx'
 import StreakBrokenModal   from './components/overlays/StreakBrokenModal.jsx'
 import FeedbackModal       from './components/overlays/FeedbackModal.jsx'
+import VersusVictoryModal  from './components/overlays/VersusVictoryModal.jsx'
+import VersusDefeatModal   from './components/overlays/VersusDefeatModal.jsx'
 import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
 import { getGameAction } from './services/puckGameService.js'
@@ -89,6 +91,8 @@ export default function App() {
 
   const [undoSnapshot,    setUndoSnapshot]    = useState(null)
   const [coachAwardToast, setCoachAwardToast] = useState(null)
+  const [victoryReward,   setVictoryReward]   = useState(null)
+  const [defeatState,     setDefeatState]     = useState(null)
   const undoTimerRef                           = useRef(null)
 
   const badgeQRef               = useRef([])
@@ -233,6 +237,27 @@ export default function App() {
           }),
         }
       })
+
+      // ── Sync techniqueByPlayer from server into Zustand ───────────────────
+      // Ensures coach credits, challenge XP, and PUCK game shots earned on
+      // another device appear immediately without a page reload.
+      const serverTech = teamData.techniqueByPlayer
+      if (serverTech && Object.keys(serverTech).length > 0) {
+        const localTech  = useAppStore.getState().techniqueByPlayer || {}
+        const mergedTech = { ...serverTech }
+        for (const [pid, local] of Object.entries(localTech)) {
+          const srv = mergedTech[pid] || { totalPucks: 0, bonusXP: 0, dailyLog: {} }
+          mergedTech[pid] = {
+            totalPucks: Math.max(local.totalPucks ?? 0, srv.totalPucks ?? 0),
+            bonusXP:    Math.max(local.bonusXP    ?? 0, srv.bonusXP    ?? 0),
+            dailyLog:   { ...(srv.dailyLog ?? {}), ...(local.dailyLog ?? {}) },
+          }
+        }
+        const current = useAppStore.getState().techniqueByPlayer
+        if (JSON.stringify(mergedTech) !== JSON.stringify(current)) {
+          useAppStore.setState({ techniqueByPlayer: mergedTech })
+        }
+      }
     })
 
     teamUnsubRef.current = unsub
@@ -603,6 +628,21 @@ export default function App() {
         }),
       })
     }
+
+    // Queue result modals — shown once the respond flow closes (!challengeScreen)
+    if (challenge.status === 'completed') {
+      const activeId   = st.activePlayerId
+      // opponentId: whichever side of the challenge is not the current player
+      const opponentId = challenge.challengerId === activeId
+        ? challenge.receiverId
+        : challenge.challengerId
+
+      if (challenge.winnerId === activeId) {
+        setVictoryReward({ type: 'versus', diamonds: 1, xp: 2, opponentId })
+      } else {
+        setDefeatState({ type: 'versus', diamonds: 1, xp: 2, opponentId })
+      }
+    }
   }
 
   function handleDashNavigate(tabId, openRankDetail = false) {
@@ -651,13 +691,14 @@ export default function App() {
     weakConnTimerRef.current = setTimeout(() => setWeakConnToast(true), 5000)
 
     // Write to localStorage immediately, then await Firestore.
-    // saveSt handles localStorage; the explicit await below gives endSession
-    // a confirmed Firestore write before declaring success.
+    // Both calls pass activePlayerId so Firestore uses a transaction that merges
+    // only this player's entry — coach edits (diamonds, ELO, etc.) are preserved.
     const nextSt            = { ...st, ...patch }
+    const activePlayerId    = st.activePlayerId
     const techniqueByPlayer = useAppStore.getState().techniqueByPlayer || {}
-    saveSt(nextSt)   // also fires a background Firestore write via storage.js
+    saveSt(nextSt, activePlayerId)   // fire-and-forget localStorage + Firestore backup
     try {
-      await saveToFirestore(nextSt, techniqueByPlayer)
+      await saveToFirestore(nextSt, techniqueByPlayer, activePlayerId)
     } catch (err) {
       console.error('[endSession] Firestore write failed — session is safe in localStorage:', err.message)
     }
@@ -1221,14 +1262,66 @@ export default function App() {
           />
         )}
 
+        {/* ── Versus victory reward — appears after RespondToChallenge closes ── */}
+        {victoryReward && !challengeScreen && (
+          <VersusVictoryModal
+            reward={victoryReward}
+            onClaim={() => {
+              const pid = st.activePlayerId
+              upd({
+                players: st.players.map(p =>
+                  p.id === pid
+                    ? { ...p, diamonds: (p.diamonds || 0) + victoryReward.diamonds }
+                    : p
+                ),
+              })
+              useAppStore.getState().logTechniqueShots(pid, 0, victoryReward.xp)
+              setVictoryReward(null)
+            }}
+            onRematch={() => {
+              const opponentId = victoryReward.opponentId
+              setVictoryReward(null)
+              setChallengeScreen({ mode: 'create', defaultFriendId: opponentId })
+            }}
+          />
+        )}
+
+        {/* ── Versus defeat reward — appears after RespondToChallenge closes ── */}
+        {defeatState && !challengeScreen && (() => {
+          const defeatWinner = st.players.find(p => p.id === defeatState.opponentId) ?? null
+          return (
+            <VersusDefeatModal
+              defeatState={defeatState}
+              winner={defeatWinner}
+              onClaim={() => {
+                const pid = st.activePlayerId
+                upd({
+                  players: st.players.map(p =>
+                    p.id === pid
+                      ? { ...p, diamonds: (p.diamonds || 0) + defeatState.diamonds }
+                      : p
+                  ),
+                })
+                setDefeatState(null)
+              }}
+              onRematch={() => {
+                const opponentId = defeatState.opponentId
+                setDefeatState(null)
+                setChallengeScreen({ mode: 'create', defaultFriendId: opponentId })
+              }}
+            />
+          )
+        })()}
+
         {/* ── Peer challenge full-screen flows ─────────────────────────── */}
-        {challengeScreen === 'create' && (
+        {(challengeScreen === 'create' || challengeScreen?.mode === 'create') && (
           <div style={{ position: 'fixed', inset: 0, background: 'var(--page-bg)', zIndex: 300, overflowY: 'auto' }}>
             <CreatePeerChallenge
               player={aPlayer}
               players={st.players}
               onBack={() => setChallengeScreen(null)}
               onSubmit={handlePeerChallengeSubmit}
+              defaultFriendId={challengeScreen?.defaultFriendId ?? ''}
             />
           </div>
         )}

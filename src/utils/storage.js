@@ -112,7 +112,9 @@ export async function loadSt() {
 }
 
 // ── Save ──────────────────────────────────────────────────────────────────────
-export async function saveSt(s) {
+// activePlayerId: when provided, Firestore write uses a transaction that merges
+// only that player's entry so concurrent coach edits are never clobbered.
+export async function saveSt(s, activePlayerId = null) {
   // Write localStorage first — fast, synchronous, always works offline.
   // This is the primary safety net: even if Firestore fails, the player's
   // data survives on this device.
@@ -129,9 +131,9 @@ export async function saveSt(s) {
   // for challenge XP, PUCK game shots, technique-mode pucks, and coach credits.
   const techniqueByPlayer = useAppStore.getState().techniqueByPlayer || {}
 
-  // Mirror to Firestore — fire-and-forget.  saveToFirestore now re-throws on
+  // Mirror to Firestore — fire-and-forget.  saveToFirestore re-throws on
   // failure (with console.error) so callers that need to know can await it.
-  saveToFirestore(s, techniqueByPlayer).catch(() => {
+  saveToFirestore(s, techniqueByPlayer, activePlayerId).catch(() => {
     // Already logged inside saveToFirestore; suppress unhandled-rejection warning.
   })
 }

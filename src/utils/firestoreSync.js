@@ -1,5 +1,5 @@
 import { db } from '../firebase.js'
-import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, runTransaction } from 'firebase/firestore'
 
 // Single fixed team — one doc for team-level data, subcollection for sessions.
 // Structure:
@@ -43,26 +43,79 @@ export async function loadFromFirestore() {
 }
 
 // ── Save ──────────────────────────────────────────────────────────────────────
-// Writes team-level fields to the team doc using { merge: true } so concurrent
-// writers (updateStreak transaction, ELO updates, etc.) don't clobber each other.
-// techniqueByPlayer is passed in explicitly so cross-device sync works — it
-// lives in Zustand/localStorage by default and would otherwise be lost on a new
-// device or after clearing the browser cache.
-export async function saveToFirestore(state, techniqueByPlayer = {}) {
+// When activePlayerId is provided (player session end), a transaction reads the
+// current server players array and merges in only the active player's object so
+// concurrent coach edits (diamonds, ELO, coachMsg) are never clobbered by an
+// outdated local state snapshot.
+//
+// When activePlayerId is omitted (coach portal, career reset, etc.) the full
+// players array is written — this is intentional for those flows.
+export async function saveToFirestore(state, techniqueByPlayer = {}, activePlayerId = null) {
   try {
     const { sessions = [], ...rest } = state
 
-    // { merge: true } prevents overwriting fields written by other concurrent paths
-    // (e.g. updateStreak's transaction writes streakCount/lastActivity).
-    await setDoc(teamDoc(), {
-      players:            rest.players            ?? [],
-      dailyChallenge:     rest.dailyChallenge     ?? null,
-      weeklyChallenge:    rest.weeklyChallenge    ?? null,
-      h2h:                rest.h2h                ?? null,
-      h2hHistory:         rest.h2hHistory         ?? [],
-      techniqueByPlayer:  techniqueByPlayer,
-      lastUpdated:        Date.now(),
-    }, { merge: true })
+    if (activePlayerId) {
+      // ── Transaction-merge: update only the active player's doc entry ──────
+      const localPlayer = rest.players?.find(p => p.id === activePlayerId)
+      await runTransaction(db, async tx => {
+        const ref          = teamDoc()
+        const snap         = await tx.get(ref)
+        const serverPlayers = snap.exists() ? (snap.data().players ?? []) : []
+        const serverPlayer  = serverPlayers.find(p => p.id === activePlayerId)
+
+        let updatedPlayers = serverPlayers
+        if (localPlayer) {
+          const merged = serverPlayer ? {
+            ...localPlayer,
+            // Coach-authoritative or game-engine fields: never let a stale local
+            // copy roll back a value that the server legitimately advanced.
+            diamonds:       Math.max(localPlayer.diamonds    ?? 0, serverPlayer.diamonds    ?? 0),
+            elo:            serverPlayer.elo            ?? localPlayer.elo,
+            eloLastDelta:   serverPlayer.eloLastDelta   ?? localPlayer.eloLastDelta,
+            eloLastUpdated: serverPlayer.eloLastUpdated ?? localPlayer.eloLastUpdated,
+            totalWins:      Math.max(localPlayer.totalWins   ?? 0, serverPlayer.totalWins   ?? 0),
+            hasEloShield:   serverPlayer.hasEloShield   || localPlayer.hasEloShield,
+            streakCount:    Math.max(localPlayer.streakCount ?? 0, serverPlayer.streakCount ?? 0),
+            lastActivity:   Math.max(localPlayer.lastActivity ?? 0, serverPlayer.lastActivity ?? 0),
+            // Badges: union of both sets so neither device loses a badge
+            earnedBadges:   { ...(serverPlayer.earnedBadges ?? {}), ...(localPlayer.earnedBadges ?? {}) },
+          } : localPlayer
+
+          updatedPlayers = serverPlayers.some(p => p.id === activePlayerId)
+            ? serverPlayers.map(p => p.id === activePlayerId ? merged : p)
+            : [...serverPlayers, merged]
+        }
+
+        const techEntry = techniqueByPlayer[activePlayerId]
+        if (snap.exists()) {
+          // dot-notation key updates only this player's entry in the map
+          tx.update(ref, {
+            players: updatedPlayers,
+            ...(techEntry !== undefined
+              ? { [`techniqueByPlayer.${activePlayerId}`]: techEntry }
+              : {}),
+            lastUpdated: Date.now(),
+          })
+        } else {
+          tx.set(ref, {
+            players: updatedPlayers,
+            techniqueByPlayer,
+            lastUpdated: Date.now(),
+          })
+        }
+      })
+    } else {
+      // ── Full-state write: coach portal, career reset, background sync ─────
+      await setDoc(teamDoc(), {
+        players:           rest.players           ?? [],
+        dailyChallenge:    rest.dailyChallenge    ?? null,
+        weeklyChallenge:   rest.weeklyChallenge   ?? null,
+        h2h:               rest.h2h               ?? null,
+        h2hHistory:        rest.h2hHistory        ?? [],
+        techniqueByPlayer: techniqueByPlayer,
+        lastUpdated:       Date.now(),
+      }, { merge: true })
+    }
 
     const newSessions = sessions.filter(s => !syncedSessionIds.has(s.id))
     await Promise.all(
