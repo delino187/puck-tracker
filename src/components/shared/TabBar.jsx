@@ -41,14 +41,15 @@ export default function TabBar({ active, onChange, hasSess, hasPendingVersus, ha
             onClick={() => onChange(t.id)}
             style={{
               flex: '1 1 auto', minWidth: 52, maxWidth: 90,
-              padding: '7px 6px 6px',
+              minHeight: 44,
+              padding: '6px 6px 5px',
               background: sel
                 ? 'linear-gradient(135deg,#1d3a6e,#1e40af)'
-                : 'transparent',
-              border: sel ? '1.5px solid #3b82f6' : '1.5px solid transparent',
+                : 'rgba(148,163,184,0.07)',
+              border: sel ? '1.5px solid #3b82f6' : '1.5px solid rgba(148,163,184,0.12)',
               borderRadius: 10,
               cursor: 'pointer',
-              color: sel ? '#ffffff' : '#64748b',
+              color: sel ? '#ffffff' : '#94a3b8',
               position: 'relative',
               transition: 'color 0.15s, background 0.15s, border-color 0.15s',
               boxShadow: sel ? '0 0 14px #3b82f655, inset 0 1px 0 rgba(255,255,255,0.08)' : 'none',
@@ -58,16 +59,16 @@ export default function TabBar({ active, onChange, hasSess, hasPendingVersus, ha
               <t.Icon
                 size={18}
                 strokeWidth={sel ? 2.2 : 1.5}
-                color={sel ? '#60a5fa' : '#475569'}
+                color={sel ? '#60a5fa' : '#94a3b8'}
               />
             </div>
             <div style={{
               fontFamily: "'Barlow Condensed',sans-serif",
               fontSize: 10,
               marginTop: 3,
-              fontWeight: sel ? 800 : 500,
+              fontWeight: sel ? 800 : 600,
               letterSpacing: sel ? '0.06em' : '0.03em',
-              color: sel ? '#ffffff' : '#64748b',
+              color: sel ? '#ffffff' : '#94a3b8',
               textShadow: sel ? '0 0 10px #3b82f688' : 'none',
             }}>
               {t.label}
