@@ -76,6 +76,8 @@ export default function App() {
   const [streakBrokenData, setStreakBrokenData] = useState(null)
   const [feedbackOpen,     setFeedbackOpen]     = useState(false)
   const [feedbackToast,    setFeedbackToast]    = useState(false)
+  const [rookieToast,      setRookieToast]      = useState(null)
+  const rookieToastTimer                         = useRef(null)
   const [isSaving,         setIsSaving]         = useState(false)
   const [weakConnToast,    setWeakConnToast]    = useState(false)
   const [rageBaitSender,     setRageBaitSender]     = useState(false)
@@ -255,22 +257,50 @@ export default function App() {
 
   const upd = patch => setSt(prev => ({ ...prev, ...patch }))
 
-  // Mark a rookie quest complete and award diamonds — no-op if already done
+  // Mark a rookie quest complete, award diamonds, fire toast, check for graduate badge
   function markRookieQuest(key) {
     const quest = ROOKIE_QUESTS.find(q => q.key === key)
     if (!quest) return
+
     setSt(prev => {
       const id     = prev.activePlayerId
       const player = prev.players.find(p => p.id === id)
       if (!player) return prev
       const rq = player.rookieQuests || {}
       if (rq[key]) return prev   // already completed
+
+      const newRq      = { ...rq, [key]: key }
+      const allKeys    = ROOKIE_QUESTS.map(q => q.key)
+      const allDone    = allKeys.every(k => (k === key ? true : !!rq[k]))
+      const gradBadge  = BADGES.find(b => b.id === 'rookie_grad')
+      const alreadyGrad = !!player.earnedBadges?.rookie_grad
+
+      // Per-quest toast (deferred so setSt runs first)
+      clearTimeout(rookieToastTimer.current)
+      setTimeout(() => {
+        setRookieToast(`🎯 Quest complete! +${quest.reward}💎  "${quest.label}"`)
+        rookieToastTimer.current = setTimeout(() => setRookieToast(null), 4500)
+      }, 0)
+
+      // Grand finale — all 5 done for the first time
+      if (allDone && !alreadyGrad && gradBadge) {
+        setTimeout(() => {
+          audioEngine.playBadgeUnlock()
+          setEpicCeleb({ type: 'badge', badge: gradBadge })
+        }, 1200)
+      }
+
+      const newEarnedBadges = (allDone && !alreadyGrad && gradBadge)
+        ? { ...(player.earnedBadges || {}), rookie_grad: { ts: Date.now() } }
+        : (player.earnedBadges || {})
+
       return {
         ...prev,
         players: prev.players.map(p => p.id === id ? {
           ...p,
           diamonds:     (p.diamonds || 0) + quest.reward,
           rookieQuests: { ...rq, [key]: true },
+          earnedBadges: newEarnedBadges,
         } : p),
       }
     })
@@ -1169,6 +1199,23 @@ export default function App() {
           )}
           {tab === 'ranks' && <RanksTab stats={stats} openDetail={rankDetailOpen} onDetailClose={() => setRankDetailOpen(false)} />}
         </div>
+
+        {/* ── Rookie quest completion toast ───────────────────────────────── */}
+        {rookieToast && (
+          <div style={{
+            position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+            zIndex: 310,
+            background: 'linear-gradient(135deg,#1a0a30,#2d1060)',
+            border: '1.5px solid #a855f7',
+            borderRadius: 14, padding: '10px 18px',
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700,
+            color: '#d8b4fe', letterSpacing: '0.04em',
+            boxShadow: '0 0 20px #a855f755, 0 4px 16px rgba(0,0,0,0.6)',
+            whiteSpace: 'nowrap', maxWidth: '90vw', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>
+            {rookieToast}
+          </div>
+        )}
 
         {/* ── Undo last set toast ──────────────────────────────────────────── */}
         {undoSnapshot && tab === 'session' && (

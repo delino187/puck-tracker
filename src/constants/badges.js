@@ -123,6 +123,13 @@ export const BADGES = [
   { id: 'atw_jl', name: 'Jet Lag',          desc: 'Play Around the World 3 days in a row',       cat: 'games', tier: 2, Icon: Moon,      innerBg: 'linear-gradient(135deg,#0f172a,#1e3a8a)', innerIcon: '#a5b4fc', check: (p,s) => atwDayStreak(p,s,3)            },
   { id: 'atw_sb', name: 'Sonic Boom',       desc: 'Beat your ATW personal best by 3+ hits',      cat: 'games', tier: 3, Icon: Wind,      innerBg: 'linear-gradient(135deg,#7f1d1d,#dc2626)', innerIcon: '#fca5a5', check: (p,s) => atwBeatPBBy(p,s,3)             },
   { id: 'atw_ps', name: 'Passport Stamped', desc: '40 career hits across all ATW runs',          cat: 'games', tier: 2, Icon: Map,       innerBg: 'linear-gradient(135deg,#713f12,#b45309)', innerIcon: '#fde68a', check: (p,s) => atwCareerHits(p,s) >= 40       },
+
+  // ── Rookie Graduate ───────────────────────────────────────────────────────────
+  { id: 'rookie_grad', name: 'Rookie Graduate', desc: 'Mastered the basics of the ice. Fully completed all onboarding milestones!', cat: 'skill', tier: 4, Icon: Award, innerBg: 'linear-gradient(135deg,#422006,#b45309)', innerIcon: '#fef08a', check: (p) => {
+    if (!p.rookieQuests) return false
+    const keys = ['puckSet100','horseGame','aroundWorld','issueChallenge','visitStore']
+    return keys.every(k => p.rookieQuests[k])
+  }},
 ]
 
 export const BADGE_CATS = [
@@ -136,4 +143,5 @@ export const BADGE_CATS = [
   { id: 'challenge', label: 'Challenges',              Icon: CheckCircle },
   { id: 'ultra',     label: 'Ultra-Rare Achievements', Icon: Gem         },
   { id: 'games',     label: 'Around the World',        Icon: Gamepad2    },
+  { id: 'skill',     label: 'Skill & Onboarding',      Icon: Award       },
 ]
