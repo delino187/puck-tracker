@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { ChevronLeft, Zap } from 'lucide-react'
+import { ChevronLeft, Zap, X } from 'lucide-react'
+
+const TECHNIQUE_MODAL_KEY = 'puck_seenTechniqueModal'
 import confetti from 'canvas-confetti'
 import { C } from '../styles.js'
 import { useAppStore } from '../store/useAppStore.js'
@@ -9,7 +11,13 @@ const QUICK_ADDS    = [10, 25, 50]
 const SESSION_LIMIT = 100
 
 export default function TechniqueTracker({ player, onBack, onGoalReached }) {
+  const [showModal,    setShowModal]    = useState(() => !localStorage.getItem(TECHNIQUE_MODAL_KEY))
   const [sessionPucks, setSessionPucks] = useState(0)
+
+  function dismissModal() {
+    localStorage.setItem(TECHNIQUE_MODAL_KEY, '1')
+    setShowModal(false)
+  }
   const [lastAdd,      setLastAdd]      = useState(null)
   const [honorMsg,     setHonorMsg]     = useState(false)
 
@@ -47,6 +55,85 @@ export default function TechniqueTracker({ player, onBack, onGoalReached }) {
 
   return (
     <div style={{ padding: '20px 16px 80px' }}>
+
+      {/* ── Onboarding modal ─────────────────────────────────────────────────── */}
+      {showModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 600,
+          background: 'rgba(0,0,0,0.88)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '0 20px',
+        }}>
+          <div style={{
+            width: '100%', maxWidth: 380,
+            background: 'linear-gradient(160deg,#060d14,#0c1a24)',
+            border: '2px solid #10b981',
+            borderRadius: 22,
+            padding: '30px 24px 24px',
+            boxShadow: '0 0 60px #10b98133, 0 24px 48px rgba(0,0,0,0.7)',
+            position: 'relative',
+          }}>
+            {/* Close X */}
+            <button
+              onClick={dismissModal}
+              style={{
+                position: 'absolute', top: 14, right: 14,
+                background: 'rgba(16,185,129,0.12)', border: '1px solid #10b98144',
+                borderRadius: 8, width: 32, height: 32,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: '#6ee7b7',
+              }}
+            >
+              <X size={15} />
+            </button>
+
+            {/* Icon */}
+            <div style={{ textAlign: 'center', fontSize: 46, lineHeight: 1, marginBottom: 16, filter: 'drop-shadow(0 0 18px rgba(16,185,129,0.5))' }}>
+              🏒
+            </div>
+
+            {/* Title */}
+            <div style={{
+              fontFamily: "'Bangers',sans-serif",
+              fontSize: 24, letterSpacing: '0.08em', lineHeight: 1.15,
+              color: '#34d399',
+              textShadow: '0 0 20px rgba(52,211,153,0.4)',
+              textAlign: 'center', marginBottom: 16,
+            }}>
+              Welcome to Technique Only Mode!
+            </div>
+
+            {/* Body */}
+            <div style={{
+              fontFamily: "'Barlow Condensed',sans-serif",
+              fontSize: 15, fontWeight: 600,
+              color: '#e2e8f0', lineHeight: 1.65,
+              letterSpacing: '0.02em',
+              textAlign: 'center', marginBottom: 24,
+            }}>
+              This mode is for working on your power and technique. Don't worry about hitting a specific target, just work on a smooth release. Great for getting some practice on your snapshot or slapshot, and your total pucks still count toward your totals!
+            </div>
+
+            {/* Got It button */}
+            <button
+              onClick={dismissModal}
+              style={{
+                width: '100%', padding: '15px',
+                background: 'linear-gradient(135deg,#065f46,#10b981)',
+                color: '#fff', border: 'none', borderRadius: 14,
+                cursor: 'pointer',
+                fontFamily: "'Bangers',sans-serif", fontSize: 22,
+                letterSpacing: '0.1em',
+                boxShadow: '0 0 28px #10b98144, 0 4px 0 #065f46',
+                textShadow: '0 1px 3px rgba(0,0,0,0.3)',
+              }}
+            >
+              ✅ GOT IT — LET'S TRAIN!
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
