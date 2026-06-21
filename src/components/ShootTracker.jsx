@@ -346,25 +346,6 @@ export default function ShootTracker({
         </div>
       )}
 
-      {/* ── Session stats strip ──────────────────────────────────────────── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 10 }}>
-        <StatCard label="Sets Left" value={sLeft}                          color="#fbbf24" />
-        <StatCard label="Shots"     value={sShots}                         color="#60a5fa" />
-        <StatCard label="Hits"      value={sHits}                          color="#34d399" />
-        <StatCard label="Acc"       value={sShots > 0 ? sAcc + '%' : '—'} color="#c084fc" />
-      </div>
-
-      {/* ── Progress bar ─────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 10 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, letterSpacing: '0.1em', color: '#94a3b8', textTransform: 'uppercase' }}>Progress</span>
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#6b7280' }}>{session.sets.length}/{sesGoal}</span>
-        </div>
-        <div style={{ height: 5, background: '#0a0f1a', borderRadius: 3, overflow: 'hidden', border: '1px solid #1e3a5f' }}>
-          <div style={{ height: '100%', width: `${Math.min(100, session.sets.length / sesGoal * 100)}%`, background: 'linear-gradient(90deg,#3b82f6,#22c55e)', borderRadius: 3, transition: 'width 0.4s' }} />
-        </div>
-      </div>
-
       {/* ── Zone grid + single stepper ───────────────────────────────────── */}
       <div style={{ ...C.card, marginBottom: 10 }}>
         <div style={{ ...C.label, display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -414,15 +395,15 @@ export default function ShootTracker({
                   userSelect: 'none',
                 }}
               >
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: sel ? '#93c5fd' : '#64748b', letterSpacing: '0.1em', textTransform: 'uppercase', lineHeight: 1 }}>
-                  {z.short}
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: sel ? '#ffffff' : '#c0cfe0', letterSpacing: '0.04em', textTransform: 'uppercase', lineHeight: 1, textAlign: 'center', padding: '0 2px' }}>
+                  {z.label}
                 </div>
-                <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, color: sel ? '#fff' : color, lineHeight: 1, letterSpacing: '0.03em' }}>
-                  {hits}<span style={{ fontSize: 11, color: sel ? '#93c5fd' : '#475569' }}>/10</span>
+                <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 24, color: sel ? '#ffffff' : hits > 0 ? color : '#94a3b8', lineHeight: 1, letterSpacing: '0.03em' }}>
+                  {hits}<span style={{ fontSize: 13, color: sel ? '#bfdbfe' : '#64748b' }}>/10</span>
                 </div>
                 {prev.length > 0 && (
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, color: '#475569', lineHeight: 1 }}>
-                    {prev.reduce((a,s)=>a+s.hits,0)}↑
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: sel ? '#93c5fd' : '#64748b', lineHeight: 1 }}>
+                    {prev.reduce((a,s)=>a+s.hits,0)}↑ session
                   </div>
                 )}
               </button>
@@ -545,6 +526,25 @@ export default function ShootTracker({
           : <><CheckCircle size={17} /> End Session</>
         }
       </button>
+
+      {/* ── Session stats strip ──────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 10 }}>
+        <StatCard label="Sets Left" value={sLeft}                          color="#fbbf24" />
+        <StatCard label="Shots"     value={sShots}                         color="#60a5fa" />
+        <StatCard label="Hits"      value={sHits}                          color="#34d399" />
+        <StatCard label="Acc"       value={sShots > 0 ? sAcc + '%' : '—'} color="#c084fc" />
+      </div>
+
+      {/* ── Progress bar ─────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, letterSpacing: '0.1em', color: '#94a3b8', textTransform: 'uppercase' }}>Progress</span>
+          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#6b7280' }}>{session.sets.length}/{sesGoal}</span>
+        </div>
+        <div style={{ height: 5, background: '#0a0f1a', borderRadius: 3, overflow: 'hidden', border: '1px solid #1e3a5f' }}>
+          <div style={{ height: '100%', width: `${Math.min(100, session.sets.length / sesGoal * 100)}%`, background: 'linear-gradient(90deg,#3b82f6,#22c55e)', borderRadius: 3, transition: 'width 0.4s' }} />
+        </div>
+      </div>
 
       {/* ── Net SVG with shake wrapper ───────────────────────────────────── */}
       <div style={{ position: 'relative', width: '100%', paddingBottom: '68%', marginBottom: 10 }}>
