@@ -415,7 +415,7 @@ export default function StreakHub({ player, stats, onPurchaseItem, onNavigate })
               <ItemCard
                 imgSrc="/rage-bait.png"
                 name="RAGE BAIT"
-                desc="Send a hilarious reality check straight to a friend's screen. One-time use!"
+                desc="Be a little stinker by sending rage bait to a friend's screen. One-time use!"
                 tag="NEW"
                 cost={RAGE_BAIT_COST}
                 owned={0}
