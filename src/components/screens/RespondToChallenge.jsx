@@ -282,11 +282,11 @@ function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, on
   )
 }
 
-const MAX_SECS = 10
+const MAX_SECS = 30
 
 function uploadErrMsg(err) {
   if (err?.message === 'FILE_TOO_LARGE')
-    return 'Video exceeds 150 MB — trim it to just your shots (5-10 s) in your phone\'s editor, then re-upload.'
+    return 'Video exceeds 150 MB — trim it down in your phone\'s editor, then re-upload. Videos can be up to 30 seconds long!'
   if (err?.message === 'UPLOAD_TIMEOUT')
     return 'Network timed out! Move closer to Wi-Fi and try again.'
   return 'Upload failed — check your connection and try again.'
@@ -326,7 +326,7 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
     vid.onloadedmetadata = () => {
       if (vid.duration > MAX_SECS + 1.5) {
         URL.revokeObjectURL(objectUrl)
-        setError(`Trim your video to ${MAX_SECS} seconds or less first!`)
+        setError(`Videos can be up to 30 seconds long! Trim it in your phone's video editor first.`)
         return
       }
       setVideoFile(file)

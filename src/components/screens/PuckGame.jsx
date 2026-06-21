@@ -23,7 +23,7 @@ function uploadErrMsg(err) {
 }
 
 const TRICK_STYLES = ['Forehand', 'Backhand', 'One-Timer', 'Slap Shot', 'Snap Shot', 'Wrist Shot', 'Toe Drag', 'Inside Foot', 'Outside Foot']
-const MAX_SECS     = 10   // 3 shots fit comfortably in 10 seconds
+const MAX_SECS     = 30   // up to 30 seconds allowed
 
 // ── Letter display ─────────────────────────────────────────────────────────────
 function LetterRow({ letters, label, isYou }) {
@@ -59,7 +59,7 @@ function VideoPicker({ previewUrl, onSelect, onClear, error, maxSecs = MAX_SECS 
     const vid  = document.createElement('video')
     vid.preload = 'metadata'
     vid.onloadedmetadata = () => {
-      if (vid.duration > maxSecs + 1.5) { URL.revokeObjectURL(url); onSelect(null, null, `Trim to ${maxSecs}s or less in your phone's video editor!`); return }
+      if (vid.duration > maxSecs + 1.5) { URL.revokeObjectURL(url); onSelect(null, null, `Videos can be up to 30 seconds long! Trim it in your phone's video editor first.`); return }
       onSelect(file, url, null)
     }
     vid.src = url
