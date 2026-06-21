@@ -190,6 +190,15 @@ export async function createRematch(game) {
   })
 }
 
+// ── Concede ───────────────────────────────────────────────────────────────────
+export async function concedePuckGame(game, concedingPlayerId) {
+  const winnerId = game.p1Id === concedingPlayerId ? game.p2Id : game.p1Id
+  const status   = winnerId === game.p1Id ? 'p1_wins' : 'p2_wins'
+  const ref      = doc(COL(), game.id)
+  await updateDoc(ref, { status, lastActivityAt: Date.now() })
+  return { ...game, status, lastActivityAt: Date.now() }
+}
+
 // ── Load ──────────────────────────────────────────────────────────────────────
 export async function loadPuckGamesForPlayer(playerId) {
   try {

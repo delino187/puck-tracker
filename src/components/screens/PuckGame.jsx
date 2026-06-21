@@ -7,6 +7,7 @@ import {
   createPuckGame, uploadPuckVideo,
   submitSetterShot, submitDefenderResponse,
   loadPuckGamesForPlayer, getGameAction, PUCK_LETTERS, createRematch,
+  concedePuckGame,
   WARN_FILE_BYTES,
 } from '../../services/puckGameService.js'
 import PuckGameOverlay from '../overlays/PuckGameOverlay.jsx'
@@ -91,7 +92,7 @@ function VideoPicker({ previewUrl, onSelect, onClear, error, maxSecs = MAX_SECS 
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function PuckGame({ player, players, puckGames, onBack, onUpdate }) {
+export default function PuckGame({ player, players, puckGames, onBack, onUpdate, onConcede }) {
   const [view,          setView]         = useState('list')   // 'list' | 'new' | 'game' | 'set' | 'match'
   const [selectedGame,  setSelectedGame] = useState(null)
   // Tracks which game's trombone has already played so it only fires once per loss view
@@ -107,7 +108,10 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
   const [submitting,     setSubmitting]    = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error,         setError]        = useState('')
-  const [rematchLoading, setRematchLoading] = useState(false)
+  const [rematchLoading,  setRematchLoading]  = useState(false)
+  const [concedeTarget,   setConcedeTarget]   = useState(null)  // game to concede (pending confirm)
+  const [concedeToast,    setConcedeToast]    = useState(false)
+  const concedeToastTimer                      = useRef(null)
 
   const logTechniqueShots = useAppStore(s => s.logTechniqueShots)
   const friends = players.filter(p => p.id !== player.id)
@@ -535,14 +539,28 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
               <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 20, color: '#1e293b', alignSelf: 'center' }}>VS</div>
               <LetterRow letters={theirL} label={fName}  isYou={false} />
             </div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: urgent ? '#22c55e' : '#475569', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Zap size={11} color={urgent ? '#22c55e' : '#475569'} />
-              {action === 'set'          ? 'YOUR TURN TO SET A TRICK SHOT →'
-               : action === 'match'      ? 'YOU NEED TO MATCH THIS SHOT →'
-               : action === 'expired'    ? 'DEADLINE PASSED — TAP TO TAKE THE LETTER'
-               : action === 'waiting_set'   ? `Waiting for ${fName} to set...`
-               : action === 'waiting_match' ? `Waiting for ${fName} to match...`
-               : ''}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: urgent ? '#22c55e' : '#475569', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Zap size={11} color={urgent ? '#22c55e' : '#475569'} />
+                {action === 'set'          ? 'YOUR TURN TO SET A TRICK SHOT →'
+                 : action === 'match'      ? 'YOU NEED TO MATCH THIS SHOT →'
+                 : action === 'expired'    ? 'DEADLINE PASSED — TAP TO TAKE THE LETTER'
+                 : action === 'waiting_set'   ? `Waiting for ${fName} to set...`
+                 : action === 'waiting_match' ? `Waiting for ${fName} to match...`
+                 : ''}
+              </div>
+              <button
+                onClick={e => { e.stopPropagation(); setConcedeTarget(g) }}
+                style={{
+                  background: 'transparent', border: '1px solid #ef444433',
+                  borderRadius: 6, padding: '3px 9px',
+                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
+                  fontWeight: 700, letterSpacing: '0.08em',
+                  color: '#ef4444aa', cursor: 'pointer',
+                }}
+              >
+                CONCEDE
+              </button>
             </div>
           </div>
         )
@@ -562,6 +580,85 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate 
             )
           })}
         </>
+      )}
+
+      {/* ── Concede confirmation modal ──────────────────────────────────────── */}
+      {concedeTarget && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 500,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px',
+        }}>
+          <div style={{
+            width: '100%', maxWidth: 340,
+            background: 'linear-gradient(160deg,#0f0406,#1a060a)',
+            border: '2px solid #ef444466', borderRadius: 20,
+            padding: '28px 22px 22px',
+            boxShadow: '0 0 40px #ef444433',
+          }}>
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, color: '#ef4444', letterSpacing: '0.08em', textAlign: 'center', marginBottom: 14 }}>
+              🏳️ CONCEDE GAME?
+            </div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 600, color: '#cbd5e1', lineHeight: 1.6, textAlign: 'center', marginBottom: 22 }}>
+              Are you sure you want to concede this PUCK game? This will count as a loss and clear it from your dashboard.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setConcedeTarget(null)}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: 12,
+                  background: '#0f172a', border: '1px solid #334155',
+                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700,
+                  color: '#64748b', cursor: 'pointer', letterSpacing: '0.06em',
+                }}
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={async () => {
+                  const g = concedeTarget
+                  setConcedeTarget(null)
+                  try {
+                    await concedePuckGame(g, player.id)
+                    onConcede?.()
+                    clearTimeout(concedeToastTimer.current)
+                    setConcedeToast(true)
+                    concedeToastTimer.current = setTimeout(() => setConcedeToast(false), 4000)
+                  } catch (err) {
+                    console.error('[concede]', err)
+                  }
+                }}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: 12,
+                  background: 'linear-gradient(135deg,#7f1d1d,#ef4444)',
+                  border: 'none',
+                  fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.08em',
+                  color: '#fff', cursor: 'pointer',
+                  boxShadow: '0 0 18px #ef444455',
+                }}
+              >
+                YES, CONCEDE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Concede toast ───────────────────────────────────────────────────── */}
+      {concedeToast && (
+        <div style={{
+          position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 400,
+          background: 'linear-gradient(135deg,#0f172a,#1e293b)',
+          border: '1.5px solid #64748b',
+          borderRadius: 14, padding: '10px 18px',
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700,
+          color: '#e2e8f0', letterSpacing: '0.04em',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+          whiteSpace: 'nowrap',
+        }}>
+          🧹 PUCK game conceded. Screen cleared!
+        </div>
       )}
     </div>
   )

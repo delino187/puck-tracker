@@ -990,6 +990,7 @@ export default function App() {
                 const idx = prev.findIndex(g => g.id === updated.id)
                 return idx >= 0 ? prev.map(g => g.id === updated.id ? updated : g) : [updated, ...prev]
               })}
+              onConcedeGame={() => loadPuckGamesForPlayer(st.activePlayerId).then(setPuckGames)}
             />
           )}
           {tab === 'challenges' && (
