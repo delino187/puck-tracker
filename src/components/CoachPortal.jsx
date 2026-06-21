@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import {
-  Plus, Trash2, Shuffle, CheckCircle, X,
-  Swords, Users, Lock, ChevronLeft, History, Eye, EyeOff,
+  Plus, Trash2, CheckCircle, X,
+  Users, Lock, ChevronLeft, History, Eye, EyeOff,
   AlertCircle, Edit2, KeyRound, Trophy, Sun, Moon, MessageSquare, Mail,
 } from 'lucide-react'
 import CoachLeaderboard from './CoachLeaderboard.jsx'
@@ -13,74 +13,6 @@ import { C } from '../styles.js'
 import LevelBadge from './shared/LevelBadge.jsx'
 import { deletePlayerData } from '../utils/firestoreSync.js'
 import { useAppStore } from '../store/useAppStore.js'
-
-// ─── Matchup editor ────────────────────────────────────────────────────────────
-function CoachMatchups({ st, upd }) {
-  const [p1, setP1]     = useState(st.h2h?.p1 || '')
-  const [p2, setP2]     = useState(st.h2h?.p2 || '')
-  const [saved, setSaved] = useState(!!st.h2h)
-
-  const ws = getWeekStart()
-
-  const randomize = () => {
-    if (st.players.length < 2) return
-    const s = [...st.players].sort(() => Math.random() - 0.5)
-    setP1(s[0].id); setP2(s[1].id); setSaved(false)
-  }
-
-  const cur = st.h2h?.p1 && st.h2h?.p2 ? {
-    p1: st.players.find(p => p.id === st.h2h.p1),
-    p2: st.players.find(p => p.id === st.h2h.p2),
-    s1: st.sessions.filter(s => s.playerId === st.h2h.p1 && new Date(s.date) >= ws).flatMap(s => s.sets).length * 10,
-    s2: st.sessions.filter(s => s.playerId === st.h2h.p2 && new Date(s.date) >= ws).flatMap(s => s.sets).length * 10,
-  } : null
-
-  return (
-    <div>
-      {/* Live matchup display */}
-      {cur?.p1 && cur?.p2 && (
-        <div style={{ background: '#0a0f1a', borderRadius: 10, padding: 14, border: '1px solid #334155', marginBottom: 14 }}>
-          <div style={C.label}>Current Matchup</div>
-          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
-            {[{ p: cur.p1, s: cur.s1 }, { p: cur.p2, s: cur.s2 }].map((x, idx) => (
-              <div key={idx} style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16, fontWeight: 800, color: x.s > (idx === 0 ? cur.s2 : cur.s1) ? '#f59e0b' : '#f1f5f9' }}>{x.p?.name}</div>
-                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 34, fontWeight: 900, color: '#3b82f6' }}>{x.s}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div style={C.card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Swords size={13} color="#ef4444" />
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#ef4444', letterSpacing: '0.08em' }}>SET MATCHUP</span>
-          </div>
-          <button onClick={randomize} style={{ background: '#1e3a5f', color: '#60a5fa', border: 'none', borderRadius: 6, padding: '5px 10px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Shuffle size={11} /> Random
-          </button>
-        </div>
-        {[['Player 1', p1, setP1], ['Player 2', p2, setP2]].map(([lbl, val, setter]) => (
-          <div key={lbl}>
-            <label style={C.label}>{lbl}</label>
-            <select value={val} onChange={e => { setter(e.target.value); setSaved(false) }} style={C.inp}>
-              <option value="">Select player…</option>
-              {st.players.map(p => <option key={p.id} value={p.id}>{p.name}{p.jerseyNum ? ` #${p.jerseyNum}` : ''}</option>)}
-            </select>
-          </div>
-        ))}
-        <button
-          onClick={() => { if (!p1 || !p2 || p1 === p2) return; upd({ h2h: { p1, p2, set: Date.now() } }); setSaved(true) }}
-          style={{ width: '100%', background: saved ? '#064e3b' : '#ef4444', color: saved ? '#6ee7b7' : '#fff', border: 'none', borderRadius: 8, padding: '11px', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'all 0.3s' }}
-        >
-          {saved ? <><CheckCircle size={14} />Matchup Set!</> : <><Swords size={14} />Set Matchup</>}
-        </button>
-      </div>
-    </div>
-  )
-}
 
 // ─── Roster manager ───────────────────────────────────────────────────────────
 function CoachRoster({ st, upd, onPuckCreditAdded }) {
@@ -466,7 +398,6 @@ export default function CoachPortal({ st, upd, onPuckCreditAdded }) {
   const [cTab, setCTab] = useState('roster')
   const { isOutside, toggleOutsideMode } = useTheme()
   const tabs = [
-    { id: 'matchups',    label: 'Matchups', Icon: Swords         },
     { id: 'roster',      label: 'Roster',   Icon: Users          },
     { id: 'leaderboard', label: 'Leaders',  Icon: Trophy         },
     { id: 'feedback',    label: 'Feedback', Icon: MessageSquare  },
@@ -524,7 +455,6 @@ export default function CoachPortal({ st, upd, onPuckCreditAdded }) {
         </div>
 
         <div style={{ padding: 16 }}>
-          {cTab === 'matchups'    && <CoachMatchups    st={st} upd={upd} />}
           {cTab === 'roster'      && <CoachRoster       st={st} upd={upd} onPuckCreditAdded={onPuckCreditAdded} />}
           {cTab === 'leaderboard' && <CoachLeaderboard  st={st} />}
           {cTab === 'feedback'    && <CoachFeedback />}
