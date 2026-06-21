@@ -1037,7 +1037,7 @@ export default function App() {
           onClick={() => setFeedbackOpen(true)}
           title="Report a bug or request a feature"
           style={{
-            position: 'fixed', bottom: 22, right: 16, zIndex: 90,
+            position: 'fixed', bottom: 16, right: 16, zIndex: 90,
             background: 'linear-gradient(135deg,#450a0a,#7f1d1d)',
             border: '1px solid #ef444455',
             borderRadius: 20, padding: '7px 12px',

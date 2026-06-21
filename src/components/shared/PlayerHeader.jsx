@@ -122,7 +122,7 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
 
       {/* ── Floating currency widgets — bottom-left, above tab bar ── */}
       <div style={{
-        position: 'fixed', left: 8, bottom: 72,
+        position: 'fixed', left: 8, bottom: 16,
         zIndex: 200,
         display: 'flex', flexDirection: 'column', gap: 8,
         pointerEvents: 'auto',
