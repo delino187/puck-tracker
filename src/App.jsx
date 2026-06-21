@@ -312,15 +312,11 @@ export default function App() {
             ? { rookie_grad: { ts: now } } : {}),
       }
 
-      // +1💎 per newly unlocked badge (milestone badge + grad badge if earned)
-      const newBadgeCount = (milestoneBadgeId && !player.earnedBadges?.[milestoneBadgeId] ? 1 : 0)
-                          + (allDone && !alreadyGrad && gradBadge ? 1 : 0)
-
       return {
         ...prev,
         players: prev.players.map(p => p.id === id ? {
           ...p,
-          diamonds:     (p.diamonds || 0) + quest.reward + newBadgeCount,
+          diamonds:     (p.diamonds || 0) + quest.reward,  // badge bonus awarded on tap
           rookieQuests: { ...rq, [key]: true },
           earnedBadges: newEarnedBadges,
         } : p),
@@ -569,7 +565,7 @@ export default function App() {
         p.id === aPlayer.id ? {
           ...p,
           earnedBadges: already,
-          diamonds: (p.diamonds || 0) + newBadges.length,  // +1💎 per badge
+          diamonds: p.diamonds || 0,
         } : p
       )
       setNewBadgeIds(prev => {
@@ -627,7 +623,7 @@ export default function App() {
         p.id === aPlayer.id ? {
           ...p,
           earnedBadges: already,
-          diamonds: (p.diamonds || 0) + newBadges.length,  // +1💎 per badge
+          diamonds: p.diamonds || 0,
         } : p
       )
       setNewBadgeIds(prev => {
@@ -924,6 +920,10 @@ export default function App() {
             level={epicCeleb.level}
             badge={epicCeleb.badge}
             onClose={handleEpicClose}
+            onClaimBonus={epicCeleb.type === 'badge' ? () => setSt(prev => {
+              const id = prev.activePlayerId
+              return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, diamonds: (p.diamonds || 0) + 1 } : p) }
+            }) : undefined}
           />
         )}
         {celeb && <CelebOverlay data={celeb} onClose={() => setCeleb(null)} />}
