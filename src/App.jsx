@@ -242,90 +242,71 @@ export default function App() {
       }
       lastPlayersRef.current = incoming
 
-      setSt(prev => {
-        if (!prev) return prev
-        const prevPlayers = prev.players || []
+      // ── EMERGENCY BYPASS — snapshot state hydration disabled ────────────────
+      // All setSt() and useAppStore.setState() calls inside this callback have
+      // been commented out to stop the infinite-loop white-screen crash.
+      // The diagnostic log above (team snapshot for active player) remains active
+      // so Firestore connectivity can still be verified in the console.
+      // TODO: re-enable once the root write-cycle is confirmed fixed.
+      return // EMERGENCY BYPASS
 
-        // Normalize helper: treat null and undefined as equal for field comparison
-        // so Firestore null round-trips don't create spurious hasChanges = true.
-        const eq = (a, b) => (a ?? null) === (b ?? null)
+      /* eslint-disable no-unreachable */
+      // setSt(prev => {
+      //   if (!prev) return prev
+      //   const prevPlayers = prev.players || []
+      //   const eq = (a, b) => (a ?? null) === (b ?? null)
+      //   const hasChanges =
+      //     incoming.length !== prevPlayers.length ||
+      //     incoming.some(ip => {
+      //       const lp = prevPlayers.find(p => p.id === ip.id)
+      //       if (!lp) return true
+      //       return (
+      //         !eq(ip.diamonds,       lp.diamonds)       ||
+      //         !eq(ip.elo,            lp.elo)            ||
+      //         !eq(ip.coachMsg,       lp.coachMsg)       ||
+      //         !eq(ip.eloLastUpdated, lp.eloLastUpdated) ||
+      //         !eq(ip.totalWins,      lp.totalWins)      ||
+      //         !eq(ip.hasEloShield,   lp.hasEloShield)   ||
+      //         !eq(ip.streakCount,    lp.streakCount)    ||
+      //         !eq(ip.lastActivity,   lp.lastActivity)
+      //       )
+      //     })
+      //   if (!hasChanges) return prev
+      //   stFromSnapshotRef.current = true
+      //   return {
+      //     ...prev,
+      //     players: incoming.map(ip => {
+      //       const lp = prevPlayers.find(p => p.id === ip.id)
+      //       if (!lp) return ip
+      //       return {
+      //         ...ip,
+      //         diamonds:    Math.max(ip.diamonds    || 0, lp.diamonds    || 0),
+      //         streakCount: Math.max(ip.streakCount || 0, lp.streakCount || 0),
+      //       }
+      //     }),
+      //   }
+      // })
 
-        // Only merge when something actually changed — avoids re-rendering on
-        // our own write echoing back from Firestore.
-        // streakCount / lastActivity MUST be included here: updateStreak() writes
-        // these fields directly to Firestore (bypassing local state).
-        const hasChanges =
-          incoming.length !== prevPlayers.length ||
-          incoming.some(ip => {
-            const lp = prevPlayers.find(p => p.id === ip.id)
-            if (!lp) return true
-            return (
-              !eq(ip.diamonds,       lp.diamonds)       ||
-              !eq(ip.elo,            lp.elo)            ||
-              !eq(ip.coachMsg,       lp.coachMsg)       ||
-              !eq(ip.eloLastUpdated, lp.eloLastUpdated) ||
-              !eq(ip.totalWins,      lp.totalWins)      ||
-              !eq(ip.hasEloShield,   lp.hasEloShield)   ||
-              !eq(ip.streakCount,    lp.streakCount)    ||
-              !eq(ip.lastActivity,   lp.lastActivity)
-            )
-          })
-
-        if (!hasChanges) return prev
-
-        // Mark that this specific st change was caused by a snapshot so the
-        // [st] save-effect can skip the Firestore echo write precisely.
-        stFromSnapshotRef.current = true
-
-        return {
-          ...prev,
-          players: incoming.map(ip => {
-            const lp = prevPlayers.find(p => p.id === ip.id)
-            if (!lp) return ip
-            return {
-              ...ip,
-              // Keep whichever diamond total is higher so a local claim mid-session
-              // is never clobbered by a slightly-stale snapshot from Firestore.
-              diamonds:    Math.max(ip.diamonds    || 0, lp.diamonds    || 0),
-              // Keep whichever streakCount is higher so a just-awarded streak from
-              // updateStreak() isn't lost if a concurrent local write races it.
-              streakCount: Math.max(ip.streakCount || 0, lp.streakCount || 0),
-            }
-          }),
-        }
-      })
-
-      // ── Sync techniqueByPlayer from server into Zustand ───────────────────
-      // Compares field-by-field (not JSON.stringify) to avoid false positives from
-      // Firestore returning object keys in a different insertion order than local state.
-      // dailyLog is intentionally excluded from the server sync — it is a local-only
-      // structure (streak calculations) and syncing it via Firestore causes key-ordering
-      // mismatches that defeat the equality check on every echo.
-      const serverTech = teamData.techniqueByPlayer
-      if (serverTech && Object.keys(serverTech).length > 0) {
-        const current    = useAppStore.getState().techniqueByPlayer || {}
-        const localTech  = current
-        let hasNewData   = false
-        const mergedTech = { ...localTech }
-
-        for (const [pid, srv] of Object.entries(serverTech)) {
-          const local = localTech[pid] || { totalPucks: 0, bonusXP: 0 }
-          const mergedTotalPucks = Math.max(local.totalPucks ?? 0, srv.totalPucks ?? 0)
-          const mergedBonusXP    = Math.max(local.bonusXP    ?? 0, srv.bonusXP    ?? 0)
-          if (mergedTotalPucks !== (local.totalPucks ?? 0) || mergedBonusXP !== (local.bonusXP ?? 0)) {
-            hasNewData = true
-            mergedTech[pid] = {
-              ...local,  // preserve local dailyLog
-              totalPucks: mergedTotalPucks,
-              bonusXP:    mergedBonusXP,
-            }
-          }
-        }
-
-        if (hasNewData) {
-          useAppStore.setState({ techniqueByPlayer: mergedTech })
-        }
-      }
+      // const serverTech = teamData.techniqueByPlayer
+      // if (serverTech && Object.keys(serverTech).length > 0) {
+      //   const current    = useAppStore.getState().techniqueByPlayer || {}
+      //   const localTech  = current
+      //   let hasNewData   = false
+      //   const mergedTech = { ...localTech }
+      //   for (const [pid, srv] of Object.entries(serverTech)) {
+      //     const local = localTech[pid] || { totalPucks: 0, bonusXP: 0 }
+      //     const mergedTotalPucks = Math.max(local.totalPucks ?? 0, srv.totalPucks ?? 0)
+      //     const mergedBonusXP    = Math.max(local.bonusXP    ?? 0, srv.bonusXP    ?? 0)
+      //     if (mergedTotalPucks !== (local.totalPucks ?? 0) || mergedBonusXP !== (local.bonusXP ?? 0)) {
+      //       hasNewData = true
+      //       mergedTech[pid] = { ...local, totalPucks: mergedTotalPucks, bonusXP: mergedBonusXP }
+      //     }
+      //   }
+      //   if (hasNewData) {
+      //     useAppStore.setState({ techniqueByPlayer: mergedTech })
+      //   }
+      // }
+      /* eslint-enable no-unreachable */
     })
 
     teamUnsubRef.current = unsub
@@ -433,6 +414,8 @@ export default function App() {
   // (challenge completion, PUCK game turn, coach credit), we re-check whether
   // the player's combined XP (session + bonus) has crossed a new level threshold.
   useEffect(() => {
+    return // EMERGENCY BYPASS — techniqueByPlayer dep caused re-render cascade
+    // eslint-disable-next-line no-unreachable
     if (!st?.activePlayerId || !aPlayer) {
       lastChallengeLiRef.current = null
       return
