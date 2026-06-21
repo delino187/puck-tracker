@@ -259,7 +259,7 @@ function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, on
           fontSize: 13, fontWeight: 700, marginBottom: 28,
           animation: 'slideUp 0.5s ease-out 0.45s both',
         }}>
-          <CheckCircle size={15} /> +{shotCount} XP credited to your total
+          <CheckCircle size={15} /> +2 XP credited to your total
         </div>
 
         {/* ── Win bonus diamond claim ───────────────────────────────────── */}
@@ -380,7 +380,7 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
       const tempKey  = `${player.id}_${Date.now()}`
       const videoUrl = await uploadChallengeVideo(videoFile, tempKey, 'receiver', setUploadProgress)
       const updated  = await respondToChallenge(challenge, myHits, videoUrl)
-      logTechniqueShots(player.id, shotCount)
+      logTechniqueShots(player.id, shotCount, 2)   // shotCount pucks, flat 2 XP for completion
       updateStreak(player.id).catch(() => {})
       const didWin = updated.winnerId === player.id
       setWon(didWin)

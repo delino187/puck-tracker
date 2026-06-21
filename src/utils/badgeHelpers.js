@@ -29,6 +29,12 @@ export function dayStreak(p, s) {
   // Merge session days with freeze-protected dates stored on the player object
   const daySet = new Set(getPSessions(p, s).map(x => new Date(x.date).toDateString()))
   ;(p.protectedDates || []).forEach(d => daySet.add(d))
+
+  // Include days when shots were logged in any mode (Technique, Versus, PUCK).
+  // dailyLog is date-keyed in the Zustand store and updated by logTechniqueShots.
+  const techEntry = useAppStore.getState().techniqueByPlayer[p.id]
+  const dailyLog  = techEntry?.dailyLog || {}
+  Object.entries(dailyLog).forEach(([date, count]) => { if (count > 0) daySet.add(date) })
   const days = [...daySet].sort((a, b) => new Date(b) - new Date(a))
   if (!days.length) return 0
 

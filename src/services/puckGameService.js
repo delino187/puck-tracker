@@ -77,6 +77,10 @@ export async function createPuckGame({ p1Id, p1Name, p2Id, p2Name }) {
     p1Id, p1Name, p2Id, p2Name,
     p1Letters:       [],
     p2Letters:       [],
+    // Accumulates every trickStyle the setter used when they made a shot.
+    // Used for the "Backhand Beauty" quest check on game-over.
+    p1Techniques:    [],
+    p2Techniques:    [],
     status:          'active',
     setterPlayerId:  p1Id,
     currentRound:    freshRound(p1Id),
@@ -92,6 +96,12 @@ export async function submitSetterShot(game, { zone, trickStyle, videoUrl, made 
   const now          = Date.now()
   const otherPlayer  = game.setterPlayerId === game.p1Id ? game.p2Id : game.p1Id
 
+  // Only record the technique when the setter actually makes the shot — a miss
+  // doesn't count toward quest tracking since no point was contested.
+  const isP1Setter   = game.setterPlayerId === game.p1Id
+  const techKey      = isP1Setter ? 'p1Techniques' : 'p2Techniques'
+  const prevTechs    = (isP1Setter ? game.p1Techniques : game.p2Techniques) || []
+
   const update = made
     ? {
         currentRound: {
@@ -102,6 +112,7 @@ export async function submitSetterShot(game, { zone, trickStyle, videoUrl, made 
           defenderDeadline: now + 24 * 60 * 60 * 1000,
           status:           'awaiting_defender',
         },
+        [techKey]:      [...prevTechs, trickStyle],
         lastActivityAt: now,
       }
     : {

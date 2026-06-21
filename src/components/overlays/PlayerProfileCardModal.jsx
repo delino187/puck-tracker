@@ -17,17 +17,15 @@ function computePlayerStats(player, sessions) {
   let totalHits    = 0
   pSessions.forEach(s => {
     const h = (s.sets || []).reduce((a, st) => a + st.hits, 0)
-    // ATW sessions only track hits, so shots = hits to avoid inflating miss count.
     sessionShots += s.source === 'atw' ? h : (s.sets || []).length * 10
     totalHits    += h
   })
-  // Technique pucks live in Zustand, not in sessions — add them so the modal
-  // reflects the same career total shown on the Dashboard.
   const techEntry  = useAppStore.getState().techniqueByPlayer[player.id]
   const totalShots = sessionShots + (techEntry?.totalPucks || 0)
-  const xp         = calcXP(totalShots, totalHits)
+  const bonusXP    = techEntry?.bonusXP || 0
+  const xp         = calcXP(totalShots, totalHits) + bonusXP
   const { li }     = getLevel(xp)
-  return { totalShots, totalHits, xp, li }
+  return { totalShots, li }
 }
 
 // Vertical bar — label below, colored fill
@@ -60,7 +58,7 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
   const [h2h,     setH2h]     = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const { totalShots, totalHits, li } = computePlayerStats(player, sessions)
+  const { totalShots, li } = computePlayerStats(player, sessions)
   const level              = LEVELS[li]
   const earnedIds          = Object.keys(player.earnedBadges || {})
   const earnedMedals       = BADGES
@@ -215,17 +213,16 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
 
         {/* ── Stats row ─────────────────────────────────────────────────────── */}
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+          display: 'grid', gridTemplateColumns: '1fr 1fr',
           background: '#0f172a', borderRadius: 12, padding: '12px 8px',
           marginBottom: 16, gap: 4,
         }}>
           {[
             { label: 'Total Pucks', value: totalShots > 0 ? totalShots.toLocaleString() : '—' },
-            { label: 'ELO',         value: (player.elo ?? 1000).toLocaleString() },
             { label: 'Streak',      value: activeStreak > 0 ? `${activeStreak}D` : '—' },
           ].map(({ label, value }) => (
             <div key={label} style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.04em', color: '#f1f5f9', lineHeight: 1 }}>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.04em', color: '#f1f5f9', lineHeight: 1 }}>
                 {value}
               </div>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#a855f7', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 4 }}>

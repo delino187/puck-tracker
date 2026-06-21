@@ -84,8 +84,8 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit 
         videoUrl,
         matchType,
       })
-      // Award XP via technique shots — +1 XP per puck, shows in career total
-      logTechniqueShots(player.id, shotCount)
+      // Track pucks shot + flat 2 XP for completing a Versus game
+      logTechniqueShots(player.id, shotCount, 2)
       updateStreak(player.id).catch(() => {})
       audioEngine.playChallengeSent()
       setStep(3)

@@ -21,8 +21,9 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
   const cur     = LEVELS[stats.li]
   const next    = LEVELS[stats.li + 1]
 
-  const techniquePucks = useAppStore(s => s.techniqueByPlayer[player.id]?.totalPucks || 0)
-  const careerTotal    = (stats.totalShots ?? 0) + techniquePucks
+  const techniquePucks   = useAppStore(s => s.techniqueByPlayer[player.id]?.totalPucks || 0)
+  const techniqueDailyLog = useAppStore(s => s.techniqueByPlayer[player.id]?.dailyLog  || {})
+  const careerTotal      = (stats.totalShots ?? 0) + techniquePucks
 
   const weekRank = [...players]
     .map(p => ({
@@ -38,10 +39,19 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
   const currentStreak     = stats?.streak ?? 0
   const activeStreakBadge = [...STREAK_BADGES].reverse().find(b => currentStreak >= b.milestone) ?? null
 
-  // Today's shots (session-based only — technique pucks are session-less)
-  const todayShots = sessions
-    .filter(s => s.playerId === player.id && new Date(s.date).toDateString() === new Date().toDateString())
+  // Today's shots unified across all modes: Target Practice sessions + Technique
+  // Only //(Technique/Versus/PUCK shots are date-logged in Zustand via dailyLog)
+  const todayStr          = new Date().toDateString()
+  const sessionTodayShots = sessions
+    .filter(s => s.playerId === player.id && new Date(s.date).toDateString() === todayStr)
     .reduce((a, s) => a + s.sets.length * 10, 0)
+  const todayShots        = sessionTodayShots + (techniqueDailyLog[todayStr] || 0)
+
+  // This week's shots unified across all modes
+  const weekTechniquePucks = Object.entries(techniqueDailyLog)
+    .filter(([date]) => new Date(date) >= ws)
+    .reduce((sum, [, count]) => sum + count, 0)
+  const weekShotsAll = (stats.weekShots ?? 0) + weekTechniquePucks
 
   const isIosSafari = typeof window !== 'undefined'
     && /iphone|ipad|ipod/i.test(navigator.userAgent)
@@ -213,20 +223,12 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
         <div style={C.label}>This Week</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 
-          {/* Pucks */}
+          {/* Pucks — all modes unified */}
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 32, fontWeight: 800, color: '#60a5fa', lineHeight: 1 }}>
-              {stats.weekShots}
+              {weekShotsAll}
             </div>
             <div className="stat-label">PUCKS</div>
-          </div>
-
-          {/* Accuracy */}
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 32, fontWeight: 800, color: '#34d399', lineHeight: 1 }}>
-              {stats.weekShots > 0 ? stats.weekAcc.toFixed(0) + '%' : '—'}
-            </div>
-            <div className="stat-label">ACCURACY</div>
           </div>
 
           {/* Streak — earned badge with day count, or locked Spark as motivational goal */}

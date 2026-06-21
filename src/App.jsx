@@ -427,13 +427,14 @@ export default function App() {
   // Maps each rookie quest key to its milestone badge ID
   const ROOKIE_BADGE_MAP = {
     puckSet100:      'ob_centurion',
-    horseGame:       'ob_firstblood',
-    aroundWorld:     'ob_aroundrim',
-    issueChallenge:  'ob_gauntlet',
-    visitStore:      'ob_browsing',
-    techniqueOnly10: 'ob_formfirst',
-    spinDaily:       'ob_dailygrind',
-    spinWeekly:      'ob_weeklywar',
+    horseGame:           'ob_firstblood',
+    aroundWorld:         'ob_aroundrim',
+    issueChallenge:      'ob_gauntlet',
+    visitStore:          'ob_browsing',
+    techniqueOnly10:     'ob_formfirst',
+    spinDaily:           'ob_dailygrind',
+    spinWeekly:          'ob_weeklywar',
+    puck_backhand_win:   'ob_backhand_beauty',
   }
 
   function markRookieQuest(key) {
@@ -1320,7 +1321,15 @@ export default function App() {
                   const idx = prev.findIndex(g => g.id === updated.id)
                   return idx >= 0 ? prev.map(g => g.id === updated.id ? updated : g) : [updated, ...prev]
                 })
-                if (updated.status !== 'active') markRookieQuest('horseGame')
+                if (updated.status !== 'active') {
+                  markRookieQuest('horseGame')
+                  // "Backhand Beauty" — win using at least one made Backhand setter shot
+                  const pid      = aPlayer.id
+                  const isWinner = (updated.status === 'p1_wins' && updated.p1Id === pid) ||
+                                   (updated.status === 'p2_wins' && updated.p2Id === pid)
+                  const myTechs  = (updated.p1Id === pid ? updated.p1Techniques : updated.p2Techniques) || []
+                  if (isWinner && myTechs.includes('Backhand')) markRookieQuest('puck_backhand_win')
+                }
               }}
               onConcedeGame={gameId => {
                 // Optimistic removal — real-time listener confirms the final state

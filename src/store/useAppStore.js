@@ -116,16 +116,22 @@ export const useAppStore = create(
       },
 
       // ── Technique actions ──────────────────────────────────────────────────
-      // Increments career puck count and awards +1 XP per puck.
-      // Bypasses zone/accuracy tracking entirely.
-      logTechniqueShots: (playerId, pucksShot) => {
-        const prev = get().techniqueByPlayer[playerId] ?? { totalPucks: 0, bonusXP: 0 }
+      // Increments career puck count and records a date-stamped daily entry so
+      // weekly/daily totals and streaks can aggregate across all modes.
+      // xpOverride: pass an explicit XP amount for flat-rate competitive modes
+      // (PUCK rounds, Versus games) instead of the default 1-XP-per-puck rate.
+      logTechniqueShots: (playerId, pucksShot, xpOverride = null) => {
+        const prev    = get().techniqueByPlayer[playerId] ?? { totalPucks: 0, bonusXP: 0, dailyLog: {} }
+        const xpGain  = xpOverride !== null ? xpOverride : pucksShot
+        const today   = new Date().toDateString()
+        const prevLog = prev.dailyLog || {}
         set(state => ({
           techniqueByPlayer: {
             ...state.techniqueByPlayer,
             [playerId]: {
               totalPucks: prev.totalPucks + pucksShot,
-              bonusXP:    prev.bonusXP    + pucksShot, // +1 XP per puck
+              bonusXP:    prev.bonusXP    + xpGain,
+              dailyLog:   { ...prevLog, [today]: (prevLog[today] || 0) + pucksShot },
             },
           },
         }))

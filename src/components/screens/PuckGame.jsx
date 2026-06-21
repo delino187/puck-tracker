@@ -174,7 +174,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
     setSubmitting(true); setError('')
     try {
       const url = await uploadPuckVideo(videoFile, selectedGame.id, `setter_${player.id}`, setUploadProgress)
-      logTechniqueShots(player.id, 1)   // 1 shot per setter turn → +1 XP
+      logTechniqueShots(player.id, 1, 2)   // 1 puck per turn, flat 2 XP per round
       updateStreak(player.id).catch(() => {})
       const updated = await submitSetterShot(selectedGame, { zone, trickStyle: trick, videoUrl: url, made })
       await refresh(updated)
@@ -187,7 +187,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
     setSubmitting(true); setError('')
     try {
       const url = await uploadPuckVideo(videoFile, selectedGame.id, `defender_${player.id}`, setUploadProgress)
-      logTechniqueShots(player.id, 1)   // 1 shot per defender turn → +1 XP
+      logTechniqueShots(player.id, 1, 2)   // 1 puck per turn, flat 2 XP per round
       updateStreak(player.id).catch(() => {})
       const p1 = players.find(p => p.id === selectedGame.p1Id)
       const p2 = players.find(p => p.id === selectedGame.p2Id)
