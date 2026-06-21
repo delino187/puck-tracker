@@ -266,6 +266,8 @@ export default function App() {
     issueChallenge:  'ob_gauntlet',
     visitStore:      'ob_browsing',
     techniqueOnly10: 'ob_formfirst',
+    spinDaily:       'ob_dailygrind',
+    spinWeekly:      'ob_weeklywar',
   }
 
   function markRookieQuest(key) {
@@ -1130,10 +1132,13 @@ export default function App() {
                 const id = prev.activePlayerId
                 return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, diamonds: (p.diamonds || 0) + amount } : p) }
               })}
-              onSpinComplete={(quests) => setSt(prev => {
-                const id = prev.activePlayerId
-                return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests } : p) }
-              })}
+              onSpinComplete={(quests) => {
+                markRookieQuest('spinDaily')
+                setSt(prev => {
+                  const id = prev.activePlayerId
+                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests } : p) }
+                })
+              }}
               onClaimQuest={(questIndex) => setSt(prev => {
                 const id     = prev.activePlayerId
                 const player = prev.players.find(p => p.id === id)
@@ -1149,10 +1154,13 @@ export default function App() {
                   ),
                 }
               })}
-              onInitWeeklyQuests={(newQuests) => setSt(prev => {
-                const id = prev.activePlayerId
-                return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, weekly_quests: newQuests, last_weekly_quest_pick: getWeekStart().toDateString() } : p) }
-              })}
+              onInitWeeklyQuests={(newQuests) => {
+                markRookieQuest('spinWeekly')
+                setSt(prev => {
+                  const id = prev.activePlayerId
+                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, weekly_quests: newQuests, last_weekly_quest_pick: getWeekStart().toDateString() } : p) }
+                })
+              }}
               onClaimWeeklyQuest={(questIndex, reward) => setSt(prev => {
                 const id     = prev.activePlayerId
                 const player = prev.players.find(p => p.id === id)

@@ -5,6 +5,8 @@ export const ROOKIE_QUESTS = [
   { key: 'issueChallenge',  label: 'Issue a challenge to a friend',         icon: '⚔️', reward: 10 },
   { key: 'visitStore',      label: 'Visit the Store for the first time',    icon: '🛒', reward: 10 },
   { key: 'techniqueOnly10', label: 'Log 10 pucks in Technique Only mode',   icon: '💪', reward: 10 },
+  { key: 'spinDaily',       label: 'Spin the daily quest wheel',            icon: '🎰', reward: 1  },
+  { key: 'spinWeekly',      label: 'Spin the weekly quest wheel',           icon: '📆', reward: 1  },
 ]
 
 export const DEFAULT_ROOKIE_QUESTS = Object.fromEntries(
