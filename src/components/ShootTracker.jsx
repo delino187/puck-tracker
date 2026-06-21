@@ -32,7 +32,8 @@ export default function ShootTracker({
   const [subMode,    setSubMode]    = useState(null)
   const [activeGame, setActiveGame] = useState(null)  // null | 'puck' | 'atw'
   // Lifted zone input state: { [zoneId]: '' | string-number }
-  const [zoneInputs, setZoneInputs] = useState({})
+  const [zoneInputs,   setZoneInputs]   = useState({})
+  const [selectedZone, setSelectedZone] = useState(ZONES[0].id)
 
   // Reset to the fork whenever a session ends so the choice re-presents
   useEffect(() => {
@@ -364,66 +365,142 @@ export default function ShootTracker({
         </div>
       </div>
 
-      {/* ── Zone logging grid + Log All ──────────────────────────────────── */}
+      {/* ── Zone grid + single stepper ───────────────────────────────────── */}
       <div style={{ ...C.card, marginBottom: 10 }}>
-        <div style={{ ...C.label, display: 'flex', justifyContent: 'space-between' }}>
-          <span>Log a Set of 10</span>
+        <div style={{ ...C.label, display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+          <span>Select Zone · Set Hits · Log Session</span>
           <span style={{ color: '#f59e0b' }}>+5 XP/set</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          {ZONES.map(z => {
-            const pr = session.sets.filter(s => s.zone === z.id)
+
+        {/* ── Visual net grid ───────────────────────────────────────────── */}
+        {/* Layout mirrors a hockey net: TL–BD–TR / LP–·–RP / LG–·–LB */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 12 }}>
+          {[
+            'top_left', 'bar_down', 'top_right',
+            'left_post', null,       'right_post',
+            'low_glove', null,       'low_blocker',
+          ].map((id, i) => {
+            if (!id) return <div key={i} />
+            const z    = ZONES.find(z => z.id === id)
+            const hits = zoneInputs[id] !== undefined && zoneInputs[id] !== '' ? parseInt(zoneInputs[id]) : 0
+            const prev = session.sets.filter(s => s.zone === id)
+            const sel  = selectedZone === id
+            const color = hits === 0 ? '#475569'
+                        : hits >= 8 ? '#f97316'
+                        : hits >= 5 ? '#22c55e'
+                        : '#60a5fa'
             return (
-              <ZoneSetRow
-                key={z.id} zone={z}
-                prevHits={pr.reduce((a, s) => a + s.hits, 0)}
-                prevShots={pr.length * 10}
-                value={zoneInputs[z.id] ?? ''}
-                onChange={v => setZoneInputs(prev => ({ ...prev, [z.id]: v }))}
-                onLog={h => {
-                  if (!navigator.onLine) {
-                    syncQueue.enqueue('LOG_SET_WORKOUT', {
-                      sessionId: session?.id,
-                      playerId:  player?.id,
-                      zoneId:    z.id,
-                      hits:      h,
-                    })
-                    alert('❄️ Saved offline! Your workout will sync automatically once you reach Wi-Fi.')
-                  }
-                  onLogSet(z.id, h)
+              <button
+                key={id}
+                onClick={() => setSelectedZone(id)}
+                style={{
+                  background: sel
+                    ? 'linear-gradient(135deg,#1d3a6e,#1e40af)'
+                    : hits > 0
+                      ? 'linear-gradient(135deg,#0a1a10,#0c2010)'
+                      : '#0a0f1a',
+                  border: sel
+                    ? '2px solid #3b82f6'
+                    : hits > 0
+                      ? `2px solid ${color}55`
+                      : '2px solid #1e293b',
+                  borderRadius: 10,
+                  padding: '10px 4px',
+                  cursor: 'pointer',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                  boxShadow: sel ? '0 0 14px #3b82f655' : hits > 0 ? `0 0 8px ${color}22` : 'none',
+                  transition: 'all 0.12s',
+                  minHeight: 60,
+                  userSelect: 'none',
                 }}
-              />
+              >
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: sel ? '#93c5fd' : '#64748b', letterSpacing: '0.1em', textTransform: 'uppercase', lineHeight: 1 }}>
+                  {z.short}
+                </div>
+                <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, color: sel ? '#fff' : color, lineHeight: 1, letterSpacing: '0.03em' }}>
+                  {hits}<span style={{ fontSize: 11, color: sel ? '#93c5fd' : '#475569' }}>/10</span>
+                </div>
+                {prev.length > 0 && (
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, color: '#475569', lineHeight: 1 }}>
+                    {prev.reduce((a,s)=>a+s.hits,0)}↑
+                  </div>
+                )}
+              </button>
             )
           })}
         </div>
 
-        {/* ── Log All button ─────────────────────────────────────────────── */}
+        {/* ── Single stepper for selected zone ──────────────────────────── */}
+        {(() => {
+          const z       = ZONES.find(z => z.id === selectedZone)
+          const current = zoneInputs[selectedZone] !== undefined && zoneInputs[selectedZone] !== ''
+                          ? parseInt(zoneInputs[selectedZone]) : 0
+          const setVal  = v => setZoneInputs(prev => ({ ...prev, [selectedZone]: String(v) }))
+          const color   = current === 0 ? '#334155'
+                        : current >= 8  ? '#f97316'
+                        : current >= 5  ? '#22c55e'
+                        :                  '#60a5fa'
+          const btnStyle = {
+            width: 56, height: 56, flexShrink: 0,
+            borderRadius: 12, border: 'none', cursor: 'pointer',
+            fontFamily: "'Bangers',sans-serif", fontSize: 30, lineHeight: 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            userSelect: 'none', WebkitUserSelect: 'none',
+          }
+          return (
+            <div style={{ background: '#060b14', borderRadius: 12, padding: '12px 10px', border: '1.5px solid #1e3a5f', marginBottom: 12 }}>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#3b82f6', letterSpacing: '0.16em', textAlign: 'center', marginBottom: 10 }}>
+                ▶ {z?.label?.toUpperCase()} — TAP +/- TO SET HITS
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => { if (current > 0) setVal(current - 1) }}
+                  disabled={current <= 0}
+                  style={{ ...btnStyle, background: current > 0 ? 'linear-gradient(135deg,#1e0a0a,#3d0808)' : '#0a0f1a', color: current > 0 ? '#f87171' : '#1e293b', boxShadow: current > 0 ? '0 0 10px #ef444422' : 'none' }}
+                  onTouchStart={e => { if (current > 0) e.currentTarget.style.transform='scale(0.9)' }}
+                  onTouchEnd={e  => { e.currentTarget.style.transform='scale(1)' }}
+                >−</button>
+
+                <div style={{ flex: 1, textAlign: 'center', fontFamily: "'Bangers',sans-serif", fontSize: 52, lineHeight: 1, letterSpacing: '0.04em', color, textShadow: current > 0 ? `0 0 18px ${color}66` : 'none', transition: 'color 0.1s' }}>
+                  {current}
+                  <span style={{ fontSize: 18, color: '#475569', marginLeft: 3 }}>/10</span>
+                </div>
+
+                <button
+                  onClick={() => { if (current < 10) setVal(current + 1) }}
+                  disabled={current >= 10}
+                  style={{ ...btnStyle, background: current < 10 ? 'linear-gradient(135deg,#0c2a4a,#1d4ed8)' : '#0a0f1a', color: current < 10 ? '#93c5fd' : '#1e293b', boxShadow: current < 10 ? '0 0 10px #3b82f633' : 'none' }}
+                  onTouchStart={e => { if (current < 10) e.currentTarget.style.transform='scale(0.9)' }}
+                  onTouchEnd={e  => { e.currentTarget.style.transform='scale(1)' }}
+                >+</button>
+              </div>
+            </div>
+          )
+        })()}
+
+        {/* ── Log Practice Session button ────────────────────────────────── */}
         <button
           onClick={handleLogAllClick}
           disabled={filledCount === 0}
           style={{
-            marginTop: 14,
-            width: '100%',
-            padding: '13px 0',
-            borderRadius: 10,
-            border: 'none',
+            width: '100%', padding: '15px 0',
+            borderRadius: 10, border: 'none',
             cursor: filledCount > 0 ? 'pointer' : 'default',
-            fontFamily: "'Bangers',sans-serif",
-            fontWeight: 400,
-            fontSize: 20,
+            fontFamily: "'Bangers',sans-serif", fontSize: 22,
             letterSpacing: '0.1em',
-            textTransform: 'uppercase',
             background: filledCount > 0
-              ? 'linear-gradient(90deg,#1d4ed8,#2563eb,#3b82f6)'
+              ? 'linear-gradient(90deg,#1d4ed8,#3b82f6)'
               : '#0f172a',
             color: filledCount > 0 ? '#fff' : '#334155',
-            boxShadow: filledCount > 0 ? '0 0 18px #3b82f633' : 'none',
-            transition: 'background 0.2s, box-shadow 0.2s',
+            boxShadow: filledCount > 0 ? '0 0 22px #3b82f644' : 'none',
+            transition: 'all 0.2s',
           }}
+          onTouchStart={e => { if (filledCount > 0) e.currentTarget.style.transform='scale(0.98)' }}
+          onTouchEnd={e  => { e.currentTarget.style.transform='scale(1)' }}
         >
           {filledCount > 0
-            ? `⚡ Log All ${filledCount} ${filledCount === 1 ? 'Zone' : 'Zones'}`
-            : 'Fill zones above, then Log All'}
+            ? `⚡ LOG ${filledCount} ZONE${filledCount > 1 ? 'S' : ''} — ${filledCount * 10} PUCKS`
+            : '← SET ZONES ABOVE FIRST'}
         </button>
       </div>
 
