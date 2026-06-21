@@ -58,6 +58,7 @@ export async function createChallenge({
   receiverId,   receiverName,
   zone, challengerHits, videoUrl,
   matchType = 'ranked',
+  shotCount = 5,
 }) {
   const now  = Date.now()
   const data = {
@@ -67,6 +68,7 @@ export async function createChallenge({
     challengerHits,
     challengerVideo: videoUrl,
     matchType,                   // 'ranked' | 'unranked'
+    shotCount,                   // total shots per turn (3 or 5)
     status:          'pending',
     receiverHits:    null,
     receiverVideo:   null,
