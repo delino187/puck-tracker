@@ -2,6 +2,7 @@ import {
   Flame, Star, Target, Clock, Shield, Leaf, Zap, Award,
   Timer, CheckCircle, Moon, Sunrise, Crosshair, Gem,
   Globe, Plane, RotateCcw, Compass, Wind, Map, Gamepad2,
+  Swords, ShoppingBag, Trophy, Disc3,
 } from 'lucide-react'
 import {
   dayStreak, zoneHits, lifetimeShots, maxShotsInDay, maxSessionsInDay,
@@ -123,6 +124,13 @@ export const BADGES = [
   { id: 'atw_jl', name: 'Jet Lag',          desc: 'Play Around the World 3 days in a row',       cat: 'games', tier: 2, Icon: Moon,      innerBg: 'linear-gradient(135deg,#0f172a,#1e3a8a)', innerIcon: '#a5b4fc', check: (p,s) => atwDayStreak(p,s,3)            },
   { id: 'atw_sb', name: 'Sonic Boom',       desc: 'Beat your ATW personal best by 3+ hits',      cat: 'games', tier: 3, Icon: Wind,      innerBg: 'linear-gradient(135deg,#7f1d1d,#dc2626)', innerIcon: '#fca5a5', check: (p,s) => atwBeatPBBy(p,s,3)             },
   { id: 'atw_ps', name: 'Passport Stamped', desc: '40 career hits across all ATW runs',          cat: 'games', tier: 2, Icon: Map,       innerBg: 'linear-gradient(135deg,#713f12,#b45309)', innerIcon: '#fde68a', check: (p,s) => atwCareerHits(p,s) >= 40       },
+
+  // ── Onboarding milestone badges (Common / tier 1) ────────────────────────────
+  { id: 'ob_centurion',  name: 'Centurion',       desc: 'Completed your first 100-puck tracking set.',            cat: 'skill', tier: 1, Icon: Target,      innerBg: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)', innerIcon: '#93c5fd', check: (p) => !!p.rookieQuests?.puckSet100    },
+  { id: 'ob_firstblood', name: 'First Blood',     desc: 'Completed your first PUCK game.',                       cat: 'skill', tier: 1, Icon: Disc3,        innerBg: 'linear-gradient(135deg,#450a0a,#991b1b)', innerIcon: '#fca5a5', check: (p) => !!p.rookieQuests?.horseGame     },
+  { id: 'ob_aroundrim',  name: 'Around the Rim',  desc: 'Completed your first Around the World game.',           cat: 'skill', tier: 1, Icon: Globe,         innerBg: 'linear-gradient(135deg,#134e4a,#0d9488)', innerIcon: '#99f6e4', check: (p) => !!p.rookieQuests?.aroundWorld   },
+  { id: 'ob_gauntlet',   name: 'Gauntlet Thrown', desc: 'Issued a Quick Match challenge to a friend.',           cat: 'skill', tier: 1, Icon: Swords,        innerBg: 'linear-gradient(135deg,#2e1065,#7c3aed)', innerIcon: '#d8b4fe', check: (p) => !!p.rookieQuests?.issueChallenge},
+  { id: 'ob_browsing',   name: 'Just Browsing',   desc: 'Visited the Store for the first time.',                 cat: 'skill', tier: 1, Icon: ShoppingBag,   innerBg: 'linear-gradient(135deg,#064e3b,#059669)', innerIcon: '#6ee7b7', check: (p) => !!p.rookieQuests?.visitStore    },
 
   // ── Rookie Graduate ───────────────────────────────────────────────────────────
   { id: 'rookie_grad', name: 'Rookie Graduate', desc: 'Mastered the basics of the ice. Fully completed all onboarding milestones!', cat: 'skill', tier: 4, Icon: Award, innerBg: 'linear-gradient(135deg,#422006,#b45309)', innerIcon: '#fef08a', check: (p) => {

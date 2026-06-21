@@ -258,6 +258,15 @@ export default function App() {
   const upd = patch => setSt(prev => ({ ...prev, ...patch }))
 
   // Mark a rookie quest complete, award diamonds, fire toast, check for graduate badge
+  // Maps each rookie quest key to its milestone badge ID
+  const ROOKIE_BADGE_MAP = {
+    puckSet100:    'ob_centurion',
+    horseGame:     'ob_firstblood',
+    aroundWorld:   'ob_aroundrim',
+    issueChallenge:'ob_gauntlet',
+    visitStore:    'ob_browsing',
+  }
+
   function markRookieQuest(key) {
     const quest = ROOKIE_QUESTS.find(q => q.key === key)
     if (!quest) return
@@ -269,11 +278,11 @@ export default function App() {
       const rq = player.rookieQuests || {}
       if (rq[key]) return prev   // already completed
 
-      const newRq      = { ...rq, [key]: key }
-      const allKeys    = ROOKIE_QUESTS.map(q => q.key)
-      const allDone    = allKeys.every(k => (k === key ? true : !!rq[k]))
-      const gradBadge  = BADGES.find(b => b.id === 'rookie_grad')
+      const allKeys     = ROOKIE_QUESTS.map(q => q.key)
+      const allDone     = allKeys.every(k => (k === key ? true : !!rq[k]))
+      const gradBadge   = BADGES.find(b => b.id === 'rookie_grad')
       const alreadyGrad = !!player.earnedBadges?.rookie_grad
+      const now         = Date.now()
 
       // Per-quest toast (deferred so setSt runs first)
       clearTimeout(rookieToastTimer.current)
@@ -290,9 +299,15 @@ export default function App() {
         }, 1200)
       }
 
-      const newEarnedBadges = (allDone && !alreadyGrad && gradBadge)
-        ? { ...(player.earnedBadges || {}), rookie_grad: { ts: Date.now() } }
-        : (player.earnedBadges || {})
+      // Award the per-quest milestone badge + the graduate badge if all done
+      const milestoneBadgeId = ROOKIE_BADGE_MAP[key]
+      const newEarnedBadges  = {
+        ...(player.earnedBadges || {}),
+        ...(milestoneBadgeId && !player.earnedBadges?.[milestoneBadgeId]
+            ? { [milestoneBadgeId]: { ts: now } } : {}),
+        ...(allDone && !alreadyGrad && gradBadge
+            ? { rookie_grad: { ts: now } } : {}),
+      }
 
       return {
         ...prev,
