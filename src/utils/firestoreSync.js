@@ -3,7 +3,7 @@ import { doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where } fro
 
 // Single fixed team — one doc for team-level data, subcollection for sessions.
 // Structure:
-//   teams/team_main                    → players, challenges, h2h, h2hHistory
+//   teams/team_main                    → players, challenges, h2h, h2hHistory, techniqueByPlayer
 //   teams/team_main/sessions/{id}      → one doc per session (avoids 1 MB doc limit)
 
 const TEAM_ID = 'team_main'
@@ -18,6 +18,8 @@ const syncedSessionIds = new Set()
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 // Returns merged state object on success, null on failure/missing.
+// The returned object includes `techniqueByPlayer` so storage.js can hydrate
+// the Zustand store — this is the only cross-device sync path for that data.
 export async function loadFromFirestore() {
   try {
     const [teamSnap, sessionSnaps] = await Promise.all([
@@ -32,28 +34,35 @@ export async function loadFromFirestore() {
       return d.data()
     })
 
+    // teamSnap.data() now includes techniqueByPlayer if it was ever saved.
     return { ...teamSnap.data(), sessions }
   } catch (err) {
-    console.warn('[Firestore] load failed:', err.message)
+    console.error('[Firestore] load failed — falling back to localStorage:', err.message)
     return null
   }
 }
 
 // ── Save ──────────────────────────────────────────────────────────────────────
-// Writes team-level fields to the team doc, then writes only NEW sessions.
-// Fire-and-forget safe — all errors are caught internally.
-export async function saveToFirestore(state) {
+// Writes team-level fields to the team doc using { merge: true } so concurrent
+// writers (updateStreak transaction, ELO updates, etc.) don't clobber each other.
+// techniqueByPlayer is passed in explicitly so cross-device sync works — it
+// lives in Zustand/localStorage by default and would otherwise be lost on a new
+// device or after clearing the browser cache.
+export async function saveToFirestore(state, techniqueByPlayer = {}) {
   try {
     const { sessions = [], ...rest } = state
 
+    // { merge: true } prevents overwriting fields written by other concurrent paths
+    // (e.g. updateStreak's transaction writes streakCount/lastActivity).
     await setDoc(teamDoc(), {
-      players:         rest.players         ?? [],
-      dailyChallenge:  rest.dailyChallenge  ?? null,
-      weeklyChallenge: rest.weeklyChallenge ?? null,
-      h2h:             rest.h2h             ?? null,
-      h2hHistory:      rest.h2hHistory      ?? [],
-      lastUpdated:     Date.now(),
-    })
+      players:            rest.players            ?? [],
+      dailyChallenge:     rest.dailyChallenge     ?? null,
+      weeklyChallenge:    rest.weeklyChallenge    ?? null,
+      h2h:                rest.h2h                ?? null,
+      h2hHistory:         rest.h2hHistory         ?? [],
+      techniqueByPlayer:  techniqueByPlayer,
+      lastUpdated:        Date.now(),
+    }, { merge: true })
 
     const newSessions = sessions.filter(s => !syncedSessionIds.has(s.id))
     await Promise.all(
@@ -62,7 +71,13 @@ export async function saveToFirestore(state) {
       )
     )
   } catch (err) {
-    console.warn('[Firestore] save failed:', err.message)
+    console.error(
+      '[Firestore] save failed — data is safe in localStorage but Firestore is out of sync.',
+      '\nPlayer count:', state.players?.length ?? 0,
+      '\nSession count:', state.sessions?.length ?? 0,
+      '\nError:', err.message,
+    )
+    throw err  // re-throw so callers can detect failure and surface it
   }
 }
 
@@ -87,6 +102,6 @@ export async function deletePlayerData(playerId) {
       ...challengeDocs.map(d => deleteDoc(d.ref)),
     ])
   } catch (err) {
-    console.warn('[Firestore] deletePlayerData failed:', err.message)
+    console.error('[Firestore] deletePlayerData failed:', err.message)
   }
 }

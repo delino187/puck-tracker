@@ -1,35 +1,43 @@
 import { db } from '../firebase.js'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { doc, runTransaction } from 'firebase/firestore'
 
 const TEAM_ID = 'team_main'
 const MS_24H  = 24 * 60 * 60 * 1000
 
 /**
  * Increments streakCount if the player had activity within the last 24 hours,
- * or resets it to 1 if it has been longer. Updates lastActivity to now.
+ * or resets it to 1 if it has been longer.  Updates lastActivity to now.
  * Returns the new streakCount.
+ *
+ * Uses a Firestore transaction so the read-then-write is atomic — prevents a
+ * concurrent saveToFirestore() call from reading stale player data and writing
+ * it back on top of this update (which would reset streakCount to whatever was
+ * in local React state at that moment).
  */
 export async function updateStreak(playerId) {
   try {
     const teamRef  = doc(db, 'teams', TEAM_ID)
-    const teamSnap = await getDoc(teamRef)
-    if (!teamSnap.exists()) return 0
+    let   newStreak = 0
 
-    const players = teamSnap.data().players || []
-    const player  = players.find(p => p.id === playerId)
-    if (!player) return 0
+    await runTransaction(db, async tx => {
+      const teamSnap = await tx.get(teamRef)
+      if (!teamSnap.exists()) return
 
-    const now       = Date.now()
-    const lastAct   = player.lastActivity || 0
-    const elapsed   = now - lastAct
-    const newStreak = elapsed < MS_24H ? (player.streakCount || 0) + 1 : 1
+      const players = teamSnap.data().players || []
+      const player  = players.find(p => p.id === playerId)
+      if (!player) return
 
-    await updateDoc(teamRef, {
-      players: players.map(p =>
-        p.id === playerId
-          ? { ...p, lastActivity: now, streakCount: newStreak }
-          : p
-      ),
+      const now    = Date.now()
+      const lastAct = player.lastActivity || 0
+      newStreak = (now - lastAct) < MS_24H ? (player.streakCount || 0) + 1 : 1
+
+      tx.update(teamRef, {
+        players: players.map(p =>
+          p.id === playerId
+            ? { ...p, lastActivity: now, streakCount: newStreak }
+            : p
+        ),
+      })
     })
 
     return newStreak

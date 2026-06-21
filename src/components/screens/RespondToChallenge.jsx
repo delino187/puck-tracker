@@ -8,6 +8,7 @@ import { updateStreak } from '../../utils/streakService.js'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
 import { playScoreSound } from '../../utils/arcadeSounds.js'
 import Avatar from '../shared/Avatar.jsx'
+import DiamondClaimButton from '../shared/DiamondClaimButton.jsx'
 
 // ── Rolling-number hook: animates from `startVal` toward `target` ─────────────
 function useRollingValue(target, startVal, duration = 1800) {
@@ -35,7 +36,8 @@ function useRollingValue(target, startVal, duration = 1800) {
 const CONFETTI_COLORS = ['#fbbf24','#22c55e','#06b6d4','#a855f7','#ef4444','#f97316','#fff']
 
 // ── Victory / Defeat full-screen overlay ──────────────────────────────────────
-function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, onBack }) {
+function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, onBack, onClaimBonus }) {
+  const [bonusClaimed, setBonusClaimed] = useState(false)
   const oldElo     = player.elo ?? 1000
   const delta      = eloData?.receiverDelta ?? 0
   const newElo     = oldElo + delta
@@ -260,23 +262,37 @@ function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, on
           <CheckCircle size={15} /> +{shotCount} XP credited to your total
         </div>
 
-        {/* Back button */}
-        <button
-          onClick={onBack}
-          style={{
-            background: won
-              ? 'linear-gradient(135deg,#aa6600,#fbbf24)'
-              : 'linear-gradient(135deg,#7f1d1d,#ef4444)',
-            color: won ? '#000' : '#fff',
-            border: 'none', borderRadius: 18, padding: '16px 52px',
-            fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.1em',
-            cursor: 'pointer',
-            boxShadow: won ? '0 0 36px #fbbf2455, 0 4px 0 #92400e' : '0 0 36px #ef444455, 0 4px 0 #7f1d1d',
-            animation: 'slideUp 0.5s ease-out 0.6s both',
-          }}
-        >
-          BACK TO VERSUS
-        </button>
+        {/* ── Win bonus diamond claim ───────────────────────────────────── */}
+        {won && onClaimBonus && !bonusClaimed && (
+          <div style={{ marginBottom: 22, animation: 'slideUp 0.5s ease-out 0.5s both' }}>
+            <DiamondClaimButton
+              onClaimed={() => {
+                onClaimBonus()
+                setBonusClaimed(true)
+              }}
+            />
+          </div>
+        )}
+
+        {/* Back button — always visible for losses; visible after claim for wins */}
+        {(!won || bonusClaimed || !onClaimBonus) && (
+          <button
+            onClick={onBack}
+            style={{
+              background: won
+                ? 'linear-gradient(135deg,#aa6600,#fbbf24)'
+                : 'linear-gradient(135deg,#7f1d1d,#ef4444)',
+              color: won ? '#000' : '#fff',
+              border: 'none', borderRadius: 18, padding: '16px 52px',
+              fontFamily: "'Bangers',sans-serif", fontSize: 26, letterSpacing: '0.1em',
+              cursor: 'pointer',
+              boxShadow: won ? '0 0 36px #fbbf2455, 0 4px 0 #92400e' : '0 0 36px #ef444455, 0 4px 0 #7f1d1d',
+              animation: 'slideUp 0.5s ease-out 0.6s both',
+            }}
+          >
+            BACK TO VERSUS
+          </button>
+        )}
       </div>
     </div>
   )
@@ -292,7 +308,7 @@ function uploadErrMsg(err) {
   return 'Upload failed — check your connection and try again.'
 }
 
-export default function RespondToChallenge({ player, challenge, onBack, onSubmit }) {
+export default function RespondToChallenge({ player, challenge, onBack, onSubmit, onClaimVictoryBonus }) {
   const shotCount = challenge.shotCount ?? 5
 
   const [videoFile,  setVideoFile]  = useState(null)
@@ -388,6 +404,7 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
         shotCount={shotCount}
         challenge={challenge}
         onBack={onBack}
+        onClaimBonus={won ? onClaimVictoryBonus : undefined}
       />
     )
   }

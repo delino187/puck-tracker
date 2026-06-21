@@ -15,7 +15,7 @@ import { deletePlayerData } from '../utils/firestoreSync.js'
 import { useAppStore } from '../store/useAppStore.js'
 
 // ─── Roster manager ───────────────────────────────────────────────────────────
-function CoachRoster({ st, upd, onPuckCreditAdded }) {
+function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [editPw,   setEditPw]   = useState('')
   const [showPw,   setShowPw]   = useState({})
@@ -243,7 +243,18 @@ function CoachRoster({ st, upd, onPuckCreditAdded }) {
               const amount = parseInt(puckInput)
               if (!amount || amount <= 0) return
 
+              // XP is 1:1 per puck (matches logTechniqueShots bonusXP rate)
+              const xpEarned    = amount
+              const prevBonusXP = techniqueByPlayer[p.id]?.bonusXP || 0
+              const prevTotalXP = playerStats(p, st.sessions).xp + prevBonusXP
+              const prevLi      = getLevel(prevTotalXP).li
+              const { li: newLi, level: newLevel } = getLevel(prevTotalXP + xpEarned)
+
               logTechniqueShots(p.id, amount)
+
+              if (newLi > prevLi) {
+                onPlayerLevelUp?.(p.id, newLevel)
+              }
 
               // Check rookie quest threshold
               const prevTotal = (playerStats(p, st.sessions).totalShots ?? 0) + (techniqueByPlayer[p.id]?.totalPucks || 0)
@@ -253,7 +264,7 @@ function CoachRoster({ st, upd, onPuckCreditAdded }) {
 
               const label = p.jerseyNum ? `${p.name} #${p.jerseyNum}` : p.name
               clearTimeout(puckToastTimer.current)
-              setPuckToast(`🏒 +${amount.toLocaleString()} pucks added to ${label}!`)
+              setPuckToast(`🏒 +${amount.toLocaleString()} pucks and +${xpEarned.toLocaleString()} XP added to ${label}'s lifetime total! ⚡`)
               puckToastTimer.current = setTimeout(() => setPuckToast(null), 4000)
               setPuckInput('')
             }}
@@ -394,7 +405,7 @@ function CoachRoster({ st, upd, onPuckCreditAdded }) {
 }
 
 // ─── Main Coach Panel ─────────────────────────────────────────────────────────
-export default function CoachPortal({ st, upd, onPuckCreditAdded }) {
+export default function CoachPortal({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
   const [cTab, setCTab] = useState('roster')
   const { isOutside, toggleOutsideMode } = useTheme()
   const tabs = [
@@ -455,7 +466,7 @@ export default function CoachPortal({ st, upd, onPuckCreditAdded }) {
         </div>
 
         <div style={{ padding: 16 }}>
-          {cTab === 'roster'      && <CoachRoster       st={st} upd={upd} onPuckCreditAdded={onPuckCreditAdded} />}
+          {cTab === 'roster'      && <CoachRoster       st={st} upd={upd} onPuckCreditAdded={onPuckCreditAdded} onPlayerLevelUp={onPlayerLevelUp} />}
           {cTab === 'leaderboard' && <CoachLeaderboard  st={st} />}
           {cTab === 'feedback'    && <CoachFeedback />}
         </div>

@@ -5,7 +5,7 @@
  */
 import { db } from '../firebase.js'
 import {
-  collection, doc, addDoc, updateDoc, getDocs, runTransaction,
+  collection, doc, addDoc, updateDoc, getDocs, runTransaction, writeBatch,
 } from 'firebase/firestore'
 import { calculateNewRatings } from '../utils/elo.js'
 import { upload } from '@vercel/blob/client'
@@ -69,13 +69,14 @@ export async function createChallenge({
     challengerVideo: videoUrl,
     matchType,                   // 'ranked' | 'unranked'
     shotCount,                   // total shots per turn (3 or 5)
-    status:          'pending',
-    receiverHits:    null,
-    receiverVideo:   null,
-    winnerId:        null,
-    createdAt:       now,
-    expiresAt:       now + EXPIRY_MS,
-    respondedAt:     null,
+    status:           'pending',
+    receiverHits:     null,
+    receiverVideo:    null,
+    winnerId:         null,
+    createdAt:        now,
+    expiresAt:        now + EXPIRY_MS,
+    respondedAt:      null,
+    seenByOpponent:   false,     // cleared to true when receiver opens the Versus tab
   }
   const docRef = await addDoc(COL(), data)
   return { id: docRef.id, ...data }
@@ -229,6 +230,24 @@ export async function loadChallengesForPlayer(playerId) {
     console.warn('[PeerChallenge] load failed:', err.message)
     return []
   }
+}
+
+// ── Mark seen ─────────────────────────────────────────────────────────────────
+// Called when the receiver opens the Versus tab.  Batch-writes seenByOpponent=true
+// on every pending challenge addressed to them so the notification dot clears.
+export async function markChallengesAsSeen(playerId, challenges) {
+  const unseen = challenges.filter(
+    c => c.receiverId === playerId && c.status === 'pending' && !c.seenByOpponent
+  )
+  if (unseen.length === 0) return
+
+  const batch = writeBatch(db)
+  unseen.forEach(c => {
+    batch.update(doc(db, 'teams', TEAM_ID, 'peerChallenges', c.id), { seenByOpponent: true })
+  })
+  await batch.commit().catch(err =>
+    console.warn('[PeerChallenge] markChallengesAsSeen batch failed:', err.message)
+  )
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

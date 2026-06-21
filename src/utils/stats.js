@@ -22,7 +22,10 @@ export function getLevel(xp) {
   return { level: LEVELS[li], li }
 }
 
-export function playerStats(player, sessions) {
+// bonusXP covers all non-session puck activity: challenges, PUCK games,
+// technique mode, and coach manual credits.  Pass it in so the XP bar and
+// level display reflect the player's true career total.
+export function playerStats(player, sessions, bonusXP = 0) {
   const pss = getPSessions(player, sessions)
 
   // ATW sessions only track successful hits (no misses recorded),
@@ -38,7 +41,7 @@ export function playerStats(player, sessions) {
   const allSets = pss.flatMap(s => s.sets)
   const acc        = totalShots > 0 ? (totalHits / totalShots) * 100 : 0
   const streak     = dayStreak(player, sessions)
-  const xp         = calcXP(totalShots, totalHits)
+  const xp         = calcXP(totalShots, totalHits) + bonusXP
   const { level, li } = getLevel(xp)
   const nextLevel  = LEVELS[li + 1] || null
 

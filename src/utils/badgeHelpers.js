@@ -31,12 +31,23 @@ export function dayStreak(p, s) {
   ;(p.protectedDates || []).forEach(d => daySet.add(d))
   const days = [...daySet].sort((a, b) => new Date(b) - new Date(a))
   if (!days.length) return 0
-  const today = new Date().toDateString()
-  const yest  = new Date(Date.now() - 86400000).toDateString()
+
+  const today    = new Date().toDateString()
+  // Use setDate arithmetic rather than subtracting 86 400 000 ms — DST transitions
+  // make some "days" only 23 h long, which would make the subtraction land on the
+  // wrong calendar date (e.g. two days ago instead of yesterday).
+  const yestDate = new Date()
+  yestDate.setDate(yestDate.getDate() - 1)
+  const yest = yestDate.toDateString()
+
   if (days[0] !== today && days[0] !== yest) return 0
+
   let n = 1
   for (let i = 1; i < days.length; i++) {
-    if ((new Date(days[i - 1]) - new Date(days[i])) / 86400000 === 1) n++
+    // Math.round guards against DST: on spring-forward nights the gap between
+    // two consecutive midnight-local timestamps is 23 h (0.958…), not exactly 1.
+    // Strict equality === 1 breaks the streak on those nights; rounding fixes it.
+    if (Math.round((new Date(days[i - 1]) - new Date(days[i])) / 86400000) === 1) n++
     else break
   }
   return n

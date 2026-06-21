@@ -6,7 +6,8 @@ import { saveToFirestore, deletePlayerData } from './utils/firestoreSync.js'
 import { audioEngine } from './services/audioEngine.js'
 import { sendRageBait, subscribeToRageBaits, dismissRageBait, sendCompliment, subscribeToCompliments, dismissNotification } from './services/rageBaitService.js'
 import { RageBaitSenderModal, RageBaitReceiverModal, ComplimentSenderModal, ComplimentReceiverModal } from './components/overlays/RageBaitModal.jsx'
-import { playerStats, newId, getWeekStart } from './utils/stats.js'
+import { playerStats, newId, getWeekStart, getLevel } from './utils/stats.js'
+import { useAppStore } from './store/useAppStore.js'
 import { BADGES }                        from './constants/badges.js'
 import { ROOKIE_QUESTS, DEFAULT_ROOKIE_QUESTS } from './constants/rookieQuests.js'
 import { useAudio }                      from './hooks/useAudio.js'
@@ -44,8 +45,9 @@ import StreakBrokenModal   from './components/overlays/StreakBrokenModal.jsx'
 import FeedbackModal       from './components/overlays/FeedbackModal.jsx'
 import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
-import { loadChallengesForPlayer } from './services/peerChallengeService.js'
-import { loadPuckGamesForPlayer, getGameAction } from './services/puckGameService.js'
+import { getGameAction } from './services/puckGameService.js'
+import { markChallengesAsSeen } from './services/peerChallengeService.js'
+import { subscribeToTeam, subscribeToChallenges, subscribeToPuckGames } from './services/realtimeSync.js'
 
 import { C, APP_BG } from './styles.js'
 
@@ -85,8 +87,9 @@ export default function App() {
   const [complimentSender,   setComplimentSender]   = useState(false)
   const [complimentReceived, setComplimentReceived] = useState(null)
 
-  const [undoSnapshot,  setUndoSnapshot]  = useState(null)
-  const undoTimerRef                       = useRef(null)
+  const [undoSnapshot,    setUndoSnapshot]    = useState(null)
+  const [coachAwardToast, setCoachAwardToast] = useState(null)
+  const undoTimerRef                           = useRef(null)
 
   const badgeQRef               = useRef([])
   const epicAudioRef            = useRef(null)
@@ -94,6 +97,16 @@ export default function App() {
   const weakConnTimerRef        = useRef(null)
   const rageBaitUnsubRef        = useRef(null)
   const complimentUnsubRef      = useRef(null)
+  const teamUnsubRef            = useRef(null)
+  const challengesUnsubRef      = useRef(null)
+  const puckGamesUnsubRef       = useRef(null)
+  const lastPlayersRef          = useRef(null)   // null = listener baseline not yet set
+  const activePlayerIdRef       = useRef(null)
+  const coachAwardToastTimerRef = useRef(null)
+  const lastChallengeLiRef      = useRef(null)   // null = baseline not yet set
+
+  // Reactive read of the technique/challenge XP pool.  Drives XP bar + level display.
+  const techniqueByPlayer = useAppStore(s => s.techniqueByPlayer)
   const play         = useAudio()
   const { theme, toggleOutsideMode } = useTheme()
 
@@ -117,8 +130,114 @@ export default function App() {
 
   // ── Persist: localStorage + Firestore on every state change ───────────────
   useEffect(() => {
-    if (st) { saveSt(st); lastSaveRef.current = Date.now() }
+    if (!st) return
+    // Boot-failure safeguard: if both Firestore and localStorage failed to load,
+    // DEFAULT_STATE has players:[] — writing that to Firestore would wipe everyone.
+    // Only skip if players is empty AND we have no activePlayerId (true blank state).
+    if (st.players.length === 0 && !st.activePlayerId) return
+    saveSt(st)
+    lastSaveRef.current = Date.now()
   }, [st])
+
+  // ── Real-time team document listener ─────────────────────────────────────
+  // Keeps player data (diamonds, ELO, coachMsg, etc.) in sync across devices.
+  // Loop guard: setSt returns `prev` unchanged when incoming players match
+  // local state, preventing re-render → saveSt → Firestore echo cycles.
+  useEffect(() => {
+    const unsub = subscribeToTeam(teamData => {
+      const incoming = teamData.players || []
+
+      // ── Diagnostic: log what Firestore is delivering ──────────────────────
+      // Helps trace puck/XP/streak discrepancies without a full devtools session.
+      const activeId = activePlayerIdRef.current
+      if (activeId) {
+        const snap = incoming.find(p => p.id === activeId)
+        if (snap) {
+          console.log(
+            '[realtimeSync] team snapshot for active player:',
+            snap.name,
+            '| streakCount:', snap.streakCount ?? 'unset',
+            '| lastActivity:', snap.lastActivity
+              ? new Date(snap.lastActivity).toLocaleString()
+              : 'unset',
+            '| diamonds:', snap.diamonds ?? 0,
+            '| elo:', snap.elo ?? 'unset',
+            // totalPucks and totalXP are derived locally (sessions + Zustand bonusXP),
+            // not stored on the player doc — check hsh_global_app_state in localStorage.
+          )
+        }
+      }
+
+      // Diamond-increase toast: compare against the previous snapshot baseline.
+      // Skip the very first fire (baseline = null) to avoid false toasts on login.
+      if (lastPlayersRef.current !== null) {
+        if (activeId) {
+          const prev = lastPlayersRef.current.find(p => p.id === activeId)
+          const next = incoming.find(p => p.id === activeId)
+          if (prev && next) {
+            const gained = (next.diamonds || 0) - (prev.diamonds || 0)
+            if (gained > 0) {
+              clearTimeout(coachAwardToastTimerRef.current)
+              setCoachAwardToast({ amount: gained, playerName: next.name })
+              coachAwardToastTimerRef.current = setTimeout(() => setCoachAwardToast(null), 5000)
+              audioEngine.playUtilitySuccess()
+            }
+          }
+        }
+      }
+      lastPlayersRef.current = incoming
+
+      setSt(prev => {
+        if (!prev) return prev
+        const prevPlayers = prev.players || []
+
+        // Only merge when something actually changed — avoids re-rendering on
+        // our own write echoing back from Firestore.
+        // streakCount / lastActivity MUST be included here: updateStreak() writes
+        // these fields directly to Firestore (bypassing local state).  Without them
+        // the listener returns prev unchanged, and the next saveSt() call overwrites
+        // Firestore with the stale values from local state, erasing the streak update.
+        const hasChanges =
+          incoming.length !== prevPlayers.length ||
+          incoming.some(ip => {
+            const lp = prevPlayers.find(p => p.id === ip.id)
+            if (!lp) return true
+            return (
+              ip.diamonds       !== lp.diamonds       ||
+              ip.elo            !== lp.elo            ||
+              ip.coachMsg       !== lp.coachMsg       ||
+              ip.eloLastUpdated !== lp.eloLastUpdated ||
+              ip.totalWins      !== lp.totalWins      ||
+              ip.hasEloShield   !== lp.hasEloShield   ||
+              ip.streakCount    !== lp.streakCount    ||
+              ip.lastActivity   !== lp.lastActivity
+            )
+          })
+
+        if (!hasChanges) return prev
+
+        return {
+          ...prev,
+          players: incoming.map(ip => {
+            const lp = prevPlayers.find(p => p.id === ip.id)
+            if (!lp) return ip
+            return {
+              ...ip,
+              // Keep whichever diamond total is higher so a local claim mid-session
+              // is never clobbered by a slightly-stale snapshot from Firestore.
+              diamonds:    Math.max(ip.diamonds    || 0, lp.diamonds    || 0),
+              // Keep whichever streakCount is higher so a just-awarded streak from
+              // updateStreak() isn't lost if a concurrent local write races it.
+              streakCount: Math.max(ip.streakCount || 0, lp.streakCount || 0),
+            }
+          }),
+        }
+      })
+    })
+
+    teamUnsubRef.current = unsub
+    return () => { unsub(); teamUnsubRef.current = null }
+  }, []) // eslint-disable-line
 
   // ── Re-sync on app focus / tab visibility restore ─────────────────────────
   useEffect(() => {
@@ -157,11 +276,32 @@ export default function App() {
     }
   }, []) // eslint-disable-line
 
-  // ── Load peer challenges + PUCK games when a player is active ────────────
+  // ── Real-time peer challenges + PUCK games ───────────────────────────────
+  // Subscriptions re-attach whenever the active player changes.  The cleanup
+  // function returned from useEffect tears down both listeners on unmount or
+  // when activePlayerId switches (e.g. logout, profile switch).
   useEffect(() => {
-    if (!st?.activePlayerId) return
-    loadChallengesForPlayer(st.activePlayerId).then(setPeerChallenges)
-    loadPuckGamesForPlayer(st.activePlayerId).then(setPuckGames)
+    challengesUnsubRef.current?.()
+    challengesUnsubRef.current = null
+    puckGamesUnsubRef.current?.()
+    puckGamesUnsubRef.current = null
+
+    if (!st?.activePlayerId) {
+      setPeerChallenges([])
+      setPuckGames([])
+      return
+    }
+
+    const pid = st.activePlayerId
+    challengesUnsubRef.current = subscribeToChallenges(pid, setPeerChallenges)
+    puckGamesUnsubRef.current  = subscribeToPuckGames(pid, setPuckGames)
+
+    return () => {
+      challengesUnsubRef.current?.()
+      challengesUnsubRef.current = null
+      puckGamesUnsubRef.current?.()
+      puckGamesUnsubRef.current = null
+    }
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Real-time rage bait listener ─────────────────────────────────────────
@@ -193,6 +333,30 @@ export default function App() {
     complimentUnsubRef.current = unsub
     return () => { unsub(); complimentUnsubRef.current = null }
   }, [st?.activePlayerId, st?.view]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Level-up detection for challenge / technique XP ─────────────────────
+  // Session-based level-ups are caught in handleLogSet / handleLogAll.
+  // This effect handles the bonusXP path: every time logTechniqueShots fires
+  // (challenge completion, PUCK game turn, coach credit), we re-check whether
+  // the player's combined XP (session + bonus) has crossed a new level threshold.
+  useEffect(() => {
+    if (!st?.activePlayerId || !aPlayer) {
+      lastChallengeLiRef.current = null
+      return
+    }
+    const bonusXP = techniqueByPlayer[st.activePlayerId]?.bonusXP || 0
+    const totalXP = playerStats(aPlayer, st.sessions).xp + bonusXP
+    const { li, level } = getLevel(totalXP)
+
+    if (lastChallengeLiRef.current !== null && li > lastChallengeLiRef.current) {
+      const audio = new Audio('/level-up-music.mp3')
+      audio.volume = 0.75
+      epicAudioRef.current = audio
+      audio.play().catch(() => {})
+      setEpicCeleb({ type: 'levelup', level })
+    }
+    lastChallengeLiRef.current = li
+  }, [st?.activePlayerId, techniqueByPlayer]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Retroactive badge check — runs once when a player session opens ───────
   // Catches badges that should have been awarded from technique-mode pucks
@@ -256,6 +420,8 @@ export default function App() {
   }
 
   const upd = patch => setSt(prev => ({ ...prev, ...patch }))
+  // Keep ref current so the team onSnapshot closure always reads the latest value
+  activePlayerIdRef.current = st?.activePlayerId ?? null
 
   // Mark a rookie quest complete, award diamonds, fire toast, check for graduate badge
   // Maps each rookie quest key to its milestone badge ID
@@ -483,10 +649,17 @@ export default function App() {
     setIsSaving(true)
     weakConnTimerRef.current = setTimeout(() => setWeakConnToast(true), 5000)
 
-    // Write to localStorage immediately, then await Firestore
-    const nextSt = { ...st, ...patch }
-    saveSt(nextSt)
-    try { await saveToFirestore(nextSt) } catch {}
+    // Write to localStorage immediately, then await Firestore.
+    // saveSt handles localStorage; the explicit await below gives endSession
+    // a confirmed Firestore write before declaring success.
+    const nextSt            = { ...st, ...patch }
+    const techniqueByPlayer = useAppStore.getState().techniqueByPlayer || {}
+    saveSt(nextSt)   // also fires a background Firestore write via storage.js
+    try {
+      await saveToFirestore(nextSt, techniqueByPlayer)
+    } catch (err) {
+      console.error('[endSession] Firestore write failed — session is safe in localStorage:', err.message)
+    }
 
     clearTimeout(weakConnTimerRef.current)
     setWeakConnToast(false)
@@ -542,9 +715,10 @@ export default function App() {
     setTimeout(() => { setFlashZone(null); setFlashType(null) }, 900)
     setTimeout(() => setPuckAnim(null), 1800)
 
-    // Level-up detection
-    const prevLi = playerStats(aPlayer, st.sessions).li
-    const newSt  = playerStats(aPlayer, updSessions)
+    // Level-up detection — bonusXP ensures challenge/PUCK XP counts toward threshold
+    const techBonusXP = techniqueByPlayer[aPlayer.id]?.bonusXP || 0
+    const prevLi = playerStats(aPlayer, st.sessions, techBonusXP).li
+    const newSt  = playerStats(aPlayer, updSessions, techBonusXP)
     if (newSt.li > prevLi) {
       const audio = new Audio('/level-up-music.mp3')
       audio.volume = 0.75
@@ -600,9 +774,10 @@ export default function App() {
 
     play('confetti')
 
-    // Level-up detection
-    const prevLi = playerStats(aPlayer, st.sessions).li
-    const newSt  = playerStats(aPlayer, updSessions)
+    // Level-up detection — bonusXP ensures challenge/PUCK XP counts toward threshold
+    const techBonusXP = techniqueByPlayer[aPlayer.id]?.bonusXP || 0
+    const prevLi = playerStats(aPlayer, st.sessions, techBonusXP).li
+    const newSt  = playerStats(aPlayer, updSessions, techBonusXP)
     if (newSt.li > prevLi) {
       const audio = new Audio('/level-up-music.mp3')
       audio.volume = 0.75
@@ -712,6 +887,13 @@ export default function App() {
         <GlobalStyles />
         <CoachPortal
           st={st} upd={upd}
+          onPlayerLevelUp={(playerId, newLevel) => {
+            const audio = new Audio('/level-up-music.mp3')
+            audio.volume = 0.75
+            epicAudioRef.current = audio
+            audio.play().catch(() => {})
+            setEpicCeleb({ type: 'levelup', level: newLevel })
+          }}
           onPuckCreditAdded={playerId => {
             // Mark puckSet100 rookie quest on the target player if not already done
             setSt(prev => {
@@ -895,12 +1077,13 @@ export default function App() {
 
   // ── Player view ───────────────────────────────────────────────────────────
   if (st.view === 'player' && aPlayer) {
-    const stats          = playerStats(aPlayer, st.sessions)
+    const techBonusXP    = techniqueByPlayer[aPlayer.id]?.bonusXP || 0
+    const stats          = playerStats(aPlayer, st.sessions, techBonusXP)
     const earnedBadgeObj = aPlayer.earnedBadges || {}
 
     // ── Notification dot flags (reactive — clear instantly when turn completes) ──
     const hasPendingVersus  = peerChallenges.some(
-      c => c.receiverId === aPlayer.id && c.status === 'pending'
+      c => c.receiverId === aPlayer.id && c.status === 'pending' && !c.seenByOpponent
     )
     const hasPendingGames = puckGames.some(g => {
       const action = getGameAction(g, aPlayer.id)
@@ -944,6 +1127,30 @@ export default function App() {
               players: st.players.map(p => p.id === aPlayer.id ? { ...p, coachMsg: '' } : p)
             })}
           />
+        )}
+
+        {/* ── Coach award toast — fires when diamonds increase remotely ── */}
+        {coachAwardToast && (
+          <div
+            onClick={() => { clearTimeout(coachAwardToastTimerRef.current); setCoachAwardToast(null) }}
+            style={{
+              position: 'fixed', top: 72, left: '50%', transform: 'translateX(-50%)',
+              zIndex: 9000, cursor: 'pointer',
+              background: 'linear-gradient(135deg,#1a0050,#4c1d95)',
+              border: '2px solid #fbbf24', borderRadius: 14,
+              padding: '12px 22px', textAlign: 'center',
+              boxShadow: '0 0 36px #fbbf2466',
+              animation: 'pulse 0.5s ease-out',
+              minWidth: 200,
+            }}
+          >
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, color: '#fbbf24', letterSpacing: '0.08em', lineHeight: 1 }}>
+              💎 +{coachAwardToast.amount} DIAMONDS!
+            </div>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#c4b5fd', marginTop: 5, letterSpacing: '0.08em' }}>
+              COACH JUST AWARDED YOU 🏒⚡
+            </div>
+          </div>
         )}
 
         {/* ── New-user onboarding modal ────────────────────────────────── */}
@@ -1052,7 +1259,11 @@ export default function App() {
         />
         <TabBar
           active={tab}
-          onChange={t => { if (t === 'store') markRookieQuest('visitStore'); setTab(t) }}
+          onChange={t => {
+            if (t === 'store')      markRookieQuest('visitStore')
+            if (t === 'challenges') markChallengesAsSeen(aPlayer.id, peerChallenges)
+            setTab(t)
+          }}
           hasSess={!!aSess}
           hasPendingVersus={hasPendingVersus}
           hasPendingGames={hasPendingGames}
@@ -1112,8 +1323,8 @@ export default function App() {
                 if (updated.status !== 'active') markRookieQuest('horseGame')
               }}
               onConcedeGame={gameId => {
+                // Optimistic removal — real-time listener confirms the final state
                 setPuckGames(prev => prev.filter(g => g.id !== gameId))
-                loadPuckGamesForPlayer(st.activePlayerId).then(setPuckGames)
               }}
               onPuckEloUpdate={deltas => setSt(prev => ({
                 ...prev,
