@@ -1,9 +1,10 @@
 export const ROOKIE_QUESTS = [
-  { key: 'puckSet100',    label: 'Log your first 100-puck session',       icon: '🏒', reward: 10 },
-  { key: 'horseGame',     label: 'Finish your first PUCK game',           icon: '🎮', reward: 10 },
-  { key: 'aroundWorld',   label: 'Complete an Around the World game',     icon: '🌍', reward: 10 },
-  { key: 'issueChallenge',label: 'Issue a challenge to a friend',         icon: '⚔️', reward: 10 },
-  { key: 'visitStore',    label: 'Visit the Store for the first time',    icon: '🛒', reward: 10 },
+  { key: 'puckSet100',      label: 'Log your first 100-puck session',       icon: '🏒', reward: 10 },
+  { key: 'horseGame',       label: 'Finish your first PUCK game',           icon: '🎮', reward: 10 },
+  { key: 'aroundWorld',     label: 'Complete an Around the World game',     icon: '🌍', reward: 10 },
+  { key: 'issueChallenge',  label: 'Issue a challenge to a friend',         icon: '⚔️', reward: 10 },
+  { key: 'visitStore',      label: 'Visit the Store for the first time',    icon: '🛒', reward: 10 },
+  { key: 'techniqueOnly10', label: 'Log 10 pucks in Technique Only mode',   icon: '💪', reward: 10 },
 ]
 
 export const DEFAULT_ROOKIE_QUESTS = Object.fromEntries(

@@ -125,6 +125,7 @@ export const BADGES = [
   { id: 'atw_ps', name: 'Passport Stamped', desc: '40 career hits across all ATW runs',          cat: 'games', tier: 2, Icon: Map,       innerBg: 'linear-gradient(135deg,#713f12,#b45309)', innerIcon: '#fde68a', check: (p,s) => atwCareerHits(p,s) >= 40       },
 
   // ── Onboarding milestone badges (Common / tier 1) ────────────────────────────
+  { id: 'ob_formfirst',  name: 'Form First',      desc: 'Logged 10 pucks in Technique Only mode to build fundamental power!', cat: 'skill', tier: 1, Icon: Zap,          innerBg: 'linear-gradient(135deg,#064e3b,#10b981)', innerIcon: '#6ee7b7', check: (p) => !!p.rookieQuests?.techniqueOnly10 },
   { id: 'ob_centurion',  name: 'Centurion',       desc: 'Completed your first 100-puck tracking set.',            cat: 'skill', tier: 1, Icon: Target,      innerBg: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)', innerIcon: '#93c5fd', check: (p) => !!p.rookieQuests?.puckSet100    },
   { id: 'ob_firstblood', name: 'First Blood',     desc: 'Completed your first PUCK game.',                       cat: 'skill', tier: 1, Icon: Disc3,        innerBg: 'linear-gradient(135deg,#450a0a,#991b1b)', innerIcon: '#fca5a5', check: (p) => !!p.rookieQuests?.horseGame     },
   { id: 'ob_aroundrim',  name: 'Around the Rim',  desc: 'Completed your first Around the World game.',           cat: 'skill', tier: 1, Icon: Globe,         innerBg: 'linear-gradient(135deg,#134e4a,#0d9488)', innerIcon: '#99f6e4', check: (p) => !!p.rookieQuests?.aroundWorld   },

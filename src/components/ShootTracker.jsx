@@ -27,6 +27,7 @@ export default function ShootTracker({
   flashZone, flashType, puckAnim,
   puckGames = [], onSubmitGame, onPuckGameUpdate,
   isSaving = false, weakConnToast = false,
+  onGoalReached,
 }) {
   // null = mode fork  |  'target' = zone tracker  |  'technique' = technique mode
   const [subMode,    setSubMode]    = useState(null)
@@ -222,7 +223,7 @@ export default function ShootTracker({
 
     // ── Technique mode ─────────────────────────────────────────────────────────
     if (subMode === 'technique') {
-      return <TechniqueTracker player={player} onBack={() => setSubMode(null)} />
+      return <TechniqueTracker player={player} onBack={() => setSubMode(null)} onGoalReached={onGoalReached} />
     }
 
     // ── Target Practice: session goal config ───────────────────────────────────

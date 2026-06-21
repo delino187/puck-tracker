@@ -8,7 +8,7 @@ import { audioEngine } from '../services/audioEngine.js'
 const QUICK_ADDS    = [10, 25, 50]
 const SESSION_LIMIT = 100
 
-export default function TechniqueTracker({ player, onBack }) {
+export default function TechniqueTracker({ player, onBack, onGoalReached }) {
   const [sessionPucks, setSessionPucks] = useState(0)
   const [lastAdd,      setLastAdd]      = useState(null)
   const [honorMsg,     setHonorMsg]     = useState(false)
@@ -36,7 +36,11 @@ export default function TechniqueTracker({ player, onBack }) {
     })
 
     logTechniqueShots(player.id, n)
-    setSessionPucks(p => p + n)
+    setSessionPucks(prev => {
+      const next = prev + n
+      if (prev < 10 && next >= 10) onGoalReached?.('techniqueOnly10')
+      return next
+    })
     setLastAdd(n)
     setTimeout(() => setLastAdd(null), 800)
   }

@@ -260,11 +260,12 @@ export default function App() {
   // Mark a rookie quest complete, award diamonds, fire toast, check for graduate badge
   // Maps each rookie quest key to its milestone badge ID
   const ROOKIE_BADGE_MAP = {
-    puckSet100:    'ob_centurion',
-    horseGame:     'ob_firstblood',
-    aroundWorld:   'ob_aroundrim',
-    issueChallenge:'ob_gauntlet',
-    visitStore:    'ob_browsing',
+    puckSet100:      'ob_centurion',
+    horseGame:       'ob_firstblood',
+    aroundWorld:     'ob_aroundrim',
+    issueChallenge:  'ob_gauntlet',
+    visitStore:      'ob_browsing',
+    techniqueOnly10: 'ob_formfirst',
   }
 
   function markRookieQuest(key) {
@@ -1073,6 +1074,7 @@ export default function App() {
               onStart={startSession}
               isSaving={isSaving}
               weakConnToast={weakConnToast}
+              onGoalReached={markRookieQuest}
               flashZone={flashZone}
               flashType={flashType}
               puckAnim={puckAnim}
