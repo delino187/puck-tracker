@@ -312,11 +312,15 @@ export default function App() {
             ? { rookie_grad: { ts: now } } : {}),
       }
 
+      // +1💎 per newly unlocked badge (milestone badge + grad badge if earned)
+      const newBadgeCount = (milestoneBadgeId && !player.earnedBadges?.[milestoneBadgeId] ? 1 : 0)
+                          + (allDone && !alreadyGrad && gradBadge ? 1 : 0)
+
       return {
         ...prev,
         players: prev.players.map(p => p.id === id ? {
           ...p,
-          diamonds:     (p.diamonds || 0) + quest.reward,
+          diamonds:     (p.diamonds || 0) + quest.reward + newBadgeCount,
           rookieQuests: { ...rq, [key]: true },
           earnedBadges: newEarnedBadges,
         } : p),
@@ -562,7 +566,11 @@ export default function App() {
       const now = Date.now()
       newBadges.forEach(b => { already[b.id] = { ts: now } })
       updPlayers = st.players.map(p =>
-        p.id === aPlayer.id ? { ...p, earnedBadges: already } : p
+        p.id === aPlayer.id ? {
+          ...p,
+          earnedBadges: already,
+          diamonds: (p.diamonds || 0) + newBadges.length,  // +1💎 per badge
+        } : p
       )
       setNewBadgeIds(prev => {
         const n = { ...prev }
@@ -616,7 +624,11 @@ export default function App() {
       const now = Date.now()
       newBadges.forEach(b => { already[b.id] = { ts: now } })
       updPlayers = st.players.map(p =>
-        p.id === aPlayer.id ? { ...p, earnedBadges: already } : p
+        p.id === aPlayer.id ? {
+          ...p,
+          earnedBadges: already,
+          diamonds: (p.diamonds || 0) + newBadges.length,  // +1💎 per badge
+        } : p
       )
       setNewBadgeIds(prev => {
         const n = { ...prev }

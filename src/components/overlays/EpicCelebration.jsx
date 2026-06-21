@@ -114,13 +114,30 @@ export default function EpicCelebration({ type, level, badge, onClose }) {
         fontFamily: "'Barlow Condensed',sans-serif",
         fontSize: 15,
         color: '#94a3b8',
-        marginBottom: 38,
+        marginBottom: isLevelUp ? 38 : 14,
         textAlign: 'center',
         lineHeight: 1.4,
         maxWidth: 300,
       }}>
         {isLevelUp ? "You've reached a new rank!" : badge?.desc}
       </div>
+
+      {/* Diamond bonus pill — badge unlocks only */}
+      {!isLevelUp && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          background: 'rgba(251,191,36,0.12)',
+          border: '1.5px solid #fbbf2455',
+          borderRadius: 20, padding: '6px 16px',
+          marginBottom: 28,
+          fontFamily: "'Barlow Condensed',sans-serif",
+          fontSize: 14, fontWeight: 800,
+          color: '#fbbf24', letterSpacing: '0.08em',
+          boxShadow: '0 0 14px #fbbf2422',
+        }}>
+          🏆 Badge Unlocked! +1 💎 Bonus!
+        </div>
+      )}
 
       {/* CTA */}
       <button
