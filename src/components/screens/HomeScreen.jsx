@@ -76,7 +76,7 @@ export default function HomeScreen({ st, upd }) {
             textShadow: '0 0 16px #22d3ee77',
             textTransform: 'uppercase',
           }}>
-            12U TEAM EDITION
+            PUCK TRACKER
           </div>
         </div>
 
