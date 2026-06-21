@@ -51,6 +51,7 @@ import { C, APP_BG } from './styles.js'
 export default function App() {
   const [st,          setSt]         = useState(null)
   const [loading,     setLoading]    = useState(true)
+  const lastSaveRef                  = useRef(0)
   const [tab,         setTab]        = useState('dashboard')
   const [sesGoal,     setSesGoal]    = useState(10)
   const [badgePreview,setBadgePreview] = useState(null)
@@ -98,41 +99,47 @@ export default function App() {
     })
   }, [])
 
+  // ── Persist: localStorage + Firestore on every state change ───────────────
+  useEffect(() => {
+    if (st) { saveSt(st); lastSaveRef.current = Date.now() }
+  }, [st])
+
   // ── Re-sync on app focus / tab visibility restore ─────────────────────────
-  // Covers: switching back to the PWA from another app, reopening Safari,
-  // and returning to this tab from another. Debounced to 5 s to avoid
-  // hammering Firestore on rapid hide/show cycles.
   useEffect(() => {
     const lastSync = { ts: 0 }
     function handleFocus() {
       const now = Date.now()
-      if (now - lastSync.ts < 5000) return
+      if (now - lastSync.ts < 5000) return          // debounce repeated fires
+      if (now - lastSaveRef.current < 15000) return // we just wrote; Firestore may not have it yet
       lastSync.ts = now
       loadSt().then(fresh => {
         if (!fresh) return
         setSt(prev => ({
           ...fresh,
-          // Keep live navigation & in-progress session — don't interrupt the user
+          // Preserve in-progress navigation — don't bounce a live session
           view:            prev?.view            ?? fresh.view,
           activePlayerId:  prev?.activePlayerId  ?? fresh.activePlayerId,
           activeSessionId: prev?.activeSessionId ?? fresh.activeSessionId,
+          // Per-player: keep whichever diamond total is higher so a recent
+          // claim never gets clobbered by a stale cloud snapshot
+          players: (fresh.players || []).map(fp => {
+            const lp = prev?.players?.find(p => p.id === fp.id)
+            if (!lp) return fp
+            return { ...fp, diamonds: Math.max(fp.diamonds || 0, lp.diamonds || 0) }
+          }),
         }))
       })
     }
-    document.addEventListener('visibilitychange', () => {
+    function onVisibilityChange() {
       if (document.visibilityState === 'visible') handleFocus()
-    })
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
     window.addEventListener('focus', handleFocus)
     return () => {
-      document.removeEventListener('visibilitychange', handleFocus)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener('focus', handleFocus)
     }
   }, []) // eslint-disable-line
-
-  // ── Persist: localStorage + Firestore on every state change ───────────────
-  useEffect(() => {
-    if (st) saveSt(st)
-  }, [st])
 
   // ── Load peer challenges + PUCK games when a player is active ────────────
   useEffect(() => {
@@ -966,33 +973,47 @@ export default function App() {
               player={aPlayer}
               sessions={st.sessions}
               onNavigate={setTab}
-              onDiamondEarn={(amount) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: (p.diamonds || 0) + amount } : p) })}
-              onSpinComplete={(quests) => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests } : p) })}
-              onClaimQuest={(questIndex) => {
-                const quests = aPlayer.daily_quests || []
+              onDiamondEarn={(amount) => setSt(prev => {
+                const id = prev.activePlayerId
+                return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, diamonds: (p.diamonds || 0) + amount } : p) }
+              })}
+              onSpinComplete={(quests) => setSt(prev => {
+                const id = prev.activePlayerId
+                return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests } : p) }
+              })}
+              onClaimQuest={(questIndex) => setSt(prev => {
+                const id     = prev.activePlayerId
+                const player = prev.players.find(p => p.id === id)
+                const quests = player?.daily_quests || []
                 const quest  = quests[questIndex]
-                if (!quest || quest.claimed || !quest.completed) return
-                upd({
-                  players: st.players.map(p =>
-                    p.id === aPlayer.id
+                if (!quest || quest.claimed || !quest.completed) return prev
+                return {
+                  ...prev,
+                  players: prev.players.map(p =>
+                    p.id === id
                       ? { ...p, diamonds: (p.diamonds || 0) + (quest.reward || 0), daily_quests: quests.map((q, i) => i === questIndex ? { ...q, claimed: true } : q) }
                       : p
                   ),
-                })
-              }}
-              onInitWeeklyQuests={(newQuests) => {
-                upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, weekly_quests: newQuests, last_weekly_quest_pick: getWeekStart().toDateString() } : p) })
-              }}
-              onClaimWeeklyQuest={(questIndex, reward) => {
-                const quests = aPlayer.weekly_quests || []
-                upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: (p.diamonds || 0) + reward, weekly_quests: quests.map((q, i) => i === questIndex ? { ...q, claimed: true, completed: true } : q) } : p) })
-              }}
-              onWeeklySpinComplete={(prize) => {
+                }
+              })}
+              onInitWeeklyQuests={(newQuests) => setSt(prev => {
+                const id = prev.activePlayerId
+                return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, weekly_quests: newQuests, last_weekly_quest_pick: getWeekStart().toDateString() } : p) }
+              })}
+              onClaimWeeklyQuest={(questIndex, reward) => setSt(prev => {
+                const id     = prev.activePlayerId
+                const player = prev.players.find(p => p.id === id)
+                const quests = player?.weekly_quests || []
+                return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, diamonds: (p.diamonds || 0) + reward, weekly_quests: quests.map((q, i) => i === questIndex ? { ...q, claimed: true, completed: true } : q) } : p) }
+              })}
+              onWeeklySpinComplete={(prize) => setSt(prev => {
+                const id     = prev.activePlayerId
+                const player = prev.players.find(p => p.id === id)
                 const updates = { lastWeeklySpin: new Date().toISOString() }
-                if (prize.diamonds) updates.diamonds = (aPlayer.diamonds || 0) + prize.diamonds
-                if (prize.eloShield && !aPlayer.hasEloShield) updates.hasEloShield = true
-                upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, ...updates } : p) })
-              }}
+                if (prize.diamonds) updates.diamonds = (player?.diamonds || 0) + prize.diamonds
+                if (prize.eloShield && !player?.hasEloShield) updates.hasEloShield = true
+                return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, ...updates } : p) }
+              })}
             />
           )}
           {tab === 'store' && (
