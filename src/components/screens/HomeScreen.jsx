@@ -66,18 +66,6 @@ export default function HomeScreen({ st, upd }) {
           }}>
             PUCK<br />TRACKER
           </div>
-          <div style={{
-            fontFamily: "'Barlow Condensed',sans-serif",
-            fontWeight: 800,
-            fontSize: 13,
-            letterSpacing: '0.38em',
-            marginTop: 12,
-            color: '#22d3ee',
-            textShadow: '0 0 16px #22d3ee77',
-            textTransform: 'uppercase',
-          }}>
-            PUCK TRACKER
-          </div>
         </div>
 
         {/* ── Grinder of the week ───────────────────────────────────────────── */}
@@ -119,6 +107,7 @@ export default function HomeScreen({ st, upd }) {
             cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
             boxShadow: '0 0 40px #3b82f650, 0 8px 32px rgba(0,0,0,0.35)',
+            textShadow: '0 1px 4px rgba(0,0,0,0.4)',
           }}
         >
           <Users size={22} /> I'M A PLAYER
@@ -130,7 +119,7 @@ export default function HomeScreen({ st, upd }) {
           style={{
             width: '100%',
             background: 'rgba(15,23,42,0.55)',
-            color: '#94a3b8',
+            color: '#ffffff',
             border: '1px solid #334155',
             borderRadius: 14,
             padding: '14px 16px',
@@ -158,7 +147,7 @@ export default function HomeScreen({ st, upd }) {
             padding: '10px 0 0',
             fontFamily: "'Barlow Condensed',sans-serif",
             fontSize: 14, fontWeight: 700,
-            color: '#60a5fa',
+            color: '#060b41',
             letterSpacing: '0.08em',
           }}
         >
