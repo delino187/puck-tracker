@@ -684,7 +684,27 @@ export default function App() {
     return (
       <>
         <GlobalStyles />
-        <CoachPortal st={st} upd={upd} />
+        <CoachPortal
+          st={st} upd={upd}
+          onPuckCreditAdded={playerId => {
+            // Mark puckSet100 rookie quest on the target player if not already done
+            setSt(prev => {
+              const player = prev.players.find(p => p.id === playerId)
+              if (!player) return prev
+              const rq = player.rookieQuests || {}
+              if (rq.puckSet100) return prev
+              const quest = ROOKIE_QUESTS.find(q => q.key === 'puckSet100')
+              return {
+                ...prev,
+                players: prev.players.map(p => p.id === playerId ? {
+                  ...p,
+                  diamonds:     (p.diamonds || 0) + (quest?.reward || 10),
+                  rookieQuests: { ...rq, puckSet100: true },
+                } : p),
+              }
+            })
+          }}
+        />
       </>
     )
   }

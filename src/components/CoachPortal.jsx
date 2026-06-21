@@ -12,6 +12,7 @@ import { useTheme } from '../hooks/useTheme.js'
 import { C } from '../styles.js'
 import LevelBadge from './shared/LevelBadge.jsx'
 import { deletePlayerData } from '../utils/firestoreSync.js'
+import { useAppStore } from '../store/useAppStore.js'
 
 // ─── Matchup editor ────────────────────────────────────────────────────────────
 function CoachMatchups({ st, upd }) {
@@ -82,7 +83,7 @@ function CoachMatchups({ st, upd }) {
 }
 
 // ─── Roster manager ───────────────────────────────────────────────────────────
-function CoachRoster({ st, upd }) {
+function CoachRoster({ st, upd, onPuckCreditAdded }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [editPw,   setEditPw]   = useState('')
   const [showPw,   setShowPw]   = useState({})
@@ -92,6 +93,12 @@ function CoachRoster({ st, upd }) {
   const [pendingDiamonds, setPendingDiamonds] = useState(0)
   const [diamondToast,    setDiamondToast]    = useState(null)
   const diamondToastTimer                      = useRef(null)
+  const [puckInput,    setPuckInput]    = useState('')
+  const [puckToast,    setPuckToast]    = useState(null)
+  const puckToastTimer                  = useRef(null)
+
+  const logTechniqueShots  = useAppStore(s => s.logTechniqueShots)
+  const techniqueByPlayer  = useAppStore(s => s.techniqueByPlayer)
 
   if (selectedPlayer) {
     const p = st.players.find(x => x.id === selectedPlayer)
@@ -100,7 +107,7 @@ function CoachRoster({ st, upd }) {
 
     return (
       <div>
-        <button onClick={() => { setSelectedPlayer(null); setPendingDiamonds(0); setDiamondToast(null) }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, marginBottom: 16 }}>
+        <button onClick={() => { setSelectedPlayer(null); setPendingDiamonds(0); setDiamondToast(null); setPuckInput(''); setPuckToast(null) }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, marginBottom: 16 }}>
           <ChevronLeft size={16} /> Back to Roster
         </button>
 
@@ -264,6 +271,89 @@ function CoachRoster({ st, upd }) {
           )}
         </div>
 
+        {/* ── Adjust Lifetime Pucks ────────────────────────────────────────── */}
+        <div style={{ ...C.card, marginBottom: 12, borderColor: '#22d3ee33', background: 'linear-gradient(135deg,#020d10,#041a20)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <span style={{ fontSize: 18, lineHeight: 1 }}>🏒</span>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#22d3ee', letterSpacing: '0.14em' }}>
+              ADJUST LIFETIME PUCKS
+            </div>
+            <div style={{ marginLeft: 'auto', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#94a3b8' }}>
+              Current total: <span style={{ color: '#22d3ee', fontWeight: 700 }}>
+                {((playerStats(p, st.sessions).totalShots ?? 0) + (techniqueByPlayer[p.id]?.totalPucks || 0)).toLocaleString()} 🏒
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
+            <input
+              type="number"
+              min="1"
+              value={puckInput}
+              onChange={e => setPuckInput(e.target.value)}
+              placeholder="e.g. 500"
+              style={{
+                ...C.inp,
+                marginBottom: 0, flex: 1,
+                fontFamily: "'Bangers',sans-serif", fontSize: 22,
+                letterSpacing: '0.04em', color: '#22d3ee',
+                textAlign: 'center',
+              }}
+            />
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
+              pucks to add
+            </div>
+          </div>
+
+          <button
+            disabled={!puckInput || parseInt(puckInput) <= 0}
+            onClick={() => {
+              const amount = parseInt(puckInput)
+              if (!amount || amount <= 0) return
+
+              logTechniqueShots(p.id, amount)
+
+              // Check rookie quest threshold
+              const prevTotal = (playerStats(p, st.sessions).totalShots ?? 0) + (techniqueByPlayer[p.id]?.totalPucks || 0)
+              if (prevTotal < 100 && (prevTotal + amount) >= 100) {
+                onPuckCreditAdded?.(p.id)
+              }
+
+              const label = p.jerseyNum ? `${p.name} #${p.jerseyNum}` : p.name
+              clearTimeout(puckToastTimer.current)
+              setPuckToast(`🏒 +${amount.toLocaleString()} pucks added to ${label}!`)
+              puckToastTimer.current = setTimeout(() => setPuckToast(null), 4000)
+              setPuckInput('')
+            }}
+            style={{
+              width: '100%', padding: '11px',
+              background: (!puckInput || parseInt(puckInput) <= 0)
+                ? '#0a1a20'
+                : 'linear-gradient(135deg,#0c4a6e,#22d3ee)',
+              color: (!puckInput || parseInt(puckInput) <= 0) ? '#334155' : '#000',
+              border: 'none', borderRadius: 10,
+              fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.08em',
+              cursor: (!puckInput || parseInt(puckInput) <= 0) ? 'not-allowed' : 'pointer',
+              boxShadow: (!puckInput || parseInt(puckInput) <= 0) ? 'none' : '0 0 18px #22d3ee44',
+              transition: 'all 0.2s',
+            }}
+          >
+            {!puckInput || parseInt(puckInput) <= 0 ? 'ENTER AMOUNT ABOVE' : `✅ SAVE SHOT CREDIT (+${parseInt(puckInput).toLocaleString()})`}
+          </button>
+
+          {puckToast && (
+            <div style={{
+              marginTop: 10, padding: '8px 12px',
+              background: '#042a30', border: '1px solid #22d3ee55',
+              borderRadius: 8, textAlign: 'center',
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700,
+              color: '#67e8f9', letterSpacing: '0.06em',
+            }}>
+              {puckToast}
+            </div>
+          )}
+        </div>
+
         {/* Session history */}
         <div style={C.label}><History size={11} style={{ display: 'inline', marginRight: 4 }} />Session History ({pss.length})</div>
         {pss.length === 0 ? (
@@ -372,7 +462,7 @@ function CoachRoster({ st, upd }) {
 }
 
 // ─── Main Coach Panel ─────────────────────────────────────────────────────────
-export default function CoachPortal({ st, upd }) {
+export default function CoachPortal({ st, upd, onPuckCreditAdded }) {
   const [cTab, setCTab] = useState('roster')
   const { isOutside, toggleOutsideMode } = useTheme()
   const tabs = [
@@ -435,7 +525,7 @@ export default function CoachPortal({ st, upd }) {
 
         <div style={{ padding: 16 }}>
           {cTab === 'matchups'    && <CoachMatchups    st={st} upd={upd} />}
-          {cTab === 'roster'      && <CoachRoster       st={st} upd={upd} />}
+          {cTab === 'roster'      && <CoachRoster       st={st} upd={upd} onPuckCreditAdded={onPuckCreditAdded} />}
           {cTab === 'leaderboard' && <CoachLeaderboard  st={st} />}
           {cTab === 'feedback'    && <CoachFeedback />}
         </div>
