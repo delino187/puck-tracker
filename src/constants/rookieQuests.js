@@ -1,0 +1,11 @@
+export const ROOKIE_QUESTS = [
+  { key: 'puckSet100',    label: 'Log your first 100-puck session',       icon: '🏒', reward: 10 },
+  { key: 'horseGame',     label: 'Finish your first PUCK game',           icon: '🎮', reward: 10 },
+  { key: 'aroundWorld',   label: 'Complete an Around the World game',     icon: '🌍', reward: 10 },
+  { key: 'issueChallenge',label: 'Issue a challenge to a friend',         icon: '⚔️', reward: 10 },
+  { key: 'visitStore',    label: 'Visit the Store for the first time',    icon: '🛒', reward: 10 },
+]
+
+export const DEFAULT_ROOKIE_QUESTS = Object.fromEntries(
+  ROOKIE_QUESTS.map(q => [q.key, false])
+)

@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Target, Lock, ChevronRight } from 'lucide-react'
+import { Target, Lock, ChevronRight, CheckCircle2, Circle } from 'lucide-react'
+import { ROOKIE_QUESTS } from '../constants/rookieQuests.js'
 import { LEVELS } from '../constants/levels.js'
 import { BADGES } from '../constants/badges.js'
 import { STREAK_BADGES } from '../constants/streakBadges.js'
@@ -86,6 +87,72 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
           </div>
         </div>
       )}
+
+      {/* ── Rookie Milestones widget ─────────────────────────────────────────── */}
+      {(() => {
+        const rq        = player.rookieQuests || {}
+        const doneCount = ROOKIE_QUESTS.filter(q => rq[q.key]).length
+        if (doneCount >= ROOKIE_QUESTS.length) return null   // all done — hide forever
+        const pct = Math.round((doneCount / ROOKIE_QUESTS.length) * 100)
+        return (
+          <div style={{
+            background: 'linear-gradient(135deg,#07040f,#110a1e)',
+            border: '1.5px solid #a855f755',
+            borderRadius: 16, padding: '14px 16px', marginBottom: 16,
+            boxShadow: '0 0 20px #a855f722',
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 20, color: '#d8b4fe', letterSpacing: '0.06em', textShadow: '0 0 14px #a855f766' }}>
+                🏆 Rookie Milestones
+              </div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#7c3aed', letterSpacing: '0.1em' }}>
+                {doneCount}/{ROOKIE_QUESTS.length} DONE
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div style={{ height: 6, background: '#1e1b2e', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
+              <div style={{
+                height: '100%', width: `${pct}%`,
+                background: 'linear-gradient(90deg,#7c3aed,#a855f7)',
+                borderRadius: 3, transition: 'width 0.5s ease',
+                boxShadow: '0 0 8px #a855f799',
+              }} />
+            </div>
+
+            {/* Checklist */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {ROOKIE_QUESTS.map(q => {
+                const done = !!rq[q.key]
+                return (
+                  <div key={q.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {done
+                      ? <CheckCircle2 size={14} color="#22c55e" />
+                      : <Circle       size={14} color="#4c1d95" />
+                    }
+                    <span style={{
+                      fontFamily: "'Barlow Condensed',sans-serif",
+                      fontSize: 13, fontWeight: 600,
+                      color: done ? '#4ade80' : '#c4b5fd',
+                      letterSpacing: '0.02em',
+                      textDecoration: done ? 'line-through' : 'none',
+                      opacity: done ? 0.6 : 1,
+                    }}>
+                      {q.icon} {q.label}
+                    </span>
+                    {!done && (
+                      <span style={{ marginLeft: 'auto', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: '#fbbf24' }}>
+                        +{q.reward}💎
+                      </span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* ── Rank hero + This Week: side-by-side on md+ ────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">

@@ -8,6 +8,7 @@ import { sendRageBait, subscribeToRageBaits, dismissRageBait, sendCompliment, su
 import { RageBaitSenderModal, RageBaitReceiverModal, ComplimentSenderModal, ComplimentReceiverModal } from './components/overlays/RageBaitModal.jsx'
 import { playerStats, newId, getWeekStart } from './utils/stats.js'
 import { BADGES }                        from './constants/badges.js'
+import { ROOKIE_QUESTS, DEFAULT_ROOKIE_QUESTS } from './constants/rookieQuests.js'
 import { useAudio }                      from './hooks/useAudio.js'
 import { useTheme }                      from './hooks/useTheme.js'
 
@@ -254,6 +255,27 @@ export default function App() {
 
   const upd = patch => setSt(prev => ({ ...prev, ...patch }))
 
+  // Mark a rookie quest complete and award diamonds — no-op if already done
+  function markRookieQuest(key) {
+    const quest = ROOKIE_QUESTS.find(q => q.key === key)
+    if (!quest) return
+    setSt(prev => {
+      const id     = prev.activePlayerId
+      const player = prev.players.find(p => p.id === id)
+      if (!player) return prev
+      const rq = player.rookieQuests || {}
+      if (rq[key]) return prev   // already completed
+      return {
+        ...prev,
+        players: prev.players.map(p => p.id === id ? {
+          ...p,
+          diamonds:     (p.diamonds || 0) + quest.reward,
+          rookieQuests: { ...rq, [key]: true },
+        } : p),
+      }
+    })
+  }
+
   // ── Alpha-test career reset ───────────────────────────────────────────────
   async function handleResetCareer() {
     if (!aPlayer) return
@@ -338,6 +360,9 @@ export default function App() {
   }
 
   function handlePeerChallengeSubmit({ challenge }) {
+    // Rookie quest: first issued challenge (challengerId = the player who sent it)
+    if (challenge.challengerId === st.activePlayerId) markRookieQuest('issueChallenge')
+
     // Merge updated challenge into local list
     setPeerChallenges(prev => {
       const idx = prev.findIndex(c => c.id === challenge.id)
@@ -418,6 +443,9 @@ export default function App() {
     clearTimeout(weakConnTimerRef.current)
     setWeakConnToast(false)
     setIsSaving(false)
+
+    // ── Rookie quest: 100-puck session ────────────────────────────────────
+    if (shots >= 100) markRookieQuest('puckSet100')
 
     // ── Navigate + celebrate ───────────────────────────────────────────────
     play('confetti')
@@ -703,6 +731,7 @@ export default function App() {
                   eloLastUpdated:     null,
                   hasEloShield:       false,
                   hasSeenOnboarding:  false,
+                  rookieQuests:       { ...DEFAULT_ROOKIE_QUESTS },
                   createdAt:          Date.now(),
                 }
                 localStorage.setItem(ACTIVE_PLAYER_KEY, p.id)
@@ -941,7 +970,14 @@ export default function App() {
             setTab('dashboard')
           }}
         />
-        <TabBar active={tab} onChange={setTab} hasSess={!!aSess} hasPendingVersus={hasPendingVersus} hasPendingGames={hasPendingGames} hasClaimableQuests={hasClaimableQuests} />
+        <TabBar
+          active={tab}
+          onChange={t => { if (t === 'store') markRookieQuest('visitStore'); setTab(t) }}
+          hasSess={!!aSess}
+          hasPendingVersus={hasPendingVersus}
+          hasPendingGames={hasPendingGames}
+          hasClaimableQuests={hasClaimableQuests}
+        />
 
         <div style={{ maxWidth: 520, margin: '0 auto' }}>
           {tab === 'dashboard' && (
@@ -985,11 +1021,15 @@ export default function App() {
                   sets,
                 }
                 upd({ sessions: [...st.sessions, atwSession] })
+                markRookieQuest('aroundWorld')
               }}
-              onPuckGameUpdate={updated => setPuckGames(prev => {
-                const idx = prev.findIndex(g => g.id === updated.id)
-                return idx >= 0 ? prev.map(g => g.id === updated.id ? updated : g) : [updated, ...prev]
-              })}
+              onPuckGameUpdate={updated => {
+                setPuckGames(prev => {
+                  const idx = prev.findIndex(g => g.id === updated.id)
+                  return idx >= 0 ? prev.map(g => g.id === updated.id ? updated : g) : [updated, ...prev]
+                })
+                if (updated.status !== 'active') markRookieQuest('horseGame')
+              }}
               onConcedeGame={gameId => {
                 setPuckGames(prev => prev.filter(g => g.id !== gameId))
                 loadPuckGamesForPlayer(st.activePlayerId).then(setPuckGames)
