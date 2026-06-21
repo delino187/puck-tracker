@@ -92,7 +92,7 @@ export default function PlayerSelectScreen({ players, sessions, onSelect, onBack
               <div style={{
                 fontFamily: "'Bangers',sans-serif", fontSize: 22,
                 letterSpacing: '0.03em', lineHeight: 1.1,
-                color: '#ffffff', marginBottom: 5,
+                color: 'var(--text-1)', marginBottom: 5,
               }}>
                 {p.name}
                 {p.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{p.jerseyNum}</span> : ''}
