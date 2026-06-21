@@ -82,6 +82,9 @@ export default function App() {
   const [complimentSender,   setComplimentSender]   = useState(false)
   const [complimentReceived, setComplimentReceived] = useState(null)
 
+  const [undoSnapshot,  setUndoSnapshot]  = useState(null)
+  const undoTimerRef                       = useRef(null)
+
   const badgeQRef               = useRef([])
   const epicAudioRef            = useRef(null)
   const streakInsuranceCheckedRef = useRef(null)
@@ -422,8 +425,22 @@ export default function App() {
     if (aPlayer) updateStreak(aPlayer.id).catch(() => {})
   }
 
+  function handleUndo() {
+    clearTimeout(undoTimerRef.current)
+    setUndoSnapshot(prev => {
+      if (prev) setSt(prev)
+      return null
+    })
+  }
+
   function handleLogSet(zoneId, hits) {
     if (!aSess || !aPlayer) return
+
+    // Snapshot state before the update so undo can restore it exactly
+    const snapshot = st
+    clearTimeout(undoTimerRef.current)
+    setUndoSnapshot(snapshot)
+    undoTimerRef.current = setTimeout(() => setUndoSnapshot(null), 8000)
 
     const set         = { zone: zoneId, hits, ts: Date.now() }
     const updSessions = st.sessions.map(s =>
@@ -1083,6 +1100,39 @@ export default function App() {
           )}
           {tab === 'ranks' && <RanksTab stats={stats} openDetail={rankDetailOpen} onDetailClose={() => setRankDetailOpen(false)} />}
         </div>
+
+        {/* ── Undo last set toast ──────────────────────────────────────────── */}
+        {undoSnapshot && tab === 'session' && (
+          <div style={{
+            position: 'fixed', bottom: 80, left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 300,
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: 'linear-gradient(135deg,#0f172a,#1e293b)',
+            border: '1.5px solid #3b82f6',
+            borderRadius: 14, padding: '10px 14px',
+            boxShadow: '0 0 20px #3b82f655, 0 4px 16px rgba(0,0,0,0.6)',
+            pointerEvents: 'auto',
+          }}>
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.04em' }}>
+              ✅ Set logged
+            </span>
+            <button
+              onClick={handleUndo}
+              style={{
+                background: 'linear-gradient(135deg,#1d3a6e,#1e40af)',
+                border: '1.5px solid #3b82f6',
+                borderRadius: 8, padding: '5px 14px',
+                fontFamily: "'Bangers',sans-serif", fontSize: 16,
+                letterSpacing: '0.08em', color: '#fff',
+                cursor: 'pointer',
+                boxShadow: '0 0 10px #3b82f655',
+              }}
+            >
+              UNDO
+            </button>
+          </div>
+        )}
 
         {/* ── Feedback floating button ────────────────────────────────────── */}
         <button
