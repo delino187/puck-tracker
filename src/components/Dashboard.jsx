@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Target, Lock, ChevronRight } from 'lucide-react'
 import { LEVELS } from '../constants/levels.js'
 import { BADGES } from '../constants/badges.js'
@@ -41,8 +42,50 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
     .filter(s => s.playerId === player.id && new Date(s.date).toDateString() === new Date().toDateString())
     .reduce((a, s) => a + s.sets.length * 10, 0)
 
+  const isIosSafari = typeof window !== 'undefined'
+    && /iphone|ipad|ipod/i.test(navigator.userAgent)
+    && !navigator.standalone
+  const [showInstallPrompt, setShowInstallPrompt] = useState(
+    () => isIosSafari && !localStorage.getItem('hasDismissedInstallPrompt')
+  )
+
+  function dismissInstallPrompt() {
+    localStorage.setItem('hasDismissedInstallPrompt', '1')
+    setShowInstallPrompt(false)
+  }
+
   return (
     <div style={{ padding: '14px 16px 80px' }}>
+
+      {/* ── iOS install prompt ───────────────────────────────────────────────── */}
+      {showInstallPrompt && (
+        <div style={{
+          position: 'relative',
+          background: 'linear-gradient(135deg,#060d1a,#0b1426)',
+          border: '1.5px solid #22d3ee',
+          borderRadius: 14,
+          padding: '13px 40px 13px 14px',
+          marginBottom: 14,
+          boxShadow: '0 0 18px #22d3ee22',
+        }}>
+          <button
+            onClick={dismissInstallPrompt}
+            style={{
+              position: 'absolute', top: 9, right: 10,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#64748b', fontSize: 16, lineHeight: 1, padding: 2,
+            }}
+            aria-label="Dismiss"
+          >✕</button>
+          <div style={{
+            fontFamily: "'Barlow Condensed',sans-serif",
+            fontSize: 13, fontWeight: 700, color: '#e2e8f0',
+            lineHeight: 1.55, letterSpacing: '0.01em',
+          }}>
+            📲 <span style={{ color: '#22d3ee' }}>Run Puck Tracker in Fullscreen!</span> Tap the Share icon (□↑) in Safari, scroll down, and select <strong>"Add to Home Screen"</strong> for the ultimate standalone experience.
+          </div>
+        </div>
+      )}
 
       {/* ── Rank hero + This Week: side-by-side on md+ ────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
