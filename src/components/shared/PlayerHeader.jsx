@@ -120,22 +120,29 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
         )}
       </div>
 
-      {/* ── Floating currency widgets — pinned to left edge, stacked vertically ── */}
+      {/* ── Floating currency widgets — bottom-left, above tab bar ── */}
       <div style={{
-        position: 'fixed', left: 8, top: '50%',
-        transform: 'translateY(-50%)',
+        position: 'fixed', left: 8, bottom: 72,
         zIndex: 200,
         display: 'flex', flexDirection: 'column', gap: 8,
-        pointerEvents: 'none',
-      }}>
+        pointerEvents: 'auto',
+        opacity: 0.8,
+        transition: 'opacity 0.2s ease',
+      }}
+        onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+        onMouseLeave={e => e.currentTarget.style.opacity = '0.8'}
+        onTouchStart={e => e.currentTarget.style.opacity = '1'}
+        onTouchEnd={e => e.currentTarget.style.opacity = '0.8'}
+      >
         {/* 💎 Diamonds — always in DOM */}
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center',
-          background: 'linear-gradient(135deg,#2a1a4a,#1a0a2a)',
+          background: 'rgba(42,26,74,0.82)',
           border: '2px solid #fbbf24',
           borderRadius: 12, padding: '8px 10px',
           boxShadow: '0 0 18px #fbbf2455',
           minWidth: 52, textAlign: 'center',
+          backdropFilter: 'blur(6px)',
         }}>
           <span style={{ fontSize: 22, lineHeight: 1 }}>💎</span>
           <div style={{
@@ -157,11 +164,12 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
         {hasShield && (
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center',
-            background: 'linear-gradient(135deg,#050d1a,#091828)',
+            background: 'rgba(5,13,26,0.82)',
             border: '2px solid #06b6d4',
             borderRadius: 12, padding: '8px 10px',
             boxShadow: '0 0 18px #06b6d455',
             minWidth: 52, textAlign: 'center',
+            backdropFilter: 'blur(6px)',
           }}>
             <span style={{ fontSize: 22, lineHeight: 1 }}>🛡️</span>
             <div style={{
