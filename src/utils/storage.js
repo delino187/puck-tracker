@@ -56,30 +56,38 @@ export async function loadSt() {
     const hasTechData = Object.keys(cloudTech).length > 0 || Object.keys(localTech).length > 0
 
     if (hasTechData) {
-      // Per-player: take the maximum of cloud and local for each counter so that
-      // neither source can roll back progress earned on the other device.
-      const merged = { ...cloudTech }
-      for (const [pid, localEntry] of Object.entries(localTech)) {
-        const cloudEntry = merged[pid] || { totalPucks: 0, bonusXP: 0 }
-        const mergedEntry = {
-          totalPucks: Math.max(cloudEntry.totalPucks || 0, localEntry.totalPucks || 0),
-          bonusXP:    Math.max(cloudEntry.bonusXP    || 0, localEntry.bonusXP    || 0),
-        }
-        // Only update if something actually changed to avoid redundant Zustand writes
-        if (
-          mergedEntry.totalPucks !== (cloudEntry.totalPucks || 0) ||
-          mergedEntry.bonusXP    !== (cloudEntry.bonusXP    || 0)
-        ) {
-          merged[pid] = mergedEntry
-        } else {
-          merged[pid] = cloudEntry
+      // Start from localTech so that dailyLog (local-only, used for streak calcs)
+      // is never discarded.  Then take the maximum of cloud vs local for the two
+      // writable numeric counters — neither source can roll back the other device.
+      const candidate = { ...localTech }
+      let needsUpdate = false
+
+      for (const [pid, cloudEntry] of Object.entries(cloudTech)) {
+        const local          = localTech[pid] || { totalPucks: 0, bonusXP: 0 }
+        const bestTotalPucks = Math.max(cloudEntry.totalPucks || 0, local.totalPucks || 0)
+        const bestBonusXP    = Math.max(cloudEntry.bonusXP    || 0, local.bonusXP    || 0)
+        if (bestTotalPucks !== (local.totalPucks || 0) || bestBonusXP !== (local.bonusXP || 0)) {
+          candidate[pid] = { ...local, totalPucks: bestTotalPucks, bonusXP: bestBonusXP }
+          needsUpdate = true
         }
       }
 
-      const currentTech = useAppStore.getState().techniqueByPlayer
-      if (JSON.stringify(merged) !== JSON.stringify(currentTech)) {
-        console.log('[storage] Hydrating techniqueByPlayer from Firestore/merge:', merged)
-        useAppStore.setState({ techniqueByPlayer: merged })
+      if (needsUpdate) {
+        console.log('[storage] Hydrating techniqueByPlayer from Firestore/merge:', candidate)
+        // Use the function form of setState: if the computed candidate turns out
+        // equal to current state, return the SAME state reference so Zustand
+        // skips notifying subscribers and React skips the re-render entirely.
+        useAppStore.setState(state => {
+          const current = state.techniqueByPlayer || {}
+          const changed = Object.keys(candidate).some(pid => {
+            const c = candidate[pid]
+            const s = current[pid]
+            return (c?.totalPucks ?? 0) !== (s?.totalPucks ?? 0) ||
+                   (c?.bonusXP    ?? 0) !== (s?.bonusXP    ?? 0)
+          })
+          if (!changed) return state           // same reference → zero listener calls
+          return { ...state, techniqueByPlayer: candidate }
+        })
       }
     }
 

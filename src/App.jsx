@@ -8,6 +8,7 @@ import { sendRageBait, subscribeToRageBaits, dismissRageBait, sendCompliment, su
 import { RageBaitSenderModal, RageBaitReceiverModal, ComplimentSenderModal, ComplimentReceiverModal } from './components/overlays/RageBaitModal.jsx'
 import { playerStats, newId, getWeekStart, getLevel } from './utils/stats.js'
 import { useAppStore } from './store/useAppStore.js'
+import { useShallow } from 'zustand/react/shallow'
 import { BADGES, getBadgeXP }             from './constants/badges.js'
 import { ROOKIE_QUESTS, DEFAULT_ROOKIE_QUESTS } from './constants/rookieQuests.js'
 import { useAudio }                      from './hooks/useAudio.js'
@@ -114,7 +115,9 @@ export default function App() {
   const lastChallengeLiRef      = useRef(null)   // null = baseline not yet set
 
   // Reactive read of the technique/challenge XP pool.  Drives XP bar + level display.
-  const techniqueByPlayer = useAppStore(s => s.techniqueByPlayer)
+  // useShallow prevents re-renders when a new techniqueByPlayer object is written
+  // with the same per-player values (shallow-compares the player-keyed entries).
+  const techniqueByPlayer = useAppStore(useShallow(s => s.techniqueByPlayer))
   const play         = useAudio()
   const { theme, toggleOutsideMode } = useTheme()
 
