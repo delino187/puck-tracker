@@ -139,9 +139,8 @@ export const BADGE_CATS = [
   { id: 'posts',     label: 'Posts',                   Icon: Award       },
   { id: 'volume',    label: 'Volume',                  Icon: Zap         },
   { id: 'time',      label: 'Time',                    Icon: Clock       },
-  { id: 'skill',     label: 'Skill',                   Icon: Shield      },
+  { id: 'skill',     label: 'Skill & Onboarding',      Icon: Award       },
   { id: 'challenge', label: 'Challenges',              Icon: CheckCircle },
   { id: 'ultra',     label: 'Ultra-Rare Achievements', Icon: Gem         },
   { id: 'games',     label: 'Around the World',        Icon: Gamepad2    },
-  { id: 'skill',     label: 'Skill & Onboarding',      Icon: Award       },
 ]
