@@ -16,8 +16,8 @@ const QUEST_POOL = {
   quality: [
     { text: 'Hit 70% Accuracy in a Target Practice Session', tier: 'common', reward: 10, icon: '📊' },
     { text: 'Hit 75% Accuracy in a Target Practice Session', tier: 'rare',   reward: 25, icon: '📈' },
-    { text: 'Hit 80% Accuracy in a Target Practice Session', tier: 'epic',   reward: 50, icon: '🔥' },
-    { text: 'Nail a Perfect 10/10 Set in Target Practice',   tier: 'epic',   reward: 50, icon: '💯' },
+    { text: 'Hit 40% Accuracy in a Target Practice Session', tier: 'epic',   reward: 50, icon: '🔥' },
+    { text: 'Hit at Least 3/10 Targets in a Practice Set',  tier: 'epic',   reward: 50, icon: '💯' },
     { text: 'Score 8+ Hits in Any Zone in Target Practice',  tier: 'rare',   reward: 25, icon: '🎯' },
   ],
   social: [

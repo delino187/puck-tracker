@@ -13,8 +13,8 @@
 export function parseQuestTarget(text) {
   if (/Log (\d+)/i.test(text))  return parseInt(text.match(/\d+/)[0])
   if (/Hit (\d+)%/i.test(text)) return parseInt(text.match(/\d+/)[0])
-  if (/Perfect 10/i.test(text)) return 1
-  if (/8\+ Hits/i.test(text))   return 8
+  if (/at Least (\d+)\/10/i.test(text)) return parseInt(text.match(/at Least (\d+)/i)[1])
+  if (/8\+ Hits/i.test(text))           return 8
   return 1   // binary social quests
 }
 
@@ -58,9 +58,11 @@ export function computeQuestProgress(text, sessions) {
     return { current: bestAcc, target, suffix: '%' }
   }
 
-  // "Nail a Perfect 10/10 Set"
-  if (/Perfect 10/i.test(text)) {
-    return { current: todaySets.some(s => s.hits === 10) ? 1 : 0, target: 1, suffix: '' }
+  // "Hit at Least N/10 Targets in a Practice Set"
+  if (/at Least (\d+)\/10/i.test(text)) {
+    const target  = parseInt(text.match(/at Least (\d+)/i)[1])
+    const best    = todaySets.reduce((max, s) => Math.max(max, s.hits), 0)
+    return { current: Math.min(best, target), target, suffix: '' }
   }
 
   // "Score 8+ Hits in Any Zone"
