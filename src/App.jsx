@@ -98,6 +98,37 @@ export default function App() {
     })
   }, [])
 
+  // ── Re-sync on app focus / tab visibility restore ─────────────────────────
+  // Covers: switching back to the PWA from another app, reopening Safari,
+  // and returning to this tab from another. Debounced to 5 s to avoid
+  // hammering Firestore on rapid hide/show cycles.
+  useEffect(() => {
+    const lastSync = { ts: 0 }
+    function handleFocus() {
+      const now = Date.now()
+      if (now - lastSync.ts < 5000) return
+      lastSync.ts = now
+      loadSt().then(fresh => {
+        if (!fresh) return
+        setSt(prev => ({
+          ...fresh,
+          // Keep live navigation & in-progress session — don't interrupt the user
+          view:            prev?.view            ?? fresh.view,
+          activePlayerId:  prev?.activePlayerId  ?? fresh.activePlayerId,
+          activeSessionId: prev?.activeSessionId ?? fresh.activeSessionId,
+        }))
+      })
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') handleFocus()
+    })
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', handleFocus)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, []) // eslint-disable-line
+
   // ── Persist: localStorage + Firestore on every state change ───────────────
   useEffect(() => {
     if (st) saveSt(st)
