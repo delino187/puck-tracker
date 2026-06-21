@@ -75,8 +75,8 @@ export const BADGES = [
   { id: 'd500', name: 'Five-Hundred Maniac', desc: '500 shots in one day', cat: 'ultra', tier: 4, Icon: Flame, innerBg: 'linear-gradient(135deg,#1a0000,#7f1d1d)', innerIcon: '#fca5a5', check: (p,s) => maxShotsInDay(p,s)>=500 },
 
   // ── Multi-Session Days ────────────────────────────────────────────────────────
-  { id: 'ds2', name: 'Double Shift', desc: '2 sessions in one day', cat: 'time', tier: 2, Icon: Timer, innerBg: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)', innerIcon: '#bfdbfe', check: (p,s) => maxSessionsInDay(p,s)>=2 },
-  { id: 'ds3', name: 'Triple Shift', desc: '3 sessions in one day', cat: 'time', tier: 3, Icon: Timer, innerBg: 'linear-gradient(135deg,#312e81,#4338ca)', innerIcon: '#c7d2fe', check: (p,s) => maxSessionsInDay(p,s)>=3 },
+  { id: 'ds2', name: 'Double Shift', desc: '2 sessions of 50+ pucks each in one day', cat: 'time', tier: 2, Icon: Timer, innerBg: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)', innerIcon: '#bfdbfe', check: (p,s) => maxSessionsInDay(p,s)>=2 },
+  { id: 'ds3', name: 'Triple Shift', desc: '3 sessions of 50+ pucks each in one day', cat: 'time', tier: 3, Icon: Timer, innerBg: 'linear-gradient(135deg,#312e81,#4338ca)', innerIcon: '#c7d2fe', check: (p,s) => maxSessionsInDay(p,s)>=3 },
 
   // ── Time Anomalies ────────────────────────────────────────────────────────────
   { id: 'tm', name: 'Midnight Oil', desc: 'Logged a session after 9 PM',  cat: 'time', tier: 2, img: '/midnight oil.jpeg', Icon: Moon,    innerBg: 'linear-gradient(135deg,#0f172a,#1e1b4b)', innerIcon: '#a5b4fc', check: (p,s) => sessionTimeCheck(p,s,21,null) },

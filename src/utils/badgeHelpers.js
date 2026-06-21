@@ -51,9 +51,13 @@ export function maxShotsInDay(p, s) {
   return Math.max(0, ...Object.values(m))
 }
 
-export function maxSessionsInDay(p, s) {
+// Counts sessions per calendar day, but only those with >= minPucks total shots.
+// Used by Double/Triple Shift badges which require 50-puck qualifying sessions.
+export function maxSessionsInDay(p, s, minPucks = 50) {
   const m = {}
   getPSessions(p, s).forEach(x => {
+    const shots = x.sets.length * 10
+    if (shots < minPucks) return
     const d = new Date(x.date).toDateString()
     m[d] = (m[d] || 0) + 1
   })
