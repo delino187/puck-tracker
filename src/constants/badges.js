@@ -143,6 +143,13 @@ export const BADGES = [
   }},
 ]
 
+// XP awarded to the player's bonusXP pool when a badge is newly unlocked.
+// Keyed by tier so every new badge added to BADGES automatically inherits a reward.
+const BADGE_TIER_XP = { 1: 5, 2: 10, 3: 25, 4: 50, 5: 100 }
+export function getBadgeXP(badge) {
+  return BADGE_TIER_XP[badge?.tier] ?? 5
+}
+
 export const BADGE_CATS = [
   { id: 'streak',    label: 'Streaks',                 Icon: Flame       },
   { id: 'bardown',   label: 'Bar Down',                Icon: Target      },

@@ -1,5 +1,6 @@
 import { loadFromFirestore, saveToFirestore } from './firestoreSync.js'
 import { useAppStore } from '../store/useAppStore.js'
+import { healPlayerStats } from './profileHealer.js'
 
 const SK = 'puck_v5'
 
@@ -86,6 +87,35 @@ export async function loadSt() {
     // eslint-disable-next-line no-unused-vars
     const { techniqueByPlayer: _tech, ...stateFields } = cloudData
     const merged = { ...DEFAULT_STATE, ...stateFields }
+
+    // ── Profile Healer ────────────────────────────────────────────────────────
+    // Volume-badge evidence lets us restore the minimum totalPucks / bonusXP
+    // floor for any player whose techniqueByPlayer entry is missing or too low
+    // (e.g. after a cache clear or login from a fresh device).
+    {
+      const latestTech = useAppStore.getState().techniqueByPlayer
+      const healedTech = { ...latestTech }
+      let isHealed = false
+
+      for (const player of (merged.players || [])) {
+        const repaired = healPlayerStats(player, merged.sessions || [], latestTech[player.id])
+        if (repaired) {
+          console.log(
+            `[Healer] Restored ${player.name}'s profile to ${repaired.totalPucks} pucks ` +
+            `/ ${repaired.bonusXP} XP based on unlocked milestone badge.`
+          )
+          healedTech[player.id] = repaired
+          isHealed = true
+        }
+      }
+
+      if (isHealed) {
+        // Push corrected values into Zustand immediately so the UI reflects them
+        useAppStore.setState({ techniqueByPlayer: healedTech })
+        // saveSt reads the fresh Zustand state, so the healed values reach Firestore
+        saveSt(merged)
+      }
+    }
 
     // Mirror merged cloud data to localStorage so offline fallback is fresh.
     try { localStorage.setItem(SK, JSON.stringify(merged)) } catch {}

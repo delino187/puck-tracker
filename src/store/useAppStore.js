@@ -123,15 +123,20 @@ export const useAppStore = create(
       logTechniqueShots: (playerId, pucksShot, xpOverride = null) => {
         const prev    = get().techniqueByPlayer[playerId] ?? { totalPucks: 0, bonusXP: 0, dailyLog: {} }
         const xpGain  = xpOverride !== null ? xpOverride : pucksShot
-        const today   = new Date().toDateString()
         const prevLog = prev.dailyLog || {}
+        // Only update dailyLog when actual pucks were shot — writing today:0 when
+        // pucksShot===0 (e.g. badge XP awards) pollutes the log with zero-entries
+        // that cause JSON.stringify key-order mismatches against Firestore echoes.
+        const nextLog = pucksShot > 0
+          ? { ...prevLog, [new Date().toDateString()]: (prevLog[new Date().toDateString()] || 0) + pucksShot }
+          : prevLog
         set(state => ({
           techniqueByPlayer: {
             ...state.techniqueByPlayer,
             [playerId]: {
               totalPucks: prev.totalPucks + pucksShot,
               bonusXP:    prev.bonusXP    + xpGain,
-              dailyLog:   { ...prevLog, [today]: (prevLog[today] || 0) + pucksShot },
+              dailyLog:   nextLog,
             },
           },
         }))

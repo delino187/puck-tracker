@@ -8,7 +8,7 @@ import { sendRageBait, subscribeToRageBaits, dismissRageBait, sendCompliment, su
 import { RageBaitSenderModal, RageBaitReceiverModal, ComplimentSenderModal, ComplimentReceiverModal } from './components/overlays/RageBaitModal.jsx'
 import { playerStats, newId, getWeekStart, getLevel } from './utils/stats.js'
 import { useAppStore } from './store/useAppStore.js'
-import { BADGES }                        from './constants/badges.js'
+import { BADGES, getBadgeXP }             from './constants/badges.js'
 import { ROOKIE_QUESTS, DEFAULT_ROOKIE_QUESTS } from './constants/rookieQuests.js'
 import { useAudio }                      from './hooks/useAudio.js'
 import { useTheme }                      from './hooks/useTheme.js'
@@ -102,6 +102,10 @@ export default function App() {
   const rageBaitUnsubRef        = useRef(null)
   const complimentUnsubRef      = useRef(null)
   const teamUnsubRef            = useRef(null)
+  // True while the onSnapshot callback is applying server data to local state.
+  // Suppresses the [st] auto-save useEffect so we never echo an incoming snapshot
+  // back to Firestore, which would trigger another snapshot and loop.
+  const isHydratingRef          = useRef(false)
   const challengesUnsubRef      = useRef(null)
   const puckGamesUnsubRef       = useRef(null)
   const lastPlayersRef          = useRef(null)   // null = listener baseline not yet set
@@ -139,6 +143,10 @@ export default function App() {
     // DEFAULT_STATE has players:[] — writing that to Firestore would wipe everyone.
     // Only skip if players is empty AND we have no activePlayerId (true blank state).
     if (st.players.length === 0 && !st.activePlayerId) return
+    // Hydration guard: the onSnapshot callback sets isHydratingRef while it applies
+    // server data. Saving during that window would echo the snapshot back to Firestore
+    // and trigger another onSnapshot, causing an infinite update loop.
+    if (isHydratingRef.current) return
     saveSt(st)
     lastSaveRef.current = Date.now()
   }, [st])
@@ -149,6 +157,15 @@ export default function App() {
   // local state, preventing re-render → saveSt → Firestore echo cycles.
   useEffect(() => {
     const unsub = subscribeToTeam(teamData => {
+      // ── Hydration gate — suppress the [st] auto-save while we apply server data ──
+      // Without this, setSt() below changes `st`, the [st] useEffect fires saveSt(),
+      // which writes back to Firestore, which fires another snapshot — infinite loop.
+      isHydratingRef.current = true
+      // Reset after the current microtask queue clears so effects triggered by the
+      // state updates in this callback still see isHydrating = true, but the NEXT
+      // independent user interaction does not.
+      setTimeout(() => { isHydratingRef.current = false }, 0)
+
       const incoming = teamData.players || []
 
       // ── Diagnostic: log what Firestore is delivering ──────────────────────
@@ -166,8 +183,6 @@ export default function App() {
               : 'unset',
             '| diamonds:', snap.diamonds ?? 0,
             '| elo:', snap.elo ?? 'unset',
-            // totalPucks and totalXP are derived locally (sessions + Zustand bonusXP),
-            // not stored on the player doc — check hsh_global_app_state in localStorage.
           )
         }
       }
@@ -239,22 +254,33 @@ export default function App() {
       })
 
       // ── Sync techniqueByPlayer from server into Zustand ───────────────────
-      // Ensures coach credits, challenge XP, and PUCK game shots earned on
-      // another device appear immediately without a page reload.
+      // Compares field-by-field (not JSON.stringify) to avoid false positives from
+      // Firestore returning object keys in a different insertion order than local state.
+      // dailyLog is intentionally excluded from the server sync — it is a local-only
+      // structure (streak calculations) and syncing it via Firestore causes key-ordering
+      // mismatches that defeat the equality check on every echo.
       const serverTech = teamData.techniqueByPlayer
       if (serverTech && Object.keys(serverTech).length > 0) {
-        const localTech  = useAppStore.getState().techniqueByPlayer || {}
-        const mergedTech = { ...serverTech }
-        for (const [pid, local] of Object.entries(localTech)) {
-          const srv = mergedTech[pid] || { totalPucks: 0, bonusXP: 0, dailyLog: {} }
-          mergedTech[pid] = {
-            totalPucks: Math.max(local.totalPucks ?? 0, srv.totalPucks ?? 0),
-            bonusXP:    Math.max(local.bonusXP    ?? 0, srv.bonusXP    ?? 0),
-            dailyLog:   { ...(srv.dailyLog ?? {}), ...(local.dailyLog ?? {}) },
+        const current    = useAppStore.getState().techniqueByPlayer || {}
+        const localTech  = current
+        let hasNewData   = false
+        const mergedTech = { ...localTech }
+
+        for (const [pid, srv] of Object.entries(serverTech)) {
+          const local = localTech[pid] || { totalPucks: 0, bonusXP: 0 }
+          const mergedTotalPucks = Math.max(local.totalPucks ?? 0, srv.totalPucks ?? 0)
+          const mergedBonusXP    = Math.max(local.bonusXP    ?? 0, srv.bonusXP    ?? 0)
+          if (mergedTotalPucks !== (local.totalPucks ?? 0) || mergedBonusXP !== (local.bonusXP ?? 0)) {
+            hasNewData = true
+            mergedTech[pid] = {
+              ...local,  // preserve local dailyLog
+              totalPucks: mergedTotalPucks,
+              bonusXP:    mergedBonusXP,
+            }
           }
         }
-        const current = useAppStore.getState().techniqueByPlayer
-        if (JSON.stringify(mergedTech) !== JSON.stringify(current)) {
+
+        if (hasNewData) {
           useAppStore.setState({ techniqueByPlayer: mergedTech })
         }
       }
@@ -395,6 +421,9 @@ export default function App() {
     if (!newBadges.length) return
     const now = Date.now()
     newBadges.forEach(b => { already[b.id] = { ts: now } })
+    // Award XP before setSt so Zustand is fresh when the save fires
+    const totalBadgeXP = newBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
+    if (totalBadgeXP > 0) useAppStore.getState().logTechniqueShots(player.id, 0, totalBadgeXP)
     setSt(prev => ({
       ...prev,
       players: prev.players.map(p =>
@@ -464,7 +493,27 @@ export default function App() {
 
   function markRookieQuest(key) {
     const quest = ROOKIE_QUESTS.find(q => q.key === key)
-    if (!quest) return
+    if (!quest || !aPlayer) return
+
+    // Award badge XP before setSt so Zustand is fresh when the save fires.
+    // We mirror the inner guard (rq[key] already done?) to avoid double-award.
+    const rqNow = aPlayer.rookieQuests || {}
+    if (!rqNow[key]) {
+      const milestoneId  = ROOKIE_BADGE_MAP[key]
+      const allKeys      = ROOKIE_QUESTS.map(q => q.key)
+      const allDoneNow   = allKeys.every(k => k === key ? true : !!rqNow[k])
+      const grantedBadges = []
+      if (milestoneId && !aPlayer.earnedBadges?.[milestoneId]) {
+        const b = BADGES.find(x => x.id === milestoneId)
+        if (b) grantedBadges.push(b)
+      }
+      if (allDoneNow && !aPlayer.earnedBadges?.rookie_grad) {
+        const b = BADGES.find(x => x.id === 'rookie_grad')
+        if (b) grantedBadges.push(b)
+      }
+      const totalBadgeXP = grantedBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
+      if (totalBadgeXP > 0) useAppStore.getState().logTechniqueShots(aPlayer.id, 0, totalBadgeXP)
+    }
 
     setSt(prev => {
       const id     = prev.activePlayerId
@@ -777,6 +826,9 @@ export default function App() {
     if (newBadges.length) {
       const now = Date.now()
       newBadges.forEach(b => { already[b.id] = { ts: now } })
+      // Award XP before upd() so Zustand is fresh when the resulting saveSt fires
+      const totalBadgeXP = newBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
+      if (totalBadgeXP > 0) useAppStore.getState().logTechniqueShots(aPlayer.id, 0, totalBadgeXP)
       updPlayers = st.players.map(p =>
         p.id === aPlayer.id ? {
           ...p,
@@ -836,6 +888,9 @@ export default function App() {
     if (newBadges.length) {
       const now = Date.now()
       newBadges.forEach(b => { already[b.id] = { ts: now } })
+      // Award XP before upd() so Zustand is fresh when the resulting saveSt fires
+      const totalBadgeXP = newBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
+      if (totalBadgeXP > 0) useAppStore.getState().logTechniqueShots(aPlayer.id, 0, totalBadgeXP)
       updPlayers = st.players.map(p =>
         p.id === aPlayer.id ? {
           ...p,
