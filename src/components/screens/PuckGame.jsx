@@ -491,6 +491,19 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
   const activeGames    = puckGames.filter(g => g.status === 'active')
   const completedGames = puckGames.filter(g => g.status !== 'active').slice(0, 3)
 
+  // Career PUCK stats for this player
+  const allFinished = puckGames.filter(g => g.status !== 'active')
+  const puckWins   = allFinished.filter(g =>
+    (g.status === 'p1_wins' && g.p1Id === player.id) ||
+    (g.status === 'p2_wins' && g.p2Id === player.id)
+  ).length
+  const puckLosses = allFinished.filter(g =>
+    (g.status === 'p1_wins' && g.p2Id === player.id) ||
+    (g.status === 'p2_wins' && g.p1Id === player.id)
+  ).length
+  const puckTotal  = puckWins + puckLosses
+  const puckWinPct = puckTotal === 0 ? '0%' : `${Math.round((puckWins / puckTotal) * 100)}%`
+
   return (
     <div style={{ padding: '16px 14px 80px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -508,6 +521,40 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
             + GAME
           </button>
         )}
+      </div>
+
+      {/* ── Career stats panel ───────────────────────────────────────────────── */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+        gap: 8, marginBottom: 18,
+        background: 'linear-gradient(135deg,#100406,#1a0608)',
+        border: '1.5px solid #ef444433',
+        borderRadius: 14, padding: '14px 12px',
+        boxShadow: '0 0 20px #ef444418',
+      }}>
+        {[
+          { label: 'Wins',  val: puckWins,   color: '#22c55e', glow: '#22c55e55' },
+          { label: 'Losses', val: puckLosses, color: '#ef4444', glow: '#ef444455' },
+          { label: 'Win %',  val: puckWinPct, color: '#fbbf24', glow: '#fbbf2455' },
+        ].map(({ label, val, color, glow }) => (
+          <div key={label} style={{ textAlign: 'center' }}>
+            <div style={{
+              fontFamily: "'Bangers',sans-serif", fontSize: 28,
+              letterSpacing: '0.04em', lineHeight: 1,
+              color, textShadow: `0 0 12px ${glow}`,
+            }}>
+              {val}
+            </div>
+            <div style={{
+              fontFamily: "'Barlow Condensed',sans-serif",
+              fontSize: 9, fontWeight: 800,
+              color: '#475569', letterSpacing: '0.16em',
+              textTransform: 'uppercase', marginTop: 3,
+            }}>
+              {label}
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Active games */}
