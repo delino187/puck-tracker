@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   Plus, Trash2, Shuffle, CheckCircle, X,
   Swords, Users, Lock, ChevronLeft, History, Eye, EyeOff,
@@ -89,6 +89,9 @@ function CoachRoster({ st, upd }) {
   const [savingPw, setSavingPw] = useState(false)
   const [msgDraft, setMsgDraft] = useState('')
   const [msgSaved, setMsgSaved] = useState(false)
+  const [pendingDiamonds, setPendingDiamonds] = useState(0)
+  const [diamondToast,    setDiamondToast]    = useState(null)
+  const diamondToastTimer                      = useRef(null)
 
   if (selectedPlayer) {
     const p = st.players.find(x => x.id === selectedPlayer)
@@ -97,7 +100,7 @@ function CoachRoster({ st, upd }) {
 
     return (
       <div>
-        <button onClick={() => setSelectedPlayer(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, marginBottom: 16 }}>
+        <button onClick={() => { setSelectedPlayer(null); setPendingDiamonds(0); setDiamondToast(null) }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: 4, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, marginBottom: 16 }}>
           <ChevronLeft size={16} /> Back to Roster
         </button>
 
@@ -174,6 +177,91 @@ function CoachRoster({ st, upd }) {
               </button>
             )}
           </div>
+        </div>
+
+        {/* ── Award Diamonds ──────────────────────────────────────────────── */}
+        <div style={{ ...C.card, marginBottom: 12, borderColor: '#fbbf2444', background: 'linear-gradient(135deg,#0d0a00,#1a1400)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <span style={{ fontSize: 18, lineHeight: 1 }}>💎</span>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#fbbf24', letterSpacing: '0.14em' }}>
+              AWARD DIAMONDS
+            </div>
+            <div style={{ marginLeft: 'auto', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#94a3b8' }}>
+              Current balance: <span style={{ color: '#fbbf24', fontWeight: 700 }}>{p.diamonds || 0} 💎</span>
+            </div>
+          </div>
+
+          {/* +5 / -5 stepper */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <button
+              onClick={() => setPendingDiamonds(n => Math.max(-(p.diamonds || 0), n - 5))}
+              style={{
+                width: 44, height: 44, borderRadius: 10, border: '1.5px solid #ef444455',
+                background: '#1a0404', color: '#f87171', fontSize: 18, fontWeight: 800,
+                cursor: 'pointer', flexShrink: 0,
+              }}
+            >−5</button>
+
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 34, letterSpacing: '0.04em', lineHeight: 1, color: pendingDiamonds === 0 ? '#334155' : pendingDiamonds > 0 ? '#fbbf24' : '#f87171', textShadow: pendingDiamonds !== 0 ? '0 0 14px #fbbf2466' : 'none' }}>
+                {pendingDiamonds > 0 ? `+${pendingDiamonds}` : pendingDiamonds}
+              </div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.12em' }}>
+                PENDING
+              </div>
+            </div>
+
+            <button
+              onClick={() => setPendingDiamonds(n => n + 5)}
+              style={{
+                width: 44, height: 44, borderRadius: 10, border: '1.5px solid #fbbf2455',
+                background: '#1a1000', color: '#fbbf24', fontSize: 18, fontWeight: 800,
+                cursor: 'pointer', flexShrink: 0,
+              }}
+            >+5</button>
+          </div>
+
+          {/* Confirm button */}
+          <button
+            disabled={pendingDiamonds === 0}
+            onClick={() => {
+              if (pendingDiamonds === 0) return
+              const newTotal = Math.max(0, (p.diamonds || 0) + pendingDiamonds)
+              upd({ players: st.players.map(x => x.id === p.id ? { ...x, diamonds: newTotal } : x) })
+
+              const label = p.jerseyNum ? `#${p.jerseyNum}` : p.name
+              const sign  = pendingDiamonds > 0 ? '+' : ''
+              clearTimeout(diamondToastTimer.current)
+              setDiamondToast(`🔥 ${sign}${pendingDiamonds} Diamonds awarded to ${label}!`)
+              diamondToastTimer.current = setTimeout(() => setDiamondToast(null), 4000)
+              setPendingDiamonds(0)
+            }}
+            style={{
+              width: '100%', padding: '11px',
+              background: pendingDiamonds === 0 ? '#111827' : 'linear-gradient(135deg,#78350f,#fbbf24)',
+              color: pendingDiamonds === 0 ? '#334155' : '#000',
+              border: 'none', borderRadius: 10,
+              fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.08em',
+              cursor: pendingDiamonds === 0 ? 'not-allowed' : 'pointer',
+              boxShadow: pendingDiamonds !== 0 ? '0 0 18px #fbbf2444' : 'none',
+              transition: 'all 0.2s',
+            }}
+          >
+            {pendingDiamonds === 0 ? 'TAP +5 OR −5 TO SET AMOUNT' : `✅ CONFIRM ${pendingDiamonds > 0 ? '+' : ''}${pendingDiamonds} DIAMONDS`}
+          </button>
+
+          {/* Toast */}
+          {diamondToast && (
+            <div style={{
+              marginTop: 10, padding: '8px 12px',
+              background: '#052e16', border: '1px solid #22c55e55',
+              borderRadius: 8, textAlign: 'center',
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700,
+              color: '#4ade80', letterSpacing: '0.06em',
+            }}>
+              {diamondToast}
+            </div>
+          )}
         </div>
 
         {/* Session history */}
