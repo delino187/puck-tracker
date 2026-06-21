@@ -6,7 +6,7 @@ import { BADGES } from '../../constants/badges.js'
 import { LEVELS } from '../../constants/levels.js'
 
 // step: 'view' → 'confirm' → 'uploading' → back to 'view'
-export default function ManageProfileModal({ player, stats, onPhotoUpload, onResetCareer, onClose }) {
+export default function ManageProfileModal({ player, stats, onPhotoUpload, onResetCareer, onSwitchProfile, onClose }) {
   const [step,       setStep]      = useState('view')
   const [uploadPct,  setUploadPct] = useState(0)
   const [uploadErr,  setUploadErr] = useState('')
@@ -307,6 +307,31 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* ── Switch Profile ───────────────────────────────────────────────── */}
+        {onSwitchProfile && (
+          <div style={{ marginTop: 16, width: '100%' }}>
+            <button
+              onClick={onSwitchProfile}
+              style={{
+                width: '100%',
+                padding: '11px 14px',
+                background: 'linear-gradient(135deg,#0c1a2e,#0f2040)',
+                border: '1.5px solid #3b82f6',
+                borderRadius: 10,
+                cursor: 'pointer',
+                fontFamily: "'Barlow Condensed',sans-serif",
+                fontSize: 13, fontWeight: 800,
+                color: '#60a5fa',
+                letterSpacing: '0.1em',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                boxShadow: '0 0 12px #3b82f622',
+              }}
+            >
+              🔄 SWITCH PROFILE
+            </button>
           </div>
         )}
 

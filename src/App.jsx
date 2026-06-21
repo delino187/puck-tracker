@@ -94,13 +94,23 @@ export default function App() {
   const play         = useAudio()
   const { theme, toggleOutsideMode } = useTheme()
 
+  const ACTIVE_PLAYER_KEY = 'puck_activePlayer'
+
   // ── Boot: Firestore → localStorage fallback ───────────────────────────────
   useEffect(() => {
     loadSt().then(saved => {
-      setSt(saved || { ...DEFAULT_STATE })
+      const base = saved || { ...DEFAULT_STATE }
+      // Auto-login: if a player ID was saved on last login, route straight to
+      // their dashboard without forcing them through the selection screen.
+      const savedId = localStorage.getItem(ACTIVE_PLAYER_KEY)
+      if (savedId && base.players?.find(p => p.id === savedId)) {
+        setSt({ ...base, view: 'player', activePlayerId: savedId, activeSessionId: null })
+      } else {
+        setSt({ ...base, view: 'home' })
+      }
       setLoading(false)
     })
-  }, [])
+  }, []) // eslint-disable-line
 
   // ── Persist: localStorage + Firestore on every state change ───────────────
   useEffect(() => {
@@ -567,6 +577,7 @@ export default function App() {
           players={st.players}
           sessions={st.sessions}
           onSelect={id => {
+            localStorage.setItem(ACTIVE_PLAYER_KEY, id)
             upd({ activePlayerId: id, activeSessionId: null, view: 'player' })
             setTab('dashboard')
           }}
@@ -694,6 +705,7 @@ export default function App() {
                   hasSeenOnboarding:  false,
                   createdAt:          Date.now(),
                 }
+                localStorage.setItem(ACTIVE_PLAYER_KEY, p.id)
                 upd({ players: [...st.players, p], activePlayerId: p.id, activeSessionId: null, view: 'player' })
                 setNpName(''); setNpNum(''); setNpPw(''); setNpEmail('')
               }}
@@ -923,6 +935,11 @@ export default function App() {
           onStreakClick={() => setTab('store')}
           onPhotoUpload={url => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, photoURL: url } : p) })}
           onResetCareer={handleResetCareer}
+          onSwitchProfile={() => {
+            localStorage.removeItem(ACTIVE_PLAYER_KEY)
+            upd({ view: 'playerSelect', activePlayerId: null, activeSessionId: null })
+            setTab('dashboard')
+          }}
         />
         <TabBar active={tab} onChange={setTab} hasSess={!!aSess} hasPendingVersus={hasPendingVersus} hasPendingGames={hasPendingGames} hasClaimableQuests={hasClaimableQuests} />
 
