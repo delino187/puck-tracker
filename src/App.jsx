@@ -990,7 +990,13 @@ export default function App() {
                 const idx = prev.findIndex(g => g.id === updated.id)
                 return idx >= 0 ? prev.map(g => g.id === updated.id ? updated : g) : [updated, ...prev]
               })}
-              onConcedeGame={() => loadPuckGamesForPlayer(st.activePlayerId).then(setPuckGames)}
+              onConcedeGame={gameId => {
+                // Immediately remove from local state so the card vanishes even
+                // if the Firestore write failed (e.g. orphaned opponent account).
+                setPuckGames(prev => prev.filter(g => g.id !== gameId))
+                // Then re-fetch to sync any successful status change.
+                loadPuckGamesForPlayer(st.activePlayerId).then(setPuckGames)
+              }}
             />
           )}
           {tab === 'challenges' && (

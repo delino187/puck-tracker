@@ -618,15 +618,19 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
                 onClick={async () => {
                   const g = concedeTarget
                   setConcedeTarget(null)
+                  // Best-effort Firestore write — if the opponent account is
+                  // deleted or the game doc is orphaned, swallow the error and
+                  // still clear the card from the UI.
                   try {
                     await concedePuckGame(g, player.id)
-                    onConcede?.()
-                    clearTimeout(concedeToastTimer.current)
-                    setConcedeToast(true)
-                    concedeToastTimer.current = setTimeout(() => setConcedeToast(false), 4000)
                   } catch (err) {
-                    console.error('[concede]', err)
+                    console.warn('[concede] backend update failed, clearing locally:', err.message)
                   }
+                  // Always fire regardless of backend success/failure
+                  onConcede?.(g.id)
+                  clearTimeout(concedeToastTimer.current)
+                  setConcedeToast(true)
+                  concedeToastTimer.current = setTimeout(() => setConcedeToast(false), 4000)
                 }}
                 style={{
                   flex: 1, padding: '12px', borderRadius: 12,
