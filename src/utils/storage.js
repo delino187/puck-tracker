@@ -4,6 +4,10 @@ import { healPlayerStats } from './profileHealer.js'
 
 const SK = 'puck_v5'
 
+// Module-level flag: the profile healer runs exactly once per browser session.
+// It must never run inside the real-time onSnapshot pipeline — only at boot.
+let _healerHasRun = false
+
 export const DEFAULT_STATE = {
   players: [],
   sessions: [],
@@ -97,10 +101,13 @@ export async function loadSt() {
     const merged = { ...DEFAULT_STATE, ...stateFields }
 
     // ── Profile Healer ────────────────────────────────────────────────────────
-    // Volume-badge evidence lets us restore the minimum totalPucks / bonusXP
-    // floor for any player whose techniqueByPlayer entry is missing or too low
-    // (e.g. after a cache clear or login from a fresh device).
-    {
+    // Runs exactly once per browser session (guarded by _healerHasRun).
+    // MUST NOT call saveSt() — an unguarded Firestore write here would fire
+    // a snapshot before the app's isHydrating/echo guards are established,
+    // creating the infinite loop. The healed Zustand state is picked up by
+    // the next regular saveSt() call once the player view mounts.
+    if (!_healerHasRun) {
+      _healerHasRun = true
       const latestTech = useAppStore.getState().techniqueByPlayer
       const healedTech = { ...latestTech }
       let isHealed = false
@@ -118,10 +125,12 @@ export async function loadSt() {
       }
 
       if (isHealed) {
-        // Push corrected values into Zustand immediately so the UI reflects them
-        useAppStore.setState({ techniqueByPlayer: healedTech })
-        // saveSt reads the fresh Zustand state, so the healed values reach Firestore
-        saveSt(merged)
+        // Function form: return same state reference when values are already equal,
+        // preventing Zustand from notifying subscribers unnecessarily.
+        useAppStore.setState(state => ({
+          ...state,
+          techniqueByPlayer: healedTech,
+        }))
       }
     }
 

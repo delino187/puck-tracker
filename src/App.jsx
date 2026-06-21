@@ -103,10 +103,18 @@ export default function App() {
   const rageBaitUnsubRef        = useRef(null)
   const complimentUnsubRef      = useRef(null)
   const teamUnsubRef            = useRef(null)
-  // True while the onSnapshot callback is applying server data to local state.
-  // Suppresses the [st] auto-save useEffect so we never echo an incoming snapshot
-  // back to Firestore, which would trigger another snapshot and loop.
-  const isHydratingRef          = useRef(false)
+  // Set to true INSIDE the setSt() functional update when the snapshot changes st.
+  // Consumed (reset to false) by the [st] save-effect so that exactly the one st
+  // change caused by the snapshot is skipped — without any setTimeout race condition.
+  const stFromSnapshotRef       = useRef(false)
+  // Timestamp of the last received snapshot; prevents saveSt from firing within
+  // 2 s of a snapshot even if stFromSnapshotRef was already consumed (e.g. by a
+  // rapid second snapshot that didn't change st but reset the flag).
+  const lastSnapshotTimeRef     = useRef(0)
+  // Rate-limit counters: if more than 5 snapshots arrive within 1 s, short-circuit
+  // and log a warning before React's update depth limit is hit.
+  const snapshotCountRef        = useRef(0)
+  const snapshotWindowRef       = useRef(0)
   const challengesUnsubRef      = useRef(null)
   const puckGamesUnsubRef       = useRef(null)
   const lastPlayersRef          = useRef(null)   // null = listener baseline not yet set
@@ -146,10 +154,23 @@ export default function App() {
     // DEFAULT_STATE has players:[] — writing that to Firestore would wipe everyone.
     // Only skip if players is empty AND we have no activePlayerId (true blank state).
     if (st.players.length === 0 && !st.activePlayerId) return
-    // Hydration guard: the onSnapshot callback sets isHydratingRef while it applies
-    // server data. Saving during that window would echo the snapshot back to Firestore
-    // and trigger another onSnapshot, causing an infinite update loop.
-    if (isHydratingRef.current) return
+
+    // ── Echo guard (precise, race-condition-free) ──────────────────────────
+    // stFromSnapshotRef is set INSIDE the setSt() functional update when the
+    // snapshot directly caused this st change. Consuming it here (flip to false)
+    // means exactly that one save is skipped; the NEXT st change (from a real
+    // user action) will always reach saveSt regardless of snapshot timing.
+    if (stFromSnapshotRef.current) {
+      stFromSnapshotRef.current = false
+      return
+    }
+
+    // ── Post-snapshot debounce ─────────────────────────────────────────────
+    // If a snapshot arrived less than 2 s ago, delay the Firestore write to
+    // prevent a rapid snapshot → saveSt → snapshot echo cycle even in cases
+    // where stFromSnapshotRef was already consumed by a prior effect run.
+    if (Date.now() - lastSnapshotTimeRef.current < 2000) return
+
     saveSt(st)
     lastSaveRef.current = Date.now()
   }, [st])
@@ -160,14 +181,26 @@ export default function App() {
   // local state, preventing re-render → saveSt → Firestore echo cycles.
   useEffect(() => {
     const unsub = subscribeToTeam(teamData => {
-      // ── Hydration gate — suppress the [st] auto-save while we apply server data ──
-      // Without this, setSt() below changes `st`, the [st] useEffect fires saveSt(),
-      // which writes back to Firestore, which fires another snapshot — infinite loop.
-      isHydratingRef.current = true
-      // Reset after the current microtask queue clears so effects triggered by the
-      // state updates in this callback still see isHydrating = true, but the NEXT
-      // independent user interaction does not.
-      setTimeout(() => { isHydratingRef.current = false }, 0)
+      // ── Snapshot rate-limiter ──────────────────────────────────────────────
+      // If more than 5 snapshots arrive within any 1-second window, we are in a
+      // loop. Short-circuit immediately and log the offending key so it can be
+      // diagnosed without React throwing Error #185.
+      const _now = Date.now()
+      if (_now - snapshotWindowRef.current > 1000) {
+        snapshotCountRef.current = 0
+        snapshotWindowRef.current = _now
+      }
+      snapshotCountRef.current += 1
+      if (snapshotCountRef.current > 5) {
+        console.warn(
+          `[realtimeSync] Rate limit: ${snapshotCountRef.current} snapshots in 1 s — ` +
+          `skipping to prevent infinite loop. Check techniqueByPlayer or players write cycle.`
+        )
+        return
+      }
+
+      // Track snapshot arrival time for the post-snapshot save debounce in [st] effect.
+      lastSnapshotTimeRef.current = _now
 
       const incoming = teamData.players || []
 
@@ -213,30 +246,36 @@ export default function App() {
         if (!prev) return prev
         const prevPlayers = prev.players || []
 
+        // Normalize helper: treat null and undefined as equal for field comparison
+        // so Firestore null round-trips don't create spurious hasChanges = true.
+        const eq = (a, b) => (a ?? null) === (b ?? null)
+
         // Only merge when something actually changed — avoids re-rendering on
         // our own write echoing back from Firestore.
         // streakCount / lastActivity MUST be included here: updateStreak() writes
-        // these fields directly to Firestore (bypassing local state).  Without them
-        // the listener returns prev unchanged, and the next saveSt() call overwrites
-        // Firestore with the stale values from local state, erasing the streak update.
+        // these fields directly to Firestore (bypassing local state).
         const hasChanges =
           incoming.length !== prevPlayers.length ||
           incoming.some(ip => {
             const lp = prevPlayers.find(p => p.id === ip.id)
             if (!lp) return true
             return (
-              ip.diamonds       !== lp.diamonds       ||
-              ip.elo            !== lp.elo            ||
-              ip.coachMsg       !== lp.coachMsg       ||
-              ip.eloLastUpdated !== lp.eloLastUpdated ||
-              ip.totalWins      !== lp.totalWins      ||
-              ip.hasEloShield   !== lp.hasEloShield   ||
-              ip.streakCount    !== lp.streakCount    ||
-              ip.lastActivity   !== lp.lastActivity
+              !eq(ip.diamonds,       lp.diamonds)       ||
+              !eq(ip.elo,            lp.elo)            ||
+              !eq(ip.coachMsg,       lp.coachMsg)       ||
+              !eq(ip.eloLastUpdated, lp.eloLastUpdated) ||
+              !eq(ip.totalWins,      lp.totalWins)      ||
+              !eq(ip.hasEloShield,   lp.hasEloShield)   ||
+              !eq(ip.streakCount,    lp.streakCount)    ||
+              !eq(ip.lastActivity,   lp.lastActivity)
             )
           })
 
         if (!hasChanges) return prev
+
+        // Mark that this specific st change was caused by a snapshot so the
+        // [st] save-effect can skip the Firestore echo write precisely.
+        stFromSnapshotRef.current = true
 
         return {
           ...prev,
