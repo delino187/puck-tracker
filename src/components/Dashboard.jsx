@@ -22,7 +22,11 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
   const next    = LEVELS[stats.li + 1]
 
   const techniquePucks   = useAppStore(s => s.techniqueByPlayer[player.id]?.totalPucks || 0)
-  const techniqueDailyLog = useAppStore(s => s.techniqueByPlayer[player.id]?.dailyLog  || {})
+  // Selector must NOT use `|| {}` — returning a new object literal on every call
+  // makes Object.is() always false → Zustand reschedules a re-render → infinite loop.
+  // Separate the subscription (returns the real ref or undefined) from the fallback.
+  const _rawDailyLog     = useAppStore(s => s.techniqueByPlayer[player.id]?.dailyLog)
+  const techniqueDailyLog = _rawDailyLog || {}
   const careerTotal      = (stats.totalShots ?? 0) + techniquePucks
 
   const weekRank = [...players]
