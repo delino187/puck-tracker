@@ -92,7 +92,7 @@ function VideoPicker({ previewUrl, onSelect, onClear, error, maxSecs = MAX_SECS 
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function PuckGame({ player, players, puckGames, onBack, onUpdate, onConcede }) {
+export default function PuckGame({ player, players, puckGames, onBack, onUpdate, onConcede, onEloUpdate }) {
   const [view,          setView]         = useState('list')   // 'list' | 'new' | 'game' | 'set' | 'match'
   const [selectedGame,  setSelectedGame] = useState(null)
   // Tracks which game's trombone has already played so it only fires once per loss view
@@ -144,8 +144,12 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
     setSubmitting(false)
     setError('')
     setView('game')
-    // Show overlay if game just ended
-    if (updatedGame.status !== 'active') {
+    // Apply ELO changes when game ends
+    if (updatedGame.status !== 'active' && updatedGame.eloResult) {
+      const { p1Delta, p2Delta } = updatedGame.eloResult
+      onEloUpdate?.({ [updatedGame.p1Id]: p1Delta, [updatedGame.p2Id]: p2Delta })
+      setShowOverlay(true)
+    } else if (updatedGame.status !== 'active') {
       setShowOverlay(true)
     }
   }
@@ -616,17 +620,26 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
               </button>
               <button
                 onClick={async () => {
-                  const g = concedeTarget
+                  const g  = concedeTarget
                   setConcedeTarget(null)
-                  // Best-effort Firestore write — if the opponent account is
-                  // deleted or the game doc is orphaned, swallow the error and
-                  // still clear the card from the UI.
+                  // Resolve ELO values — use 1600 if opponent account is deleted
+                  const p1 = players.find(p => p.id === g.p1Id)
+                  const p2 = players.find(p => p.id === g.p2Id)
+                  const p1Elo = p1?.elo || 1600
+                  const p2Elo = p2?.elo || 1600
+                  // Best-effort Firestore write — swallow errors for orphaned games
+                  let conceded = null
                   try {
-                    await concedePuckGame(g, player.id)
+                    conceded = await concedePuckGame(g, player.id, { p1Elo, p2Elo })
                   } catch (err) {
                     console.warn('[concede] backend update failed, clearing locally:', err.message)
                   }
-                  // Always fire regardless of backend success/failure
+                  // Apply ELO locally even if Firestore write failed
+                  if (conceded?.eloResult) {
+                    const { p1Delta, p2Delta } = conceded.eloResult
+                    onEloUpdate?.({ [g.p1Id]: p1Delta, [g.p2Id]: p2Delta })
+                  }
+                  // Always clear the card regardless of backend success
                   onConcede?.(g.id)
                   clearTimeout(concedeToastTimer.current)
                   setConcedeToast(true)

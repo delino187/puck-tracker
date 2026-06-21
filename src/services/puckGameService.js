@@ -154,15 +154,17 @@ export async function submitDefenderResponse(game, { videoUrl, made, p1Elo = 160
     winnerId = game.p1Id
   }
 
-  // Calculate ELO if game is over
+  // Calculate ELO if game is over (ratingA = winner, ratingB = loser, outcome = 1)
   if (winnerId) {
-    const ratings = calculateNewRatings(
-      game.p1Id === winnerId ? p1Elo : p2Elo,
-      game.p1Id === winnerId ? p2Elo : p1Elo
+    const isP1Winner = game.p1Id === winnerId
+    const { deltaA, deltaB } = calculateNewRatings(
+      isP1Winner ? p1Elo : p2Elo,
+      isP1Winner ? p2Elo : p1Elo,
+      1
     )
     eloResult = {
-      p1Delta: game.p1Id === winnerId ? ratings.winner - p1Elo : ratings.loser - p1Elo,
-      p2Delta: game.p2Id === winnerId ? ratings.winner - p2Elo : ratings.loser - p2Elo,
+      p1Delta: isP1Winner ? deltaA : deltaB,
+      p2Delta: isP1Winner ? deltaB : deltaA,
     }
   }
 
@@ -191,12 +193,25 @@ export async function createRematch(game) {
 }
 
 // ── Concede ───────────────────────────────────────────────────────────────────
-export async function concedePuckGame(game, concedingPlayerId) {
-  const winnerId = game.p1Id === concedingPlayerId ? game.p2Id : game.p1Id
-  const status   = winnerId === game.p1Id ? 'p1_wins' : 'p2_wins'
-  const ref      = doc(COL(), game.id)
-  await updateDoc(ref, { status, lastActivityAt: Date.now() })
-  return { ...game, status, lastActivityAt: Date.now() }
+export async function concedePuckGame(game, concedingPlayerId, { p1Elo = 1600, p2Elo = 1600 } = {}) {
+  const isP1Conceding = game.p1Id === concedingPlayerId
+  const winnerId      = isP1Conceding ? game.p2Id : game.p1Id
+  const status        = winnerId === game.p1Id ? 'p1_wins' : 'p2_wins'
+
+  // ELO: conceder loses, opponent wins
+  const { deltaA, deltaB } = calculateNewRatings(
+    isP1Conceding ? p2Elo : p1Elo,   // ratingA = winner
+    isP1Conceding ? p1Elo : p2Elo,   // ratingB = loser
+    1
+  )
+  const eloResult = {
+    p1Delta: isP1Conceding ? deltaB : deltaA,
+    p2Delta: isP1Conceding ? deltaA : deltaB,
+  }
+
+  const ref = doc(COL(), game.id)
+  await updateDoc(ref, { status, eloResult, lastActivityAt: Date.now() })
+  return { ...game, status, eloResult, lastActivityAt: Date.now() }
 }
 
 // ── Load ──────────────────────────────────────────────────────────────────────

@@ -991,12 +991,17 @@ export default function App() {
                 return idx >= 0 ? prev.map(g => g.id === updated.id ? updated : g) : [updated, ...prev]
               })}
               onConcedeGame={gameId => {
-                // Immediately remove from local state so the card vanishes even
-                // if the Firestore write failed (e.g. orphaned opponent account).
                 setPuckGames(prev => prev.filter(g => g.id !== gameId))
-                // Then re-fetch to sync any successful status change.
                 loadPuckGamesForPlayer(st.activePlayerId).then(setPuckGames)
               }}
+              onPuckEloUpdate={deltas => setSt(prev => ({
+                ...prev,
+                players: prev.players.map(p => {
+                  const delta = deltas[p.id]
+                  if (delta === undefined || delta === 0) return p
+                  return { ...p, elo: Math.max(0, (p.elo || 1600) + delta) }
+                }),
+              }))}
             />
           )}
           {tab === 'challenges' && (

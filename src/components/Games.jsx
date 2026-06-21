@@ -3,7 +3,7 @@ import { ChevronRight, Clock, Target } from 'lucide-react'
 import AroundTheWorld from './AroundTheWorld.jsx'
 import PuckGame       from './screens/PuckGame.jsx'
 
-export default function Games({ player, players, sessions, puckGames, onSubmitGame, onPuckGameUpdate, onConcedeGame }) {
+export default function Games({ player, players, sessions, puckGames, onSubmitGame, onPuckGameUpdate, onConcedeGame, onPuckEloUpdate }) {
   const [activeGame, setActiveGame] = useState(null)
 
   if (activeGame === 'atw') {
@@ -26,6 +26,7 @@ export default function Games({ player, players, sessions, puckGames, onSubmitGa
         onBack={() => setActiveGame(null)}
         onUpdate={onPuckGameUpdate}
         onConcede={onConcedeGame}
+        onEloUpdate={onPuckEloUpdate}
       />
     )
   }
