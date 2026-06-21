@@ -1038,18 +1038,22 @@ export default function App() {
           title="Report a bug or request a feature"
           style={{
             position: 'fixed', bottom: 16, right: 16, zIndex: 90,
-            background: 'linear-gradient(135deg,#450a0a,#7f1d1d)',
+            background: 'linear-gradient(135deg,rgba(69,10,10,0.82),rgba(127,29,29,0.82))',
             border: '1px solid #ef444455',
             borderRadius: 20, padding: '7px 12px',
             display: 'flex', alignItems: 'center', gap: 5,
             cursor: 'pointer',
+            backdropFilter: 'blur(6px)',
             boxShadow: '0 0 16px rgba(239,68,68,0.25), 0 2px 8px rgba(0,0,0,0.5)',
             fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11,
             fontWeight: 800, letterSpacing: '0.08em', color: '#fca5a5',
-            transition: 'all 0.15s',
+            opacity: 0.8,
+            transition: 'opacity 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
           }}
-          onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 0 28px rgba(239,68,68,0.45), 0 2px 8px rgba(0,0,0,0.5)'; e.currentTarget.style.borderColor = '#ef444488' }}
-          onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 0 16px rgba(239,68,68,0.25), 0 2px 8px rgba(0,0,0,0.5)'; e.currentTarget.style.borderColor = '#ef444455' }}
+          onMouseEnter={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.boxShadow = '0 0 28px rgba(239,68,68,0.45), 0 2px 8px rgba(0,0,0,0.5)'; e.currentTarget.style.borderColor = '#ef444488' }}
+          onMouseLeave={e => { e.currentTarget.style.opacity = '0.8'; e.currentTarget.style.boxShadow = '0 0 16px rgba(239,68,68,0.25), 0 2px 8px rgba(0,0,0,0.5)'; e.currentTarget.style.borderColor = '#ef444455' }}
+          onTouchStart={e => { e.currentTarget.style.opacity = '1' }}
+          onTouchEnd={e => { e.currentTarget.style.opacity = '0.8' }}
         >
           <span style={{ fontSize: 13 }}>🕹️</span>
           <span>REPORT BUG</span>
