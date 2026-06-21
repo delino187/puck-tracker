@@ -18,14 +18,22 @@ export default function ChallengesTab({
   const completed = peerChallenges.filter(c => c.status === 'completed').slice(0, 5)
   const hasActive = incoming.length > 0 || outgoing.length > 0
 
-  // Compute overall career record from all completed challenges
-  let totalWins = 0, totalLosses = 0, totalTies = 0
+  // Compute ranked + unranked records separately
+  const rec = { ranked: { w:0, l:0, t:0 }, unranked: { w:0, l:0, t:0 } }
   for (const c of peerChallenges.filter(c => c.status === 'completed')) {
-    if (!c.winnerId)                   totalTies++
-    else if (c.winnerId === player.id) totalWins++
-    else                               totalLosses++
+    const key = c.matchType === 'unranked' ? 'unranked' : 'ranked'
+    if (!c.winnerId)                   rec[key].t++
+    else if (c.winnerId === player.id) rec[key].w++
+    else                               rec[key].l++
   }
-  const hasRecord = totalWins + totalLosses + totalTies > 0
+  const totalWins   = rec.ranked.w + rec.unranked.w
+  const totalLosses = rec.ranked.l + rec.unranked.l
+  const totalTies   = rec.ranked.t + rec.unranked.t
+  const hasRecord   = totalWins + totalLosses + totalTies > 0
+
+  function pct(n, total) {
+    return total === 0 ? '—' : `${Math.round((n / total) * 100)}%`
+  }
 
   return (
     <div style={{ padding: '14px 16px 80px' }}>
@@ -41,7 +49,7 @@ export default function ChallengesTab({
             Peer Showdowns · 3 or 5 Shots
           </div>
 
-          {/* ── Record pill — always shown, arcade lobby style ─────────────── */}
+          {/* ── Combined quick-glance pill ──────────────────────────────── */}
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
             marginTop: 7,
@@ -49,26 +57,17 @@ export default function ChallengesTab({
             border: '1px solid #a855f733',
             borderRadius: 10, padding: '5px 12px',
           }}>
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-              W
-            </span>
-            <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 17, letterSpacing: '0.06em', color: '#22c55e', textShadow: '0 0 8px #22c55e55' }}>
-              {totalWins}
-            </span>
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#334155' }}>·</span>
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.16em', textTransform: 'uppercase' }}>
-              L
-            </span>
-            <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 17, letterSpacing: '0.06em', color: '#ef4444', textShadow: '0 0 8px #ef444455' }}>
-              {totalLosses}
-            </span>
-            {hasRecord && totalTies > 0 && (
-              <>
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#334155' }}>·</span>
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.16em' }}>T</span>
-                <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 17, letterSpacing: '0.06em', color: '#94a3b8' }}>{totalTies}</span>
-              </>
-            )}
+            {[
+              { label: 'W', val: totalWins,   color: '#22c55e', glow: '#22c55e55' },
+              { label: 'L', val: totalLosses, color: '#ef4444', glow: '#ef444455' },
+              ...(totalTies > 0 ? [{ label: 'T', val: totalTies, color: '#94a3b8', glow: 'none' }] : []),
+            ].map((s, i) => (
+              <span key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {i > 0 && <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#334155' }}>·</span>}
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#64748b', letterSpacing: '0.16em' }}>{s.label}</span>
+                <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 17, letterSpacing: '0.06em', color: s.color, textShadow: `0 0 8px ${s.glow}` }}>{s.val}</span>
+              </span>
+            ))}
           </div>
         </div>
 
@@ -90,6 +89,50 @@ export default function ChallengesTab({
           )}
         </div>
       </div>
+
+      {/* ── Ranked / Unranked breakdown ─────────────────────────────────────── */}
+      {hasRecord && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 18 }}>
+          {[
+            { label: 'RANKED 🏆', r: rec.ranked,   border: '#fbbf24', glow: '#fbbf2422', accent: '#fbbf24' },
+            { label: 'UNRANKED 🤝', r: rec.unranked, border: '#22d3ee', glow: '#22d3ee22', accent: '#22d3ee' },
+          ].map(({ label, r, border, glow, accent }) => {
+            const total = r.w + r.l + r.t
+            return (
+              <div key={label} style={{
+                background: 'linear-gradient(135deg,#0a0f1e,#111827)',
+                border: `1.5px solid ${border}55`,
+                borderRadius: 12, padding: '12px 12px 10px',
+                boxShadow: `0 0 12px ${glow}`,
+              }}>
+                <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: accent, letterSpacing: '0.18em', marginBottom: 8 }}>
+                  {label}
+                </div>
+                {[
+                  { key: 'Wins',   val: r.w, color: '#22c55e' },
+                  { key: 'Losses', val: r.l, color: '#ef4444' },
+                  { key: 'Ties',   val: r.t, color: '#94a3b8' },
+                ].map(({ key, val, color }) => (
+                  <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 3 }}>
+                    <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: '0.08em' }}>
+                      {key}
+                    </span>
+                    <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 15, color, letterSpacing: '0.04em' }}>
+                      {val}
+                      <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: `${color}99`, marginLeft: 3 }}>
+                        ({pct(val, total)})
+                      </span>
+                    </span>
+                  </div>
+                ))}
+                <div style={{ marginTop: 6, borderTop: `1px solid ${border}22`, paddingTop: 5, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.1em' }}>
+                  {total} GAME{total !== 1 ? 'S' : ''}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* ── Active Showdowns label ───────────────────────────────────────────── */}
       <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#a855f7', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
