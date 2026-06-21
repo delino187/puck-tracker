@@ -46,7 +46,7 @@ export default function ChallengesTab({
             ⚔️ VERSUS
           </div>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#f97316', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 2 }}>
-            Peer Showdowns · 3 or 5 Shots
+            Quick Matches · 3 or 5 Shots
           </div>
 
           {/* ── Combined quick-glance pill ──────────────────────────────── */}
@@ -139,9 +139,9 @@ export default function ChallengesTab({
         </div>
       )}
 
-      {/* ── Active Showdowns label ───────────────────────────────────────────── */}
+      {/* ── Active Quick Matches label ──────────────────────────────────────── */}
       <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#a855f7', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 5 }}>
-        <Clock size={11} color="#a855f7" /> ACTIVE SHOWDOWNS
+        <Clock size={11} color="#a855f7" /> ACTIVE QUICK MATCHES
         {hasActive && (
           <span style={{ background: '#a855f7', color: '#fff', borderRadius: 10, padding: '1px 7px', fontSize: 9, fontWeight: 700, marginLeft: 4 }}>
             {incoming.length + outgoing.length}
@@ -163,7 +163,7 @@ export default function ChallengesTab({
           </div>
 
           <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 24, color: '#a855f7', letterSpacing: '0.08em', marginBottom: 8, textShadow: '0 0 16px #a855f755' }}>
-            NO ACTIVE SHOWDOWNS
+            NO ACTIVE QUICK MATCHES
           </div>
 
           {players.length > 1 ? (
@@ -172,7 +172,7 @@ export default function ChallengesTab({
             </div>
           ) : (
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#64748b' }}>
-              Add more players to the roster to unlock showdowns.
+              Add more players to the roster to unlock quick matches.
             </div>
           )}
         </div>
@@ -239,7 +239,7 @@ export default function ChallengesTab({
       {players.length <= 1 && (
         <div style={{ background: 'var(--card-bg)', borderRadius: 12, padding: '16px 18px', border: 'var(--card-border)', marginTop: 8 }}>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-            <strong style={{ color: 'var(--text-1)' }}>Peer showdowns require 2+ players.</strong>{' '}
+            <strong style={{ color: 'var(--text-1)' }}>Quick matches require 2+ players.</strong>{' '}
             Ask your coach to add teammates to the roster so you can start issuing challenges.
           </div>
         </div>

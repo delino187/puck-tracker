@@ -563,7 +563,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
           <div style={{ fontSize: 36, marginBottom: 8 }}>🏒</div>
           <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, color: '#ef4444', letterSpacing: '0.06em', marginBottom: 6 }}>NO ACTIVE GAMES</div>
           <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: '#64748b' }}>
-            {friends.length > 0 ? 'Tap + GAME to start a P-U-C-K showdown with a teammate!' : 'Add teammates to the roster to unlock P-U-C-K.'}
+            {friends.length > 0 ? 'Tap + GAME to start a P-U-C-K quick match with a teammate!' : 'Add teammates to the roster to unlock P-U-C-K.'}
           </div>
         </div>
       )}

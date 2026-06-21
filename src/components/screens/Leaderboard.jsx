@@ -263,7 +263,7 @@ export default function Leaderboard({ player, players, sessions = [] }) {
 
       {sorted.length === 0 && (
         <div style={{ textAlign: 'center', color: '#475569', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, padding: '40px 0' }}>
-          No players yet — issue a showdown to get on the board!
+          No players yet — issue a quick match to get on the board!
         </div>
       )}
 

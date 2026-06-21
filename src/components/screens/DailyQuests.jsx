@@ -23,7 +23,7 @@ const QUEST_POOL = {
   social: [
     { text: 'Issue a Versus Challenge Today',  tier: 'common',    reward: 10,  icon: '📣' },
     { text: 'Play 1 P-U-C-K Game Today',       tier: 'rare',      reward: 25,  icon: '🎮' },
-    { text: 'Win 1 Versus Showdown Today',     tier: 'epic',      reward: 50,  icon: '⚔️' },
+    { text: 'Win 1 Versus Quick Match Today',   tier: 'epic',      reward: 50,  icon: '⚔️' },
     { text: 'Accept an Incoming Challenge',    tier: 'common',    reward: 10,  icon: '🤝' },
     { text: 'Beat a Friend at P-U-C-K Today', tier: 'legendary', reward: 150, icon: '🏆' },
   ],
