@@ -119,13 +119,18 @@ export default function ChallengesTab({
                     </span>
                     <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 15, color, letterSpacing: '0.04em' }}>
                       {val}
-                      <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: `${color}99`, marginLeft: 3 }}>
-                        ({pct(val, total)})
-                      </span>
                     </span>
                   </div>
                 ))}
-                <div style={{ marginTop: 6, borderTop: `1px solid ${border}22`, paddingTop: 5, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.1em' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 6, paddingTop: 6, borderTop: `1px solid ${border}33` }}>
+                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: accent, letterSpacing: '0.1em' }}>
+                    WIN %
+                  </span>
+                  <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 17, color: accent, letterSpacing: '0.04em', textShadow: `0 0 10px ${border}66` }}>
+                    {pct(r.w, total)}
+                  </span>
+                </div>
+                <div style={{ marginTop: 4, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.1em' }}>
                   {total} GAME{total !== 1 ? 'S' : ''}
                 </div>
               </div>
