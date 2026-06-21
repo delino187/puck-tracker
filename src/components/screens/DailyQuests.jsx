@@ -911,9 +911,10 @@ export default function DailyQuests({
             />
           ))}
 
-          {/* Footer bar — mirrors Daily's bottom button */}
+          {/* Footer bar — clickable when lever hasn't been pulled yet */}
           <button
-            disabled
+            onClick={slotCanPull ? handleWeeklyPull : undefined}
+            disabled={!slotCanPull}
             style={{
               width: '100%',
               background: allWeeklyClaimed
@@ -922,19 +923,39 @@ export default function DailyQuests({
                   ? '#1e0a0a'
                   : slotSpinning
                     ? '#1e0a0a'
-                    : 'linear-gradient(135deg,#3d0808,#5a0a0a)',
-              color: allWeeklyClaimed ? '#4ade80' : isWeeklyLocked ? '#6b2020' : '#ef444488',
+                    : 'linear-gradient(135deg,#7a0f0f,#b91c1c)',
+              color: allWeeklyClaimed
+                ? '#4ade80'
+                : isWeeklyLocked
+                  ? '#6b2020'
+                  : slotSpinning
+                    ? '#ef444488'
+                    : '#ffffff',
               border: allWeeklyClaimed
                 ? '2px solid #22c55e'
                 : isWeeklyLocked
                   ? '2px solid #3d1010'
-                  : '2px solid #ef444433',
+                  : slotSpinning
+                    ? '2px solid #ef444433'
+                    : '2px solid #ef4444',
               borderRadius: 12, padding: '14px',
               fontFamily: "'Bangers',sans-serif", fontSize: 20, fontWeight: 700,
-              letterSpacing: '0.08em', cursor: 'not-allowed',
-              boxShadow: allWeeklyClaimed ? '0 0 16px #22c55e44' : isWeeklyLocked ? 'none' : '0 0 12px #ef444422',
-              transition: 'all 0.3s',
+              letterSpacing: '0.08em',
+              cursor: slotCanPull ? 'pointer' : 'not-allowed',
+              boxShadow: allWeeklyClaimed
+                ? '0 0 16px #22c55e44'
+                : isWeeklyLocked
+                  ? 'none'
+                  : slotSpinning
+                    ? '0 0 12px #ef444422'
+                    : '0 0 28px #ef444466',
+              transition: 'all 0.2s',
+              transform: 'scale(1)',
             }}
+            onMouseEnter={e => { if (slotCanPull) e.currentTarget.style.transform = 'scale(1.02)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+            onTouchStart={e => { if (slotCanPull) e.currentTarget.style.transform = 'scale(0.97)' }}
+            onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)' }}
           >
             {allWeeklyClaimed
               ? '✅ ALL WEEKLY QUESTS COMPLETE!'
@@ -942,7 +963,7 @@ export default function DailyQuests({
                 ? '🎰 ROLLING...'
                 : isWeeklyLocked
                   ? '🔒 WEEKLY QUESTS LOCKED IN'
-                  : '🎰 PULL LEVER TO GENERATE QUESTS!'}
+                  : '🎰 TAP HERE TO SPIN WEEKLY QUESTS!'}
           </button>
         </div>
       </div>
