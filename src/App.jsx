@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { AlertCircle, Plus, Lock } from 'lucide-react'
 
 import { loadSt, saveSt, DEFAULT_STATE } from './utils/storage.js'
-import { saveToFirestore, deletePlayerData } from './utils/firestoreSync.js'
+import { saveToFirestore, deletePlayerData, forceSessionSync } from './utils/firestoreSync.js'
 import { audioEngine } from './services/audioEngine.js'
 import { sendRageBait, subscribeToRageBaits, dismissRageBait, sendCompliment, subscribeToCompliments, dismissNotification } from './services/rageBaitService.js'
 import { RageBaitSenderModal, RageBaitReceiverModal, ComplimentSenderModal, ComplimentReceiverModal } from './components/overlays/RageBaitModal.jsx'
@@ -807,6 +807,12 @@ export default function App() {
     } catch (err) {
       console.error('[endSession] Firestore write failed — session is safe in localStorage:', err.message)
     }
+
+    // Explicitly write the completed session with its full sets to Firestore.
+    // saveToFirestore skips sessions whose IDs are already in syncedSessionIds —
+    // which includes this session because it was cached at creation time with
+    // sets: [].  forceSessionSync bypasses that cache so the real shot data lands.
+    await forceSessionSync(aSess)
 
     clearTimeout(weakConnTimerRef.current)
     setWeakConnToast(false)

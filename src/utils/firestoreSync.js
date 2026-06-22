@@ -117,7 +117,13 @@ export async function saveToFirestore(state, techniqueByPlayer = {}, activePlaye
       }, { merge: true })
     }
 
-    const newSessions = sessions.filter(s => !syncedSessionIds.has(s.id))
+    // Only write sessions that are both new (not in cache) AND have actual shot data.
+    // Sessions with sets: [] are created the moment startSession() fires — writing
+    // them immediately would cache the ID and block the final write (with real sets)
+    // forever, since saveToFirestore skips IDs already in syncedSessionIds.
+    const newSessions = sessions.filter(s =>
+      !syncedSessionIds.has(s.id) && (s.sets?.length ?? 0) > 0
+    )
     await Promise.all(
       newSessions.map(s =>
         setDoc(sessionDoc(s.id), s).then(() => syncedSessionIds.add(s.id))
@@ -131,6 +137,22 @@ export async function saveToFirestore(state, techniqueByPlayer = {}, activePlaye
       '\nError:', err.message,
     )
     throw err  // re-throw so callers can detect failure and surface it
+  }
+}
+
+// ── Force-write a single completed session ─────────────────────────────────────
+// Called explicitly from endSession() to guarantee the final session (with all
+// its sets) reaches Firestore regardless of syncedSessionIds cache state.
+// This is the fix for the premature-empty-save race condition: the session ID
+// enters syncedSessionIds at creation time (with sets: []), which would normally
+// block every subsequent write.  This function bypasses the cache entirely.
+export async function forceSessionSync(session) {
+  if (!session?.id) return
+  try {
+    await setDoc(sessionDoc(session.id), session)
+    syncedSessionIds.add(session.id)   // keep cache consistent
+  } catch (err) {
+    console.error('[Firestore] forceSessionSync failed — data safe in localStorage:', err.message)
   }
 }
 

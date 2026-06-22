@@ -1,4 +1,4 @@
-import { loadFromFirestore, saveToFirestore } from './firestoreSync.js'
+import { loadFromFirestore, saveToFirestore, forceSessionSync } from './firestoreSync.js'
 import { useAppStore } from '../store/useAppStore.js'
 import { healPlayerStats } from './profileHealer.js'
 
@@ -118,10 +118,64 @@ export async function loadSt() {
       }
     }
 
+    // ── Session reconciliation — heal the premature-empty-save bug ───────────
+    // The bug: sessions were written to Firestore at creation time with sets:[]
+    // and never re-written after shots were logged (syncedSessionIds cache block).
+    // On any page refresh loadFromFirestore() returned the empty sets, which then
+    // overwrote localStorage — making Career and Recent Sessions show 0 shots.
+    //
+    // Fix: for every cloud session with no sets, check if localStorage has the
+    // same session with actual data.  If so, keep the local version and push it
+    // back to Firestore so future loads get the correct data.
+    // Also include sessions present only in localStorage (never reached Firestore).
+    const cloudSessionArr = cloudData.sessions || []
+    const localSessionArr = localData?.sessions || []
+    const localSessionMap = new Map(localSessionArr.map(s => [s.id, s]))
+    const cloudSessionIds = new Set(cloudSessionArr.map(s => s.id))
+
+    // Reconcile cloud sessions against local data
+    const healedSessions = cloudSessionArr.map(cs => {
+      const ls = localSessionMap.get(cs.id)
+      const cloudSets = cs.sets?.length ?? 0
+      const localSets = ls?.sets?.length ?? 0
+      if (ls && localSets > cloudSets) {
+        console.log(
+          `[storage] Healing session ${cs.id}: cloud had ${cloudSets} sets, ` +
+          `local has ${localSets} — using local and pushing to Firestore.`
+        )
+        // Push corrected session to Firestore asynchronously; doesn't block render.
+        // Writing to the sessions subcollection does NOT trigger the team onSnapshot,
+        // so there is no risk of creating the update-loop that previously caused crashes.
+        forceSessionSync(ls).catch(err =>
+          console.warn('[storage] Session heal push failed:', err.message)
+        )
+        return ls
+      }
+      return cs
+    })
+
+    // Sessions only in localStorage (never reached Firestore — e.g. offline sessions)
+    const localOnlySessions = localSessionArr.filter(
+      ls => !cloudSessionIds.has(ls.id) && (ls.sets?.length ?? 0) > 0
+    )
+    if (localOnlySessions.length > 0) {
+      console.log(
+        `[storage] Found ${localOnlySessions.length} local-only session(s) — pushing to Firestore.`
+      )
+      localOnlySessions.forEach(ls =>
+        forceSessionSync(ls).catch(err =>
+          console.warn('[storage] Local-only session push failed:', err.message)
+        )
+      )
+    }
+
+    // Build merged sessions array — healed cloud sessions + local-only sessions
+    const reconciledSessions = [...healedSessions, ...localOnlySessions]
+
     // Strip techniqueByPlayer from the returned state — Zustand owns it.
     // eslint-disable-next-line no-unused-vars
     const { techniqueByPlayer: _tech, ...stateFields } = cloudData
-    const merged = { ...DEFAULT_STATE, ...stateFields }
+    const merged = { ...DEFAULT_STATE, ...stateFields, sessions: reconciledSessions }
 
     // ── Profile Healer ────────────────────────────────────────────────────────
     // Runs exactly once per browser session (guarded by _healerHasRun).
