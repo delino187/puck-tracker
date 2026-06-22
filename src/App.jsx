@@ -544,7 +544,11 @@ export default function App() {
 
     const MS_36H   = 36 * 60 * 60 * 1000
     const elapsed  = Date.now() - (p.lastActivity || 0)
-    if (p.streakCount > 0 && p.lastActivity && elapsed > MS_36H) {
+    const hasFreeze = (p.streak_freezes || 0) > 0
+    // Skip the broken-streak modal entirely when the player has a freeze in
+    // inventory — updateStreak() will silently consume one on next login/session
+    // and keep the streak intact without surfacing the loss to the player.
+    if (p.streakCount > 0 && p.lastActivity && elapsed > MS_36H && !hasFreeze) {
       setStreakBrokenData({ prevCount: p.streakCount })
       audioEngine.playStreakBroken()
     }
@@ -1805,11 +1809,11 @@ export default function App() {
                 const diamonds = aPlayer.diamonds || 0
                 if (diamonds < cost) return
                 if (itemId === 'streakFreeze') {
+                  // Audio is played by StreakHub.buyItem() before this callback —
+                  // no second sound needed here to avoid double-play
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) })
-                  audioEngine.playUtilitySuccess()
                 } else if (itemId === 'weekStreakFreeze') {
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, week_streak_freezes: (p.week_streak_freezes || 0) + 1 } : p) })
-                  audioEngine.playUtilitySuccess()
                 } else if (itemId === 'doubleXpToken') {
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, doubleXpTokens: (p.doubleXpTokens || 0) + 1 } : p) })
                 } else if (itemId === 'eloShield') {

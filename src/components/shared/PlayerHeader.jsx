@@ -83,24 +83,56 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
           </div>
         </div>
 
-        {stats.streak > 0 && (
-          <button
-            onClick={onStreakClick}
-            title="View Streak Hub"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 3,
-              background: isDark ? '#1a0800' : '#fff7ed',
-              border: '1px solid #f97316',
-              borderRadius: 8, padding: '3px 7px', flexShrink: 0,
-              cursor: 'pointer',
-            }}
-          >
-            <Flame size={12} color="#f97316" />
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#f97316' }}>
-              {stats.streak}d
-            </span>
-          </button>
-        )}
+        {stats.streak > 0 && (() => {
+          const hasFreezeActive = (player.streak_freezes || 0) > 0
+          return hasFreezeActive ? (
+            // ── Frozen streak badge ───────────────────────────────────────────
+            <button
+              onClick={onStreakClick}
+              title={`Streak protected by ❄️ Streak Freeze (${player.streak_freezes} remaining)`}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+                background: 'rgba(147,197,253,0.15)',
+                border: '1px solid #60a5fa',
+                borderRadius: 8, padding: '3px 8px', flexShrink: 0,
+                cursor: 'pointer',
+                boxShadow: '0 0 8px rgba(96,165,250,0.35)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ fontSize: 11, lineHeight: 1 }}>❄️</span>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#93c5fd' }}>
+                  {stats.streak}d
+                </span>
+              </div>
+              <span style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 7, fontWeight: 800,
+                color: '#60a5fa', letterSpacing: '0.06em', lineHeight: 1,
+                textTransform: 'uppercase',
+              }}>
+                FROZEN
+              </span>
+            </button>
+          ) : (
+            // ── Normal fire streak badge ──────────────────────────────────────
+            <button
+              onClick={onStreakClick}
+              title="View Streak Hub"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 3,
+                background: isDark ? '#1a0800' : '#fff7ed',
+                border: '1px solid #f97316',
+                borderRadius: 8, padding: '3px 7px', flexShrink: 0,
+                cursor: 'pointer',
+              }}
+            >
+              <Flame size={12} color="#f97316" />
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#f97316' }}>
+                {stats.streak}d
+              </span>
+            </button>
+          )
+        })()}
 
         {onThemeToggle && (
           <button
