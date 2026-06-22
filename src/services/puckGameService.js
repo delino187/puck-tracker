@@ -61,12 +61,18 @@ export async function uploadPuckVideo(file, gameId, role, onProgress) {
     playSfxAsync('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
     return blob.url
   } catch (err) {
-    console.error('[Upload] Vercel Blob upload failed:', err)
+    // Expose the raw failure details so the coach/dev can diagnose permission
+    // errors, malformed paths, or network timeouts from the console.
+    console.error('🚨 CRITICAL UPLOAD FAILURE DETAILED ERROR:', err, err?.code, err?.message)
     if (err?.message?.toLowerCase().includes('size') ||
-        err?.message?.toLowerCase().includes('large')) {
+        err?.message?.toLowerCase().includes('large') ||
+        err?.message?.toLowerCase().includes('too big')) {
       throw new Error('FILE_TOO_LARGE')
     }
-    throw new Error('UPLOAD_FAILED')
+    // Preserve the original error so callers can inspect err.cause
+    const wrapped = new Error('UPLOAD_FAILED')
+    wrapped.cause = err
+    throw wrapped
   }
 }
 
@@ -132,8 +138,9 @@ export async function submitDefenderResponse(game, { videoUrl, made, p1Elo = 160
   const setterKey    = isP1Setter ? 'p1Letters' : 'p2Letters'
   const defenderKey  = isP1Setter ? 'p2Letters' : 'p1Letters'
 
-  let p1Letters = [...game.p1Letters]
-  let p2Letters = [...game.p2Letters]
+  // Guard against older game records that may lack these arrays
+  let p1Letters = [...(game.p1Letters ?? [])]
+  let p2Letters = [...(game.p2Letters ?? [])]
   let eloResult = null
 
   if (!made) {

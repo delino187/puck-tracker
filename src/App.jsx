@@ -78,6 +78,13 @@ export default function App() {
   const [challengeScreen, setChallengeScreen]  = useState(null) // null | 'create' | { mode:'respond', challenge }
   const [puckGames,       setPuckGames]        = useState([])
   const [deepLinkPuckGameId, setDeepLinkPuckGameId] = useState(null)
+  // Clear the deep-link game ID whenever the player leaves the session tab.
+  // This avoids PuckGame auto-re-selecting a stale game on subsequent visits.
+  // We clear on tab change (not inside ShootTracker) so the ID remains alive
+  // long enough for PuckGame to process it before it's nulled out.
+  useEffect(() => {
+    if (tab !== 'session') setDeepLinkPuckGameId(null)
+  }, [tab])
 
   const [streakBrokenData, setStreakBrokenData] = useState(null)
   const [feedbackOpen,     setFeedbackOpen]     = useState(false)
@@ -1566,7 +1573,6 @@ export default function App() {
                 }
               }}
               deepLinkPuckGameId={deepLinkPuckGameId}
-              onDeepLinkConsumed={() => setDeepLinkPuckGameId(null)}
               onConcedeGame={gameId => {
                 // Optimistic removal — real-time listener confirms the final state
                 setPuckGames(prev => prev.filter(g => g.id !== gameId))

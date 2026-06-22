@@ -183,29 +183,72 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
   // ── Setter submits ────────────────────────────────────────────────────────
   async function handleSetterSubmit(made) {
     if (!videoFile) { setError('Upload your video first.'); return }
+    // Defensive: guard against undefined game/player references before upload
+    if (!selectedGame?.id) { setError('Game reference lost — go back and tap your game again.'); return }
+    if (!player?.id)        { setError('Session error — please refresh the app.'); return }
+
     setSubmitting(true); setError('')
+
+    // ── Phase 1: Upload video ─────────────────────────────────────────────
+    let videoUrl
     try {
-      const url = await uploadPuckVideo(videoFile, selectedGame.id, `setter_${player.id}`, setUploadProgress)
+      videoUrl = await uploadPuckVideo(videoFile, selectedGame.id, `setter_${player.id}`, setUploadProgress)
+    } catch (err) {
+      console.error('🚨 PUCK setter video upload failed:', err?.message, err?.code, err?.cause ?? err)
+      setError(uploadErrMsg(err))
+      setSubmitting(false)
+      return
+    }
+
+    // ── Phase 2: Save result to Firestore ─────────────────────────────────
+    try {
       logTechniqueShots(player.id, 1, 2)   // 1 puck per turn, flat 2 XP per round
       updateStreak(player.id).catch(() => {})
-      const updated = await submitSetterShot(selectedGame, { zone, trickStyle: trick, videoUrl: url, made })
+      const updated = await submitSetterShot(selectedGame, { zone, trickStyle: trick, videoUrl, made })
       await refresh(updated)
-    } catch (err) { setError(uploadErrMsg(err)); setSubmitting(false) }
+    } catch (err) {
+      console.error('🚨 PUCK setter save failed (video uploaded OK):', err?.message, err)
+      setError('Video uploaded but result could not be saved — please try again.')
+      setSubmitting(false)
+    }
   }
 
   // ── Defender submits ──────────────────────────────────────────────────────
   async function handleDefenderSubmit(made) {
     if (!videoFile) { setError('Upload your video first.'); return }
+    if (!selectedGame?.id) { setError('Game reference lost — go back and tap your game again.'); return }
+    if (!player?.id)        { setError('Session error — please refresh the app.'); return }
+
     setSubmitting(true); setError('')
+
+    // ── Phase 1: Upload video ─────────────────────────────────────────────
+    let videoUrl
     try {
-      const url = await uploadPuckVideo(videoFile, selectedGame.id, `defender_${player.id}`, setUploadProgress)
+      videoUrl = await uploadPuckVideo(videoFile, selectedGame.id, `defender_${player.id}`, setUploadProgress)
+    } catch (err) {
+      console.error('🚨 PUCK defender video upload failed:', err?.message, err?.code, err?.cause ?? err)
+      setError(uploadErrMsg(err))
+      setSubmitting(false)
+      return
+    }
+
+    // ── Phase 2: Save result to Firestore ─────────────────────────────────
+    try {
       logTechniqueShots(player.id, 1, 2)   // 1 puck per turn, flat 2 XP per round
       updateStreak(player.id).catch(() => {})
       const p1 = players.find(p => p.id === selectedGame.p1Id)
       const p2 = players.find(p => p.id === selectedGame.p2Id)
-      const updated = await submitDefenderResponse(selectedGame, { videoUrl: url, made, p1Elo: p1?.elo || 1600, p2Elo: p2?.elo || 1600 })
+      const updated = await submitDefenderResponse(selectedGame, {
+        videoUrl, made,
+        p1Elo: p1?.elo || 1600,
+        p2Elo: p2?.elo || 1600,
+      })
       await refresh(updated)
-    } catch (err) { setError(uploadErrMsg(err)); setSubmitting(false) }
+    } catch (err) {
+      console.error('🚨 PUCK defender save failed (video uploaded OK):', err?.message, err)
+      setError('Video uploaded but result could not be saved — please try again.')
+      setSubmitting(false)
+    }
   }
 
   // ── Expired defender auto-loss ────────────────────────────────────────────
