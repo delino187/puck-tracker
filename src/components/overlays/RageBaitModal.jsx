@@ -74,11 +74,27 @@ function MailboxSenderModal({ player, players, onSend, onCancel, cfg }) {
         </button>
 
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-          <img src={cfg.imgSrc} alt={cfg.title} style={{
-            width: 120, height: 120, objectFit: 'cover', borderRadius: 12,
+          {/* Border wrapper — sits outside the image so edge art is never clipped */}
+          <div style={{
             border: `3px solid ${cfg.accentColor}66`,
+            borderRadius: 14,
             boxShadow: `0 0 20px ${cfg.accentColor}30`,
-          }} />
+            overflow: 'hidden',
+            width: 120,
+            aspectRatio: '1 / 1',
+            background: '#0a0f1a',
+          }}>
+            <img
+              src={cfg.imgSrc}
+              alt={cfg.title}
+              style={{
+                display: 'block',
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',  // full image, no clipping
+              }}
+            />
+          </div>
         </div>
 
         <div style={{
@@ -214,13 +230,18 @@ function MailboxReceiverModal({ notification, onDismiss, cfg }) {
             </span>
           </div>
 
+          {/* Border wrapper — fixed aspect-ratio square so skeleton has a defined
+              height, but objectFit:contain on the img prevents edge clipping. */}
           <div style={{
-            display: 'inline-block',
+            display: 'block',
             border: `4px solid ${cfg.revealBorder}`,
             borderRadius: 14,
             boxShadow: `0 0 28px ${cfg.revealBorder}55, inset 0 0 16px rgba(${cfg.revealRgb},0.08)`,
             marginBottom: 20, overflow: 'hidden',
-            position: 'relative', width: 260, height: 260,
+            position: 'relative',
+            width: '100%',
+            aspectRatio: '1 / 1',   // square container without hard pixel height
+            background: '#0a0f1a',  // dark fill behind any contain letterbox areas
           }}>
             {/* Skeleton spinner while image fetches */}
             {isImgLoading && (
@@ -243,7 +264,10 @@ function MailboxReceiverModal({ notification, onDismiss, cfg }) {
               alt="mail"
               onLoad={() => setIsImgLoading(false)}
               style={{
-                display: 'block', width: 260, height: 260, objectFit: 'cover',
+                display: 'block',
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',  // show full image, no edge clipping
                 opacity: isImgLoading ? 0 : 1,
                 transition: 'opacity 0.3s ease',
               }}
