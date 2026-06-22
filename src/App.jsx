@@ -494,6 +494,27 @@ export default function App() {
     }))
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Retroactive PUCK milestone heal ─────────────────────────────────────
+  // If the player has a completed PUCK game in their history but the 'horseGame'
+  // rookie milestone was never saved (e.g. due to the render crash before the fix),
+  // grant it now.  The guard inside markRookieQuest is idempotent — safe to call
+  // repeatedly.  The retroactiveCheckDoneRef prevents re-firing on every puckGames
+  // snapshot update after the first pass.
+  const retroactiveHorseRef = useRef(null)
+  useEffect(() => {
+    if (!aPlayer?.id || aPlayer?.rookieQuests?.horseGame) return
+    // Only check once per player session; re-check if player switches
+    if (retroactiveHorseRef.current === aPlayer.id) return
+    // Wait until puckGames has been hydrated (avoids false-negative on first render)
+    if (puckGames.length === 0) return
+    retroactiveHorseRef.current = aPlayer.id
+    const hasFinishedGame = puckGames.some(g => g.status !== 'active')
+    if (hasFinishedGame) {
+      console.log('[milestone] retroactively granting horseGame — completed game found in history')
+      markRookieQuest('horseGame')
+    }
+  }, [puckGames, st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Streak insurance: check on player load, once per broken streak ───────
   useEffect(() => {
     if (!st?.activePlayerId || !st) return
@@ -556,39 +577,55 @@ export default function App() {
     const quest = ROOKIE_QUESTS.find(q => q.key === key)
     if (!quest || !aPlayer) return
 
-    // Award badge XP before setSt so Zustand is fresh when the save fires.
-    // We mirror the inner guard (rq[key] already done?) to avoid double-award.
-    const rqNow = aPlayer.rookieQuests || {}
-    if (!rqNow[key]) {
-      const milestoneId  = ROOKIE_BADGE_MAP[key]
-      const allKeys      = ROOKIE_QUESTS.map(q => q.key)
-      const allDoneNow   = allKeys.every(k => k === key ? true : !!rqNow[k])
-      const grantedBadges = []
-      if (milestoneId && !aPlayer.earnedBadges?.[milestoneId]) {
-        const b = BADGES.find(x => x.id === milestoneId)
-        if (b) grantedBadges.push(b)
-      }
-      if (allDoneNow && !aPlayer.earnedBadges?.rookie_grad) {
-        const b = BADGES.find(x => x.id === 'rookie_grad')
-        if (b) grantedBadges.push(b)
-      }
-      const totalBadgeXP = grantedBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
-      if (totalBadgeXP > 0) useAppStore.getState().logTechniqueShots(aPlayer.id, 0, totalBadgeXP)
+    const rqNow       = aPlayer.rookieQuests || {}
+    if (rqNow[key]) return   // idempotent early exit — already granted
+
+    // ── Compute next state synchronously ────────────────────────────────────
+    // We build the full next-state object here rather than inside setSt so we
+    // can call saveSt() immediately, before React processes any renders.
+    // This means a render crash (e.g. in PuckRoundOutcomeModal) cannot
+    // intercept or undo the milestone write.
+    const milestoneId  = ROOKIE_BADGE_MAP[key]
+    const allKeys      = ROOKIE_QUESTS.map(q => q.key)
+    const allDoneNow   = allKeys.every(k => k === key ? true : !!rqNow[k])
+    const alreadyGrad  = !!aPlayer.earnedBadges?.rookie_grad
+    const now          = Date.now()
+
+    const grantedBadges = []
+    if (milestoneId && !aPlayer.earnedBadges?.[milestoneId]) {
+      const b = BADGES.find(x => x.id === milestoneId)
+      if (b) grantedBadges.push(b)
+    }
+    if (allDoneNow && !alreadyGrad) {
+      const b = BADGES.find(x => x.id === 'rookie_grad')
+      if (b) grantedBadges.push(b)
+    }
+    const totalBadgeXP = grantedBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
+    if (totalBadgeXP > 0) useAppStore.getState().logTechniqueShots(aPlayer.id, 0, totalBadgeXP)
+
+    const newEarnedBadges = {
+      ...(aPlayer.earnedBadges || {}),
+      ...(milestoneId && !aPlayer.earnedBadges?.[milestoneId]
+          ? { [milestoneId]: { ts: now } } : {}),
+      ...(allDoneNow && !alreadyGrad
+          ? { rookie_grad: { ts: now } } : {}),
     }
 
-    setSt(prev => {
-      const id     = prev.activePlayerId
-      const player = prev.players.find(p => p.id === id)
-      if (!player) return prev
-      const rq = player.rookieQuests || {}
-      if (rq[key]) return prev   // already completed
+    const nextPlayers = st.players.map(p => p.id === aPlayer.id ? {
+      ...p,
+      diamonds:     (p.diamonds || 0) + quest.reward,
+      rookieQuests: { ...rqNow, [key]: true },
+      earnedBadges: newEarnedBadges,
+    } : p)
+    const nextSt = { ...st, players: nextPlayers }
 
-      const allKeys     = ROOKIE_QUESTS.map(q => q.key)
-      const allDone     = allKeys.every(k => (k === key ? true : !!rq[k]))
-      const gradBadge   = BADGES.find(b => b.id === 'rookie_grad')
-      const alreadyGrad = !!player.earnedBadges?.rookie_grad
-      const now         = Date.now()
+    // ── Persist immediately — before any React render ────────────────────────
+    // saveSt writes localStorage synchronously and fires Firestore async.
+    // Even if the subsequent setSt render crashes, this write already landed.
+    saveSt(nextSt)
 
+    // ── Queue React state update for UI + per-quest toast ───────────────────
+    setSt(() => {
       // Per-quest toast (deferred so setSt runs first)
       clearTimeout(rookieToastTimer.current)
       setTimeout(() => {
@@ -596,33 +633,15 @@ export default function App() {
         rookieToastTimer.current = setTimeout(() => setRookieToast(null), 4500)
       }, 0)
 
-      // Grand finale — all 5 done for the first time
-      if (allDone && !alreadyGrad && gradBadge) {
+      // Grand finale — all milestones done for the first time
+      if (allDoneNow && !alreadyGrad && grantedBadges.some(b => b.id === 'rookie_grad')) {
         setTimeout(() => {
           audioEngine.playBadgeUnlock()
-          setEpicCeleb({ type: 'badge', badge: gradBadge })
+          setEpicCeleb({ type: 'badge', badge: BADGES.find(b => b.id === 'rookie_grad') })
         }, 1200)
       }
 
-      // Award the per-quest milestone badge + the graduate badge if all done
-      const milestoneBadgeId = ROOKIE_BADGE_MAP[key]
-      const newEarnedBadges  = {
-        ...(player.earnedBadges || {}),
-        ...(milestoneBadgeId && !player.earnedBadges?.[milestoneBadgeId]
-            ? { [milestoneBadgeId]: { ts: now } } : {}),
-        ...(allDone && !alreadyGrad && gradBadge
-            ? { rookie_grad: { ts: now } } : {}),
-      }
-
-      return {
-        ...prev,
-        players: prev.players.map(p => p.id === id ? {
-          ...p,
-          diamonds:     (p.diamonds || 0) + quest.reward,  // badge bonus awarded on tap
-          rookieQuests: { ...rq, [key]: true },
-          earnedBadges: newEarnedBadges,
-        } : p),
-      }
+      return nextSt
     })
   }
 
