@@ -2,10 +2,11 @@ import { useState, useRef } from 'react'
 import {
   Plus, Trash2, CheckCircle, X,
   Users, Lock, ChevronLeft, History, Eye, EyeOff,
-  AlertCircle, Edit2, KeyRound, Trophy, Sun, Moon, MessageSquare, Mail,
+  AlertCircle, Edit2, KeyRound, Trophy, Sun, Moon, MessageSquare, Mail, Flag,
 } from 'lucide-react'
-import CoachLeaderboard from './CoachLeaderboard.jsx'
-import CoachFeedback    from './CoachFeedback.jsx'
+import CoachLeaderboard    from './CoachLeaderboard.jsx'
+import CoachFeedback       from './CoachFeedback.jsx'
+import CoachDisputeReview  from './CoachDisputeReview.jsx'
 import { getWeekStart, playerStats, calcXP, getLevel } from '../utils/stats.js'
 import { getPSessions } from '../utils/badgeHelpers.js'
 import { useTheme } from '../hooks/useTheme.js'
@@ -409,9 +410,10 @@ export default function CoachPortal({ st, upd, onPuckCreditAdded, onPlayerLevelU
   const [cTab, setCTab] = useState('roster')
   const { isOutside, toggleOutsideMode } = useTheme()
   const tabs = [
-    { id: 'roster',      label: 'Roster',   Icon: Users          },
-    { id: 'leaderboard', label: 'Leaders',  Icon: Trophy         },
-    { id: 'feedback',    label: 'Feedback', Icon: MessageSquare  },
+    { id: 'roster',      label: 'Roster',   Icon: Users         },
+    { id: 'leaderboard', label: 'Leaders',  Icon: Trophy        },
+    { id: 'feedback',    label: 'Feedback', Icon: MessageSquare },
+    { id: 'disputes',    label: 'Disputes', Icon: Flag          },
   ]
 
   return (
@@ -466,9 +468,10 @@ export default function CoachPortal({ st, upd, onPuckCreditAdded, onPlayerLevelU
         </div>
 
         <div style={{ padding: 16 }}>
-          {cTab === 'roster'      && <CoachRoster       st={st} upd={upd} onPuckCreditAdded={onPuckCreditAdded} onPlayerLevelUp={onPlayerLevelUp} />}
-          {cTab === 'leaderboard' && <CoachLeaderboard  st={st} />}
+          {cTab === 'roster'      && <CoachRoster        st={st} upd={upd} onPuckCreditAdded={onPuckCreditAdded} onPlayerLevelUp={onPlayerLevelUp} />}
+          {cTab === 'leaderboard' && <CoachLeaderboard   st={st} />}
           {cTab === 'feedback'    && <CoachFeedback />}
+          {cTab === 'disputes'    && <CoachDisputeReview />}
         </div>
       </div>
     </div>

@@ -10,8 +10,7 @@ import { getStreakAuraClass } from '../../utils/streakAura.js'
 export default function PlayerHeader({ player, stats, onBack, theme, onThemeToggle, onStreakClick, onPhotoUpload, onResetCareer, onSwitchProfile }) {
   const cur    = LEVELS[stats.li]
   const next   = LEVELS[stats.li + 1]
-  const earned = stats.xp - cur.xpNeeded
-  const needed = (next ? next.xpNeeded : stats.xp) - cur.xpNeeded
+  const dispMax = next ? next.xpNeeded : stats.xp
   const isDark = theme === 'dark'
 
   const techniquePucks = useAppStore(s => s.techniqueByPlayer[player.id]?.totalPucks || 0)
@@ -63,7 +62,7 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
                 {cur.name}
               </span>
               <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: 'var(--text-muted)' }}>
-                {earned}/{needed} XP
+                {stats.xp}/{dispMax} XP
               </span>
             </div>
             <XPBar li={stats.li} xp={stats.xp} compact />

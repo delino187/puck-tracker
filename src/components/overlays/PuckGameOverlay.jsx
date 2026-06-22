@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Flag } from 'lucide-react'
 
 // Hook for animated rolling number counter
 function useRollingValue(finalValue, duration = 1800) {
@@ -20,9 +21,16 @@ function useRollingValue(finalValue, duration = 1800) {
   return displayValue
 }
 
-export default function PuckGameOverlay({ game, playerElo, onRematch, onClose }) {
+export default function PuckGameOverlay({ game, playerElo, onRematch, onClose, onDispute }) {
   const iWon = playerElo.delta > 0
   const eloDisplay = useRollingValue(Math.abs(playerElo.delta), 1800)
+  const [disputeFiled,   setDisputeFiled]   = useState(false)
+  const [disputeLoading, setDisputeLoading] = useState(false)
+  const [disputeToast,   setDisputeToast]   = useState(false)
+
+  // Game-tape video: show the final-round setter's proof shot when the local player lost.
+  // Vercel Blob public CDN URL — loads directly, no Firebase Storage token needed.
+  const gameTapeUrl = !iWon ? (game?.currentRound?.setterVideo ?? null) : null
 
   // Play sound effect when overlay mounts
   useEffect(() => {
@@ -45,8 +53,9 @@ export default function PuckGameOverlay({ game, playerElo, onRematch, onClose })
         background: iWon
           ? 'radial-gradient(circle at 50% 30%, rgba(251,191,36,0.3), rgba(0,0,0,0.9))'
           : 'radial-gradient(circle at 50% 50%, rgba(239,68,68,0.4), rgba(0,0,0,0.95))',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '0 16px',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        padding: '16px 16px 40px',
+        overflowY: 'auto',
         backdropFilter: 'blur(4px)',
         animation: iWon ? 'none' : 'redVignettePulse 0.3s ease-out',
       }}
@@ -126,6 +135,49 @@ export default function PuckGameOverlay({ game, playerElo, onRematch, onClose })
           </div>
         </div>
 
+        {/* ── Study Game Tape — only shown to the loser ────────────────── */}
+        {/* Vercel Blob public CDN: no Firebase Storage auth token required */}
+        {gameTapeUrl ? (
+          <div style={{
+            width: '100%', marginBottom: 20,
+            background: 'rgba(0,0,0,0.45)',
+            border: '1px solid #ef444433',
+            borderRadius: 14, overflow: 'hidden',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '8px 12px',
+              background: 'rgba(239,68,68,0.06)',
+              borderBottom: '1px solid #ef444422',
+            }}>
+              <span style={{ fontSize: 12 }}>👀</span>
+              <span style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
+                fontWeight: 800, color: '#ef4444', letterSpacing: '0.14em',
+              }}>
+                STUDY GAME TAPE
+              </span>
+            </div>
+            <video
+              src={gameTapeUrl}
+              controls playsInline preload="metadata"
+              style={{ width: '100%', display: 'block', maxHeight: 260, background: '#000' }}
+            />
+          </div>
+        ) : !iWon && (
+          <div style={{
+            width: '100%', marginBottom: 20,
+            padding: '12px',
+            background: 'rgba(0,0,0,0.3)',
+            border: '1px dashed #ef444422',
+            borderRadius: 12, textAlign: 'center',
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
+            color: '#334155', letterSpacing: '0.08em',
+          }}>
+            📷 No video recorded for the final round.
+          </div>
+        )}
+
         {/* Action buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
           <button
@@ -174,6 +226,51 @@ export default function PuckGameOverlay({ game, playerElo, onRematch, onClose })
           >
             BACK
           </button>
+
+          {/* Dispute button */}
+          {onDispute && !disputeFiled && (
+            <button
+              disabled={disputeLoading}
+              onClick={async () => {
+                setDisputeLoading(true)
+                try {
+                  await onDispute()
+                  setDisputeFiled(true)
+                  setDisputeToast(true)
+                  setTimeout(() => setDisputeToast(false), 4000)
+                } catch {
+                  setDisputeLoading(false)
+                }
+              }}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: '1px solid #ef444433',
+                borderRadius: 10, padding: '10px 16px',
+                fontFamily: "'Barlow Condensed',sans-serif",
+                fontSize: 11, fontWeight: 800, letterSpacing: '0.1em',
+                color: '#ef4444', cursor: disputeLoading ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                opacity: disputeLoading ? 0.5 : 0.75,
+              }}
+            >
+              <Flag size={11} /> {disputeLoading ? 'FILING…' : 'DISPUTE RESULT'}
+            </button>
+          )}
+
+          {/* Dispute filed toast */}
+          {(disputeToast || disputeFiled) && (
+            <div style={{
+              background: 'rgba(239,68,68,0.1)',
+              border: '1px solid #ef444433',
+              borderRadius: 8, padding: '8px 12px',
+              fontFamily: "'Barlow Condensed',sans-serif",
+              fontSize: 11, fontWeight: 700, color: '#fca5a5',
+              letterSpacing: '0.06em', textAlign: 'center',
+            }}>
+              ⚠️ Match sent to Coach for review.
+            </div>
+          )}
         </div>
       </div>
     </div>

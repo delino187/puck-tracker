@@ -63,6 +63,9 @@ export async function loadSt() {
       // Start from localTech so that dailyLog (local-only, used for streak calcs)
       // is never discarded.  Then take the maximum of cloud vs local for the two
       // writable numeric counters — neither source can roll back the other device.
+      // Also merge dailyLogs: union of all dates, taking max count per date, so
+      // weekly shot counts survive cross-device and fresh-load scenarios where the
+      // local dailyLog may be empty even though totalPucks has been restored.
       const candidate = { ...localTech }
       let needsUpdate = false
 
@@ -70,8 +73,21 @@ export async function loadSt() {
         const local          = localTech[pid] || { totalPucks: 0, bonusXP: 0 }
         const bestTotalPucks = Math.max(cloudEntry.totalPucks || 0, local.totalPucks || 0)
         const bestBonusXP    = Math.max(cloudEntry.bonusXP    || 0, local.bonusXP    || 0)
-        if (bestTotalPucks !== (local.totalPucks || 0) || bestBonusXP !== (local.bonusXP || 0)) {
-          candidate[pid] = { ...local, totalPucks: bestTotalPucks, bonusXP: bestBonusXP }
+
+        // Merge dailyLogs — max count per date so neither device over-counts
+        const cloudLog = cloudEntry.dailyLog || {}
+        const localLog = local.dailyLog || {}
+        const allDates = new Set([...Object.keys(cloudLog), ...Object.keys(localLog)])
+        const mergedLog = {}
+        let logChanged = false
+        for (const date of allDates) {
+          const best = Math.max(cloudLog[date] || 0, localLog[date] || 0)
+          mergedLog[date] = best
+          if ((localLog[date] || 0) !== best) logChanged = true
+        }
+
+        if (bestTotalPucks !== (local.totalPucks || 0) || bestBonusXP !== (local.bonusXP || 0) || logChanged) {
+          candidate[pid] = { ...local, dailyLog: mergedLog, totalPucks: bestTotalPucks, bonusXP: bestBonusXP }
           needsUpdate = true
         }
       }
@@ -86,8 +102,15 @@ export async function loadSt() {
           const changed = Object.keys(candidate).some(pid => {
             const c = candidate[pid]
             const s = current[pid]
-            return (c?.totalPucks ?? 0) !== (s?.totalPucks ?? 0) ||
-                   (c?.bonusXP    ?? 0) !== (s?.bonusXP    ?? 0)
+            if ((c?.totalPucks ?? 0) !== (s?.totalPucks ?? 0)) return true
+            if ((c?.bonusXP    ?? 0) !== (s?.bonusXP    ?? 0)) return true
+            // Also check dailyLog so a restored log triggers a re-render
+            const cLog = c?.dailyLog || {}
+            const sLog = s?.dailyLog || {}
+            const cDates = Object.keys(cLog)
+            const sDates = Object.keys(sLog)
+            if (cDates.length !== sDates.length) return true
+            return cDates.some(date => (cLog[date] || 0) !== (sLog[date] || 0))
           })
           if (!changed) return state           // same reference → zero listener calls
           return { ...state, techniqueByPlayer: candidate }

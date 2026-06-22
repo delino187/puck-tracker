@@ -307,10 +307,25 @@ export default function App() {
           const local = localTech[pid] || { totalPucks: 0, bonusXP: 0 }
           const mergedTotalPucks = Math.max(local.totalPucks ?? 0, srv.totalPucks ?? 0)
           const mergedBonusXP    = Math.max(local.bonusXP    ?? 0, srv.bonusXP    ?? 0)
-          if (mergedTotalPucks !== (local.totalPucks ?? 0) || mergedBonusXP !== (local.bonusXP ?? 0)) {
+
+          // Merge dailyLogs — max count per date so weekly totals survive
+          // cross-device scenarios and fresh loads where local dailyLog is empty
+          const srvLog   = srv.dailyLog   || {}
+          const localLog = local.dailyLog || {}
+          const allDates = new Set([...Object.keys(srvLog), ...Object.keys(localLog)])
+          const mergedLog = {}
+          let logChanged = false
+          for (const date of allDates) {
+            const best = Math.max(srvLog[date] || 0, localLog[date] || 0)
+            mergedLog[date] = best
+            if ((localLog[date] || 0) !== best) logChanged = true
+          }
+
+          if (mergedTotalPucks !== (local.totalPucks ?? 0) || mergedBonusXP !== (local.bonusXP ?? 0) || logChanged) {
             hasNewData = true
             mergedTech[pid] = {
-              ...local,  // preserve local dailyLog
+              ...local,
+              dailyLog:   mergedLog,
               totalPucks: mergedTotalPucks,
               bonusXP:    mergedBonusXP,
             }
@@ -518,14 +533,13 @@ export default function App() {
   // Maps each rookie quest key to its milestone badge ID
   const ROOKIE_BADGE_MAP = {
     puckSet100:      'ob_centurion',
-    horseGame:           'ob_firstblood',
-    aroundWorld:         'ob_aroundrim',
-    issueChallenge:      'ob_gauntlet',
-    visitStore:          'ob_browsing',
-    techniqueOnly10:     'ob_formfirst',
-    spinDaily:           'ob_dailygrind',
-    spinWeekly:          'ob_weeklywar',
-    puck_backhand_win:   'ob_backhand_beauty',
+    horseGame:       'ob_firstblood',
+    aroundWorld:     'ob_aroundrim',
+    issueChallenge:  'ob_gauntlet',
+    visitStore:      'ob_browsing',
+    techniqueOnly10: 'ob_formfirst',
+    spinDaily:       'ob_dailygrind',
+    spinWeekly:      'ob_weeklywar',
   }
 
   function markRookieQuest(key) {
@@ -723,10 +737,15 @@ export default function App() {
         ? challenge.receiverId
         : challenge.challengerId
 
+      // Winner's video: used on the defeat screen so the loser can study game tape
+      const winnerVideoUrl = challenge.winnerId === challenge.challengerId
+        ? (challenge.challengerVideo ?? null)
+        : (challenge.receiverVideo   ?? null)
+
       if (challenge.winnerId === activeId) {
         setVictoryReward({ type: 'versus', diamonds: 1, xp: 2, opponentId })
       } else {
-        setDefeatState({ type: 'versus', diamonds: 1, xp: 2, opponentId })
+        setDefeatState({ type: 'versus', diamonds: 1, xp: 2, opponentId, opponentVideoUrl: winnerVideoUrl })
       }
     }
   }
@@ -1469,6 +1488,8 @@ export default function App() {
               onNavigate={handleDashNavigate}
               peerChallenges={peerChallenges}
               onAcceptChallenge={c => setChallengeScreen({ mode: 'respond', challenge: c })}
+              puckGames={puckGames}
+              onPlayPuckGame={() => setTab('session')}
             />
           )}
           {tab === 'session' && (
@@ -1508,12 +1529,33 @@ export default function App() {
                 })
                 if (updated.status !== 'active') {
                   markRookieQuest('horseGame')
-                  // "Backhand Beauty" — win using at least one made Backhand setter shot
+                  // Auto-complete the "Win a P-U-C-K Game Using a Backhand Shot" daily quest
+                  // when the player wins a game in which they used a Backhand technique.
                   const pid      = aPlayer.id
                   const isWinner = (updated.status === 'p1_wins' && updated.p1Id === pid) ||
                                    (updated.status === 'p2_wins' && updated.p2Id === pid)
                   const myTechs  = (updated.p1Id === pid ? updated.p1Techniques : updated.p2Techniques) || []
-                  if (isWinner && myTechs.includes('Backhand')) markRookieQuest('puck_backhand_win')
+                  if (isWinner && myTechs.includes('Backhand')) {
+                    const today = new Date().toDateString()
+                    if (aPlayer.last_quest_spin === today) {
+                      const qi = (aPlayer.daily_quests || []).findIndex(
+                        q => /backhand/i.test(q.text) && !q.completed && !q.claimed
+                      )
+                      if (qi >= 0) {
+                        setSt(prev => ({
+                          ...prev,
+                          players: prev.players.map(p =>
+                            p.id !== pid ? p : {
+                              ...p,
+                              daily_quests: (p.daily_quests || []).map((q, i) =>
+                                i === qi ? { ...q, currentProgress: 1, completed: true } : q
+                              ),
+                            }
+                          ),
+                        }))
+                      }
+                    }
+                  }
                 }
               }}
               onConcedeGame={gameId => {

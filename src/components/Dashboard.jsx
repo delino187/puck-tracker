@@ -5,18 +5,20 @@ import { LEVELS } from '../constants/levels.js'
 import { BADGES } from '../constants/badges.js'
 import { STREAK_BADGES } from '../constants/streakBadges.js'
 import { getWeekStart } from '../utils/stats.js'
+import { getGameAction } from '../services/puckGameService.js'
 import { useAppStore } from '../store/useAppStore.js'
 import { C } from '../styles.js'
 import StatCard           from './shared/StatCard.jsx'
 import XPBar              from './shared/XPBar.jsx'
 import BadgeCircle        from './shared/BadgeCircle.jsx'
 import PeerChallengeCard  from './shared/PeerChallengeCard.jsx'
+import PuckGameTurnCard   from './shared/PuckGameTurnCard.jsx'
 import DailyProgressRing  from './shared/DailyProgressRing.jsx'
 import LiveFeed           from './shared/LiveFeed.jsx'
 
 // ── Challenge card helpers ─────────────────────────────────────────────────────
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
-export default function Dashboard({ player, stats, sessions, players, onStartSession, newBadgeIds, onBadgeClick, onNavigate, peerChallenges = [], onAcceptChallenge }) {
+export default function Dashboard({ player, stats, sessions, players, onStartSession, newBadgeIds, onBadgeClick, onNavigate, peerChallenges = [], onAcceptChallenge, puckGames = [], onPlayPuckGame }) {
   const ws      = getWeekStart()
   const cur     = LEVELS[stats.li]
   const next    = LEVELS[stats.li + 1]
@@ -28,6 +30,16 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
   const _rawDailyLog     = useAppStore(s => s.techniqueByPlayer[player.id]?.dailyLog)
   const techniqueDailyLog = _rawDailyLog || {}
   const careerTotal      = (stats.totalShots ?? 0) + techniquePucks
+
+  // Active-turn filtering: only cards where it IS the player's move right now
+  const activePeerChallenges = peerChallenges.filter(
+    c => c.receiverId === player.id && c.status === 'pending'
+  )
+  const activePuckGames = puckGames.filter(g => {
+    const action = getGameAction(g, player.id)
+    return action === 'set' || action === 'match' || action === 'expired'
+  })
+  const hasActiveGames = activePeerChallenges.length > 0 || activePuckGames.length > 0
 
   const weekRank = [...players]
     .map(p => ({
@@ -168,6 +180,38 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
         )
       })()}
 
+      {/* ── Active Games — YOUR TURN cards (Versus + PUCK) ─────────────────── */}
+      {hasActiveGames && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{
+            fontFamily: "'Barlow Condensed',sans-serif",
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
+            color: '#ef4444', textTransform: 'uppercase', marginBottom: 8,
+            display: 'flex', alignItems: 'center', gap: 5,
+            textShadow: '0 0 8px #ef444444',
+          }}>
+            ⚡ ACTIVE TURNS
+          </div>
+          {activePeerChallenges.map(c => (
+            <PeerChallengeCard
+              key={c.id}
+              challenge={c}
+              playerId={player.id}
+              onAccept={onAcceptChallenge}
+            />
+          ))}
+          {activePuckGames.map(g => (
+            <PuckGameTurnCard
+              key={g.id}
+              game={g}
+              playerId={player.id}
+              players={players}
+              onPlay={onPlayPuckGame}
+            />
+          ))}
+        </div>
+      )}
+
       {/* ── Rank hero + This Week: side-by-side on md+ ────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
 
@@ -292,15 +336,6 @@ export default function Dashboard({ player, stats, sessions, players, onStartSes
         <DailyProgressRing shots={todayShots} />
       </div>
 
-      {/* ── Incoming peer challenges ──────────────────────────────────────── */}
-      {peerChallenges.filter(c => c.receiverId === player.id && c.status === 'pending').map(c => (
-        <PeerChallengeCard
-          key={c.id}
-          challenge={c}
-          playerId={player.id}
-          onAccept={onAcceptChallenge}
-        />
-      ))}
 
       {/* ── Recent badges ─────────────────────────────────────────────────── */}
       {earnedBadges.length > 0 && (

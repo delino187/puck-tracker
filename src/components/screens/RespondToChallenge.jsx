@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { ChevronLeft, Video, Upload, CheckCircle, AlertCircle, Trophy, Info, Play } from 'lucide-react'
+import { ChevronLeft, Video, Upload, CheckCircle, AlertCircle, Trophy, Info, Play, Flag } from 'lucide-react'
 import { ZONES } from '../../constants/zones.js'
 import { C } from '../../styles.js'
 import { useAppStore } from '../../store/useAppStore.js'
 import { uploadChallengeVideo, respondToChallenge, WARN_FILE_BYTES } from '../../services/peerChallengeService.js'
+import { disputeChallenge } from '../../services/disputeService.js'
 import { updateStreak } from '../../utils/streakService.js'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
 import { playScoreSound } from '../../utils/arcadeSounds.js'
@@ -36,8 +37,11 @@ function useRollingValue(target, startVal, duration = 1800) {
 const CONFETTI_COLORS = ['#fbbf24','#22c55e','#06b6d4','#a855f7','#ef4444','#f97316','#fff']
 
 // ── Victory / Defeat full-screen overlay ──────────────────────────────────────
-function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, onBack, onClaimBonus }) {
-  const [bonusClaimed, setBonusClaimed] = useState(false)
+function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, onBack, onClaimBonus, onDispute }) {
+  const [bonusClaimed,   setBonusClaimed]   = useState(false)
+  const [disputeFiled,   setDisputeFiled]   = useState(false)
+  const [disputeToast,   setDisputeToast]   = useState(false)
+  const [disputeLoading, setDisputeLoading] = useState(false)
   const oldElo     = player.elo ?? 1000
   const delta      = eloData?.receiverDelta ?? 0
   const newElo     = oldElo + delta
@@ -262,8 +266,8 @@ function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, on
           <CheckCircle size={15} /> +2 XP credited to your total
         </div>
 
-        {/* ── Win bonus diamond claim ───────────────────────────────────── */}
-        {won && onClaimBonus && !bonusClaimed && (
+        {/* ── Win bonus diamond claim — hidden if dispute filed ────────── */}
+        {won && onClaimBonus && !bonusClaimed && !disputeFiled && (
           <div style={{ marginBottom: 22, animation: 'slideUp 0.5s ease-out 0.5s both' }}>
             <DiamondClaimButton
               onClaimed={() => {
@@ -293,6 +297,54 @@ function VictoryOverlay({ won, player, eloData, myHits, shotCount, challenge, on
             BACK TO VERSUS
           </button>
         )}
+
+        {/* Dispute button — visible once result is shown, hidden after filing */}
+        {!disputeFiled && onDispute && (
+          <button
+            disabled={disputeLoading}
+            onClick={async () => {
+              setDisputeLoading(true)
+              try {
+                await onDispute()
+                setDisputeFiled(true)
+                setDisputeToast(true)
+                setTimeout(() => setDisputeToast(false), 4000)
+              } catch {
+                setDisputeLoading(false)
+              }
+            }}
+            style={{
+              marginTop: 14,
+              background: 'transparent',
+              border: '1px solid #ef444455',
+              borderRadius: 12, padding: '10px 24px',
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12,
+              fontWeight: 800, letterSpacing: '0.1em',
+              color: '#ef4444', cursor: disputeLoading ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+              opacity: disputeLoading ? 0.5 : 0.8,
+              animation: 'slideUp 0.5s ease-out 0.75s both',
+            }}
+          >
+            <Flag size={12} /> {disputeLoading ? 'FILING…' : 'DISPUTE RESULT'}
+          </button>
+        )}
+
+        {/* Toast — shown after dispute is filed */}
+        {(disputeToast || disputeFiled) && (
+          <div style={{
+            marginTop: 12,
+            background: 'rgba(239,68,68,0.1)',
+            border: '1px solid #ef444455',
+            borderRadius: 10, padding: '10px 16px',
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12,
+            fontWeight: 700, color: '#fca5a5', letterSpacing: '0.06em',
+            textAlign: 'center',
+            animation: 'slideUp 0.3s ease-out both',
+          }}>
+            ⚠️ Match sent to Coach for review. Reward frozen pending decision.
+          </div>
+        )}
       </div>
     </div>
   )
@@ -308,7 +360,7 @@ function uploadErrMsg(err) {
   return 'Upload failed — check your connection and try again.'
 }
 
-export default function RespondToChallenge({ player, challenge, onBack, onSubmit, onClaimVictoryBonus }) {
+export default function RespondToChallenge({ player, challenge, onBack, onSubmit, onClaimVictoryBonus, completedChallenge }) {
   const shotCount = challenge.shotCount ?? 5
 
   const [videoFile,  setVideoFile]  = useState(null)
@@ -318,10 +370,11 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
   const [uploading,      setUploading]      = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [fileWarnMb,     setFileWarnMb]     = useState(null)
-  const [done,       setDone]       = useState(false)
-  const [won,        setWon]        = useState(false)
-  const [showTips,   setShowTips]   = useState(false)
-  const [eloData,    setEloData]    = useState(null)
+  const [done,             setDone]             = useState(false)
+  const [won,              setWon]              = useState(false)
+  const [showTips,         setShowTips]         = useState(false)
+  const [eloData,          setEloData]          = useState(null)
+  const [resolvedChallenge, setResolvedChallenge] = useState(null)
   const [tapPulse,   setTapPulse]   = useState(null)  // score button being animated
   const [bothPlaying, setBothPlaying] = useState(false)
   const fileInputRef  = useRef(null)
@@ -385,6 +438,7 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
       const didWin = updated.winnerId === player.id
       setWon(didWin)
       if (updated.eloResult) setEloData(updated.eloResult)
+      setResolvedChallenge(updated)
       setDone(true)
       onSubmit({ challenge: updated })
     } catch (err) {
@@ -402,9 +456,12 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
         eloData={eloData}
         myHits={myHits}
         shotCount={shotCount}
-        challenge={challenge}
+        challenge={resolvedChallenge ?? challenge}
         onBack={onBack}
         onClaimBonus={won ? onClaimVictoryBonus : undefined}
+        onDispute={resolvedChallenge
+          ? () => disputeChallenge(resolvedChallenge, player.id)
+          : undefined}
       />
     )
   }

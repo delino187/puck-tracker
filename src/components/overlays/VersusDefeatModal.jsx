@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 const PARTICLE_COLORS = ['#ef4444','#dc2626','#f97316','#7f1d1d','#fbbf24','#fff']
 
 export default function VersusDefeatModal({ defeatState, winner, onClaim, onRematch }) {
+  const opponentVideoUrl = defeatState?.opponentVideoUrl ?? null
   const [tapped, setTapped] = useState(false)
   const bgAudioRef = useRef(null)
 
@@ -55,8 +56,9 @@ export default function VersusDefeatModal({ defeatState, winner, onClaim, onRema
       position: 'fixed', inset: 0, zIndex: 600,
       background: 'radial-gradient(ellipse at 50% 15%, #1a0000 0%, #0d0000 55%, #050000 100%)',
       display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      padding: '32px 20px 48px',
+      alignItems: 'center', justifyContent: 'flex-start',
+      overflowY: 'auto',
+      padding: '32px 20px 56px',
     }}>
       <style>{`
         @keyframes vdm-halo {
@@ -206,6 +208,62 @@ export default function VersusDefeatModal({ defeatState, winner, onClaim, onRema
             </div>
           )}
         </button>
+
+        {/* ── Study Game Tape ─────────────────────────────────────────── */}
+        {/* Video served from Vercel Blob public CDN — loads directly, no auth token needed */}
+        <div style={{
+          width: '100%', marginBottom: 24,
+          animation: 'vdm-slideUp 0.5s ease-out 0.55s both',
+        }}>
+          {opponentVideoUrl ? (
+            <div style={{
+              background: 'rgba(0,0,0,0.55)',
+              border: '1.5px solid #ef444433',
+              borderRadius: 16, overflow: 'hidden',
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '10px 14px',
+                background: 'rgba(239,68,68,0.06)',
+                borderBottom: '1px solid #ef444422',
+              }}>
+                <span style={{ fontSize: 14 }}>👀</span>
+                <span style={{
+                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11,
+                  fontWeight: 800, color: '#ef4444', letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                }}>
+                  Study Opponent Game Tape
+                </span>
+                {winner && (
+                  <span style={{
+                    marginLeft: 'auto',
+                    fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
+                    color: '#64748b', letterSpacing: '0.06em',
+                  }}>
+                    {winner.name}'s winning shot
+                  </span>
+                )}
+              </div>
+              <video
+                src={opponentVideoUrl}
+                controls playsInline preload="metadata"
+                style={{ width: '100%', display: 'block', maxHeight: 320, background: '#000' }}
+              />
+            </div>
+          ) : (
+            <div style={{
+              background: 'rgba(0,0,0,0.3)',
+              border: '1px dashed #ef444422',
+              borderRadius: 12, padding: '16px',
+              textAlign: 'center',
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11,
+              color: '#334155', letterSpacing: '0.08em',
+            }}>
+              📷 No video proof recorded for this match.
+            </div>
+          )}
+        </div>
 
         {/* REMATCH */}
         <button

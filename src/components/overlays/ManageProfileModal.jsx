@@ -4,6 +4,7 @@ import { upload } from '@vercel/blob/client'
 import Avatar from '../shared/Avatar.jsx'
 import { BADGES } from '../../constants/badges.js'
 import { LEVELS } from '../../constants/levels.js'
+import { useAppStore } from '../../store/useAppStore.js'
 
 // step: 'view' → 'confirm' → 'uploading' → back to 'view'
 export default function ManageProfileModal({ player, stats, onPhotoUpload, onResetCareer, onSwitchProfile, onClose }) {
@@ -11,6 +12,14 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
   const [uploadPct,  setUploadPct] = useState(0)
   const [uploadErr,  setUploadErr] = useState('')
   const fileInputRef = useRef(null)
+
+  const techniquePucks = useAppStore(s => s.techniqueByPlayer[player.id]?.totalPucks || 0)
+
+  // Unified career total: session shots + technique-mode pucks (matches Dashboard's careerTotal)
+  const careerShots = (stats.totalShots ?? 0) + techniquePucks
+  // Authoritative streak: prefer the locally-computed value; fall back to player.streakCount
+  // (set by updateStreak() in Firestore) when dailyLog hasn't hydrated yet.
+  const displayStreak = Math.max(stats.streak ?? 0, player.streakCount ?? 0)
 
   const level     = LEVELS[stats.li]
   const earnedIds = Object.keys(player.earnedBadges || {})
@@ -260,10 +269,10 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
           marginBottom: medals.length > 0 ? 16 : 0, gap: 4,
         }}>
           {[
-            { label: 'Shots',   value: (stats.totalShots ?? 0).toLocaleString() },
-            { label: 'Hits',    value: (stats.totalHits  ?? 0).toLocaleString() },
-            { label: 'Acc',     value: stats.acc > 0 ? `${stats.acc.toFixed(0)}%` : '—' },
-            { label: 'Streak',  value: stats.streak > 0 ? `${stats.streak}d` : '—' },
+            { label: 'Shots',   value: careerShots.toLocaleString() },
+            { label: 'Hits',    value: (stats.totalHits ?? 0).toLocaleString() },
+            { label: 'Acc',     value: stats.totalShots > 0 ? `${stats.acc.toFixed(0)}%` : '—' },
+            { label: 'Streak',  value: displayStreak > 0 ? `${displayStreak}d` : '—' },
           ].map(({ label, value }) => (
             <div key={label} style={{ textAlign: 'center' }}>
               <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.04em', color: '#f1f5f9', lineHeight: 1 }}>

@@ -3,11 +3,14 @@ import { ZONES } from '../constants/zones.js'
 import { getPSessions, dayStreak } from './badgeHelpers.js'
 
 export function getWeekStart() {
-  const n = new Date()
-  const d = n.getDay()
-  const m = new Date(n.setDate(n.getDate() - d + (d === 0 ? -6 : 1)))
-  m.setHours(0, 0, 0, 0)
-  return m
+  const now = new Date()
+  const d   = now.getDay()          // 0 = Sunday … 6 = Saturday (local)
+  // Monday-start weeks: go back to the most recent Monday.
+  // On Sunday (d=0) that is 6 days back; on Monday (d=1) it is 0 days back.
+  const daysBack = d === 0 ? 6 : d - 1
+  const monday   = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysBack)
+  monday.setHours(0, 0, 0, 0)
+  return monday
 }
 
 export function calcXP(shots, hits) {

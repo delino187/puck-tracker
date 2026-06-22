@@ -10,6 +10,7 @@ import {
   concedePuckGame,
   WARN_FILE_BYTES,
 } from '../../services/puckGameService.js'
+import { disputePuckGame } from '../../services/disputeService.js'
 import PuckGameOverlay from '../overlays/PuckGameOverlay.jsx'
 import CopyButton, { buildInviteText } from '../shared/CopyButton.jsx'
 import { updateStreak } from '../../utils/streakService.js'
@@ -287,6 +288,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
               playerElo={playerElo}
               onRematch={() => handleRematch()}
               onClose={() => { setView('list'); setSelectedGame(null); setShowOverlay(false) }}
+              onDispute={() => disputePuckGame(g, player.id)}
             />
           )}
           <div style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', textAlign: 'center' }}>
