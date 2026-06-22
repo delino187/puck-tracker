@@ -402,10 +402,24 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
         </div>
 
         {/* Score card */}
-        <div style={{ background: '#0a0d1a', border: '2px solid #ef444433', borderRadius: 16, padding: '18px', marginBottom: 18, display: 'flex', justifyContent: 'space-around' }}>
-          <LetterRow letters={myL}    label="You"    isYou />
-          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 28, color: '#334155', alignSelf: 'center' }}>VS</div>
-          <LetterRow letters={theirL} label={fName}  isYou={false} />
+        <div style={{ background: '#0a0d1a', border: '2px solid #ef444433', borderRadius: 16, padding: '18px', marginBottom: 18, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', alignItems: 'center' }}>
+            <LetterRow letters={myL}    label="You"    isYou />
+            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 28, color: '#334155' }}>VS</div>
+            <LetterRow letters={theirL} label={fName}  isYou={false} />
+          </div>
+          <div style={{
+            fontFamily: "'Barlow Condensed',sans-serif",
+            fontSize: 10,
+            fontWeight: 700,
+            color: '#ef4444',
+            letterSpacing: '0.12em',
+            textTransform: 'uppercase',
+            textAlign: 'center',
+            marginTop: 4,
+          }}>
+            First to spell P-U-C-K loses!
+          </div>
         </div>
 
         {/* SET SHOT */}
