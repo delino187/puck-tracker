@@ -7,11 +7,11 @@ import { audioEngine } from '../../services/audioEngine.js'
 // ── Quest pool — strictly achievable within 24 hours ─────────────────────────
 const QUEST_POOL = {
   volume: [
-    { text: 'Log 25 Total Shots in Target Practice Mode',   tier: 'common',    reward: 10,  icon: '🏒' },
-    { text: 'Log 50 Total Shots in Target Practice Mode',   tier: 'rare',      reward: 25,  icon: '🏒' },
-    { text: 'Log 100 Total Shots in Target Practice Mode',  tier: 'epic',      reward: 50,  icon: '🏒' },
-    { text: 'Log 30 Wrist Shots in Technique Only Mode',    tier: 'common',    reward: 10,  icon: '🎯' },
-    { text: 'Log 75 Shots in Target Practice Mode Today',   tier: 'rare',      reward: 25,  icon: '🏒' },
+    { text: 'Log 25 Total Shots Today',   tier: 'common',    reward: 10,  icon: '🏒' },
+    { text: 'Log 50 Total Shots Today',   tier: 'rare',      reward: 25,  icon: '🏒' },
+    { text: 'Log 100 Total Shots Today',  tier: 'epic',      reward: 50,  icon: '🏒' },
+    { text: 'Log 30 Shots in Technique Only Mode',    tier: 'common',    reward: 10,  icon: '🎯' },
+    { text: 'Log 75 Total Shots Today',   tier: 'rare',      reward: 25,  icon: '🏒' },
   ],
   quality: [
     { text: 'Hit 40% Accuracy in a Target Practice Session', tier: 'common', reward: 10, icon: '📊' },
@@ -32,9 +32,9 @@ const QUEST_POOL = {
 
 // ── Weekly quest pool — large pool for random 3-pick each week ──────────────
 const WEEKLY_QUEST_POOL = [
-  { id: 'wq_shots500', text: 'Log 500 Total Shots in Target Practice Mode this Week',       reward: 250, icon: '🏒', tier: 'red'    },
-  { id: 'wq_shots300', text: 'Log 300 Total Shots in Target Practice Mode this Week',       reward: 150, icon: '🏒', tier: 'red'    },
-  { id: 'wq_shots200', text: 'Log 200 Total Shots in Target Practice Mode this Week',       reward: 100, icon: '🏒', tier: 'red'    },
+  { id: 'wq_shots500', text: 'Log 500 Total Shots This Week',       reward: 250, icon: '🏒', tier: 'red'    },
+  { id: 'wq_shots300', text: 'Log 300 Total Shots This Week',       reward: 150, icon: '🏒', tier: 'red'    },
+  { id: 'wq_shots200', text: 'Log 200 Total Shots This Week',       reward: 100, icon: '🏒', tier: 'red'    },
   { id: 'wq_acc85x5',  text: 'Hit 50% Accuracy across 5 different Sessions this Week',      reward: 175, icon: '🔥', tier: 'common' },
   { id: 'wq_acc80x3',  text: 'Hit 50% Accuracy across 3 different Sessions this Week',      reward: 100, icon: '📊', tier: 'common' },
   { id: 'wq_acc75x5',  text: 'Hit 40% Accuracy across 5 different Sessions this Week',      reward: 125, icon: '📈', tier: 'common' },
@@ -42,7 +42,7 @@ const WEEKLY_QUEST_POOL = [
   { id: 'wq_back150',  text: 'Log 150 Backhand Shots in Technique Only Mode this Week',     reward: 100, icon: '🎯', tier: 'red'    },
   { id: 'wq_sess7',    text: 'Complete 7 Training Sessions this Week',                       reward: 175, icon: '📅', tier: 'epic'   },
   { id: 'wq_sess5',    text: 'Complete 5 Training Sessions this Week',                       reward: 100, icon: '📅', tier: 'epic'   },
-  { id: 'wq_shots400', text: 'Log 400 Total Shots in Target Practice Mode this Week',       reward: 200, icon: '🏒', tier: 'red'    },
+  { id: 'wq_shots400', text: 'Log 400 Total Shots This Week',       reward: 200, icon: '🏒', tier: 'red'    },
   { id: 'wq_acc90x3',  text: 'Hit 50% Accuracy across 3 different Sessions this Week',      reward: 150, icon: '💯', tier: 'common' },
 ]
 
@@ -64,7 +64,8 @@ function computeWeeklyQuestProgress(text, sessions, playerId) {
   const ws           = getWeekStart()
   const weekSessions = sessions.filter(s => s.playerId === playerId && new Date(s.date) >= ws)
   const weekSets     = weekSessions.flatMap(s => s.sets)
-  const weekShots    = weekSets.length * 10
+  // Count all training: Target Practice sets (10 shots each) + Technique Only pucks
+  const weekShots    = weekSets.length * 10 + weekSessions.reduce((sum, s) => sum + (s.pucks ?? 0), 0)
 
   if (/Log (\d+) Total Shots/i.test(text)) {
     const target = parseInt(text.match(/\d+/)[0])

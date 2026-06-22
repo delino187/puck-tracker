@@ -31,15 +31,25 @@ export function parseQuestSuffix(text) {
  *
  * This is a pure function — call it any time, it always reflects the latest
  * sessions state without any stored intermediate values.
+ *
+ * Shot-count quests count ALL training activity:
+ *   - Target Practice sets (s.sets, each set = 10 shots)
+ *   - Technique Only pucks  (s.source === 'technique', stored as s.pucks)
+ *   - Versus / PUCK game shots are logged via logTechniqueShots and flow through
+ *     the Zustand techniqueByPlayer store, not into sessions.  They're included
+ *     via the optional `extraShots` parameter passed in by App.jsx at session-end.
  */
-export function computeQuestProgress(text, sessions) {
+export function computeQuestProgress(text, sessions, extraShots = 0) {
   const today     = new Date().toDateString()
-  const todaySets = sessions
-    .filter(s => new Date(s.date).toDateString() === today)
-    .flatMap(s => s.sets)
-  const todayShots = todaySets.length * 10
+  const todaySessions = sessions.filter(s => new Date(s.date).toDateString() === today)
+  const todaySets     = todaySessions.flatMap(s => s.sets)
+  // Target Practice: each set = 10 shots
+  const targetPracticeShots = todaySets.length * 10
+  // Technique Only / other sources: sessions may store a pucks field directly
+  const techniqueShots = todaySessions.reduce((sum, s) => sum + (s.pucks ?? 0), 0)
+  const todayShots = targetPracticeShots + techniqueShots + extraShots
 
-  // "Log N Total/Wrist Shots Today" / "Log N Shots Before Dinner"
+  // "Log N Total/Wrist/Backhand Shots …" (any phrasing with a shot count)
   if (/Log (\d+)/i.test(text)) {
     const target = parseInt(text.match(/\d+/)[0])
     return { current: todayShots, target, suffix: '' }

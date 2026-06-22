@@ -773,6 +773,30 @@ export default function App() {
 
       if (challenge.winnerId === activeId) {
         setVictoryReward({ type: 'versus', diamonds: 1, xp: 2, opponentId })
+        // Mark "Win 1 Versus Quick Match Today" quest complete
+        const today = new Date().toDateString()
+        if (aPlayer?.last_quest_spin === today) {
+          setSt(prev => {
+            const pid = prev.activePlayerId
+            const pl  = prev.players.find(p => p.id === pid)
+            if (!pl) return prev
+            const qi = (pl.daily_quests || []).findIndex(
+              q => /win.*versus/i.test(q.text) && !q.completed && !q.claimed
+            )
+            if (qi < 0) return prev
+            return {
+              ...prev,
+              players: prev.players.map(p =>
+                p.id !== pid ? p : {
+                  ...p,
+                  daily_quests: p.daily_quests.map((q, i) =>
+                    i === qi ? { ...q, currentProgress: 1, targetProgress: 1, completed: true } : q
+                  ),
+                }
+              ),
+            }
+          })
+        }
       } else {
         setDefeatState({ type: 'versus', diamonds: 1, xp: 2, opponentId, opponentVideoUrl: winnerVideoUrl })
       }
@@ -1333,10 +1357,10 @@ export default function App() {
             }}
           >
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, color: '#fbbf24', letterSpacing: '0.08em', lineHeight: 1 }}>
-              💎 +{coachAwardToast.amount} DIAMONDS!
+              💎 YOU JUST EARNED {coachAwardToast.amount} DIAMONDS!
             </div>
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#c4b5fd', marginTop: 5, letterSpacing: '0.08em' }}>
-              COACH JUST AWARDED YOU 🏒⚡
+              REWARD FROM YOUR COACH 🏒⚡
             </div>
           </div>
         )}

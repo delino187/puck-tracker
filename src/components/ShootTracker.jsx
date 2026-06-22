@@ -246,62 +246,12 @@ export default function ShootTracker({
       return <TechniqueTracker player={player} onBack={() => setSubMode(null)} onGoalReached={onGoalReached} />
     }
 
-    // ── Target Practice: session goal config ───────────────────────────────────
-    return (
-      <div style={{ padding: '20px 16px', textAlign: 'center' }}>
-        <button
-          onClick={() => setSubMode(null)}
-          style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0 0 14px', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13 }}
-        >
-          <ChevronLeft size={16} /> Back
-        </button>
-        <Target size={38} color="#3b82f6" style={{ marginBottom: 10 }} />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 18 }}>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 22, fontWeight: 900, color: 'var(--text-1)' }}>
-            Start a Session
-          </div>
-          <PageHelpButton
-            title="Target Practice"
-            content="Ready to train? Select your target layout parameters, start the session, and track your performance. Completing valid sets extends your daily streak, awards milestone badges, and pumps diamonds into your wallet!"
-          />
-        </div>
-        <div style={{ ...C.card, textAlign: 'left', marginBottom: 18 }}>
-          <div style={C.label}>Session Goal (sets of 10)</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 6, marginBottom: 10 }}>
-            {[5, 10, 15, 20].map(n => {
-              const gold = n === 20 && sesGoal === 20
-              const sel  = sesGoal === n
-              return (
-                <button
-                  key={n}
-                  onClick={() => setSesGoal(n)}
-                  style={{
-                    background:  gold ? 'rgba(120,53,15,0.25)' : sel ? '#1e3a5f' : 'var(--card-bg)',
-                    color:       gold ? '#fbbf24'              : sel ? '#60a5fa' : 'var(--text-1)',
-                    border:      gold ? '2px solid #f59e0b'    : sel ? '2px solid #3b82f6' : 'var(--card-border)',
-                    boxShadow:   gold ? '0 0 14px #f59e0b33'  : 'none',
-                    borderRadius: 8, padding: '9px 4px',
-                    fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 13,
-                    cursor: 'pointer', textAlign: 'center',
-                  }}
-                >
-                  {n}<br />
-                  <span style={{ fontSize: 10, fontWeight: 400, color: gold ? '#d97706' : 'var(--text-muted)' }}>
-                    {n * 10} shots
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-          <div style={{ color: '#94a3b8', fontSize: 11, textAlign: 'center', fontFamily: "'Barlow Condensed',sans-serif" }}>
-            +5 XP per set of 10 shots
-          </div>
-        </div>
-        <button style={C.btnP} onClick={onStart}>
-          <Target size={16} /> Let's Go!
-        </button>
-      </div>
-    )
+    // ── Target Practice: skip "Start a Session" config screen, auto-start ──────
+    // Fire onStart immediately so the player lands directly on the zone scoreboard.
+    if (subMode === 'target') {
+      onStart?.()
+      return null
+    }
   }
 
   const sLeft  = Math.max(0, sesGoal - session.sets.length)
@@ -434,10 +384,10 @@ export default function ShootTracker({
 
         {/* ── Single stepper for selected zone ──────────────────────────── */}
         {(() => {
-          const z       = ZONES.find(z => z.id === selectedZone)
-          const current = zoneInputs[selectedZone] !== undefined && zoneInputs[selectedZone] !== ''
-                          ? parseInt(zoneInputs[selectedZone]) : 0
-          const setVal  = v => setZoneInputs(prev => ({ ...prev, [selectedZone]: String(v) }))
+          const z           = ZONES.find(z => z.id === selectedZone)
+          const isExplicit  = zoneInputs[selectedZone] !== undefined && zoneInputs[selectedZone] !== ''
+          const current     = isExplicit ? parseInt(zoneInputs[selectedZone]) : 0
+          const setVal      = v => setZoneInputs(prev => ({ ...prev, [selectedZone]: String(v) }))
           const color   = current === 0 ? '#334155'
                         : current >= 8  ? '#f97316'
                         : current >= 5  ? '#22c55e'
@@ -456,10 +406,13 @@ export default function ShootTracker({
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <button
-                  onClick={() => { if (current > 0) setVal(current - 1) }}
-                  disabled={current <= 0}
-                  style={{ ...btnStyle, background: current > 0 ? 'linear-gradient(135deg,#1e0a0a,#3d0808)' : '#0a0f1a', color: current > 0 ? '#f87171' : '#1e293b', boxShadow: current > 0 ? '0 0 10px #ef444422' : 'none' }}
-                  onTouchStart={e => { if (current > 0) e.currentTarget.style.transform='scale(0.9)' }}
+                  onClick={() => {
+                    if (current > 0) { setVal(current - 1) }
+                    else if (!isExplicit) { setVal(0) }  // first tap locks zone at 0/10 explicitly
+                  }}
+                  disabled={isExplicit && current <= 0}
+                  style={{ ...btnStyle, background: (current > 0 || !isExplicit) ? 'linear-gradient(135deg,#1e0a0a,#3d0808)' : '#0a0f1a', color: (current > 0 || !isExplicit) ? '#f87171' : '#1e293b', boxShadow: (current > 0 || !isExplicit) ? '0 0 10px #ef444422' : 'none' }}
+                  onTouchStart={e => { if (current > 0 || !isExplicit) e.currentTarget.style.transform='scale(0.9)' }}
                   onTouchEnd={e  => { e.currentTarget.style.transform='scale(1)' }}
                 >−</button>
 
