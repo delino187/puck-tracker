@@ -3,6 +3,7 @@ import {
   Plus, Trash2, CheckCircle, X,
   Users, Lock, ChevronLeft, History, Eye, EyeOff,
   AlertCircle, Edit2, KeyRound, Trophy, Sun, Moon, MessageSquare, Mail, Flag,
+  Wrench,
 } from 'lucide-react'
 import CoachLeaderboard    from './CoachLeaderboard.jsx'
 import CoachFeedback       from './CoachFeedback.jsx'
@@ -14,6 +15,26 @@ import { C } from '../styles.js'
 import LevelBadge from './shared/LevelBadge.jsx'
 import { deletePlayerData } from '../utils/firestoreSync.js'
 import { useAppStore } from '../store/useAppStore.js'
+import { db } from '../firebase.js'
+import { collection, addDoc } from 'firebase/firestore'
+
+const AUDIT_COL = () => collection(db, 'admin_audit_logs')
+
+async function writeAuditLog(coachLabel, targetPlayer, adjustments) {
+  try {
+    await addDoc(AUDIT_COL(), {
+      timestamp:         Date.now(),
+      coachId:           'coach',
+      coachLabel,
+      targetPlayerId:    targetPlayer.id,
+      targetPlayerName:  targetPlayer.name,
+      action:            'stat_correction',
+      adjustments,
+    })
+  } catch (err) {
+    console.warn('[AuditLog] write failed:', err.message)
+  }
+}
 
 // ─── Roster manager ───────────────────────────────────────────────────────────
 function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
@@ -29,6 +50,10 @@ function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
   const [puckInput,    setPuckInput]    = useState('')
   const [puckToast,    setPuckToast]    = useState(null)
   const puckToastTimer                  = useRef(null)
+  const [correction,       setCorrection]       = useState({ diamonds: '', xp: '', elo: '' })
+  const [correctionToast,  setCorrectionToast]  = useState(null)
+  const [corrApplying,     setCorrApplying]     = useState(false)
+  const correctionToastTimer                     = useRef(null)
 
   const logTechniqueShots  = useAppStore(s => s.logTechniqueShots)
   const techniqueByPlayer  = useAppStore(s => s.techniqueByPlayer)
@@ -294,6 +319,124 @@ function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
               color: '#67e8f9', letterSpacing: '0.06em',
             }}>
               {puckToast}
+            </div>
+          )}
+        </div>
+
+        {/* ── Stat Correction Tools ────────────────────────────────────────── */}
+        <div style={{ ...C.card, marginBottom: 12, borderColor: '#ef444444', background: 'linear-gradient(135deg,#0f0404,#1a0606)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+            <Wrench size={14} color="#ef4444" />
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#ef4444', letterSpacing: '0.14em' }}>
+              STAT CORRECTION
+            </div>
+            <div style={{ marginLeft: 'auto', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, color: '#475569', letterSpacing: '0.08em' }}>
+              USE NEGATIVE VALUES TO DEDUCT
+            </div>
+          </div>
+
+          {/* Three input rows */}
+          {[
+            { key: 'diamonds', label: '💎 Diamonds',   current: `${p.diamonds || 0} 💎`,         color: '#fbbf24' },
+            { key: 'xp',       label: '⚡ XP Bonus',    current: `${(techniqueByPlayer[p.id]?.bonusXP || 0).toLocaleString()} XP`,  color: '#a78bfa' },
+            { key: 'elo',      label: '🎖️ ELO',         current: `${p.elo || 1000} pts`,           color: '#60a5fa' },
+          ].map(({ key, label, current, color }) => (
+            <div key={key} style={{ marginBottom: 10 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700, color: '#94a3b8', letterSpacing: '0.08em' }}>
+                  {label}
+                </span>
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color }}>
+                  Current: {current}
+                </span>
+              </div>
+              <input
+                type="number"
+                value={correction[key]}
+                onChange={e => setCorrection(prev => ({ ...prev, [key]: e.target.value }))}
+                placeholder={`e.g. -500 or +200`}
+                style={{
+                  ...C.inp,
+                  marginBottom: 0,
+                  fontFamily: "'Bangers',sans-serif", fontSize: 18,
+                  color: correction[key] < 0 ? '#f87171' : correction[key] > 0 ? color : '#94a3b8',
+                  borderColor: correction[key] !== '' && correction[key] !== '0' ? `${color}55` : '#1e293b',
+                }}
+              />
+            </div>
+          ))}
+
+          {/* Apply button */}
+          <button
+            disabled={corrApplying || (correction.diamonds === '' && correction.xp === '' && correction.elo === '')}
+            onClick={async () => {
+              const dAdj = parseInt(correction.diamonds) || 0
+              const xAdj = parseInt(correction.xp)       || 0
+              const eAdj = parseInt(correction.elo)       || 0
+              if (!dAdj && !xAdj && !eAdj) return
+
+              setCorrApplying(true)
+              const adjustments = {}
+
+              if (dAdj) {
+                const newDiamonds = Math.max(0, (p.diamonds || 0) + dAdj)
+                upd({ players: st.players.map(x => x.id === p.id ? { ...x, diamonds: newDiamonds } : x) })
+                adjustments.diamonds = dAdj
+              }
+              if (xAdj) {
+                const curBonusXP = techniqueByPlayer[p.id]?.bonusXP || 0
+                // Floor at 0 — xpOverride can be negative to subtract XP
+                const clampedXP = Math.max(-curBonusXP, xAdj)
+                logTechniqueShots(p.id, 0, clampedXP)
+                adjustments.xp = clampedXP
+              }
+              if (eAdj) {
+                const newElo = Math.max(0, (p.elo || 1000) + eAdj)
+                upd({ players: st.players.map(x => x.id === p.id ? { ...x, elo: newElo, eloLastDelta: eAdj, eloLastUpdated: Date.now() } : x) })
+                adjustments.elo = eAdj
+              }
+
+              // Audit log — fire-and-forget
+              await writeAuditLog('Coach', p, adjustments)
+
+              const parts = []
+              if (adjustments.diamonds !== undefined) parts.push(`${adjustments.diamonds > 0 ? '+' : ''}${adjustments.diamonds} 💎`)
+              if (adjustments.xp       !== undefined) parts.push(`${adjustments.xp > 0 ? '+' : ''}${adjustments.xp} XP`)
+              if (adjustments.elo      !== undefined) parts.push(`${adjustments.elo > 0 ? '+' : ''}${adjustments.elo} ELO`)
+
+              clearTimeout(correctionToastTimer.current)
+              setCorrectionToast(`✅ Applied to ${p.name}: ${parts.join(', ')}`)
+              correctionToastTimer.current = setTimeout(() => setCorrectionToast(null), 5000)
+              setCorrection({ diamonds: '', xp: '', elo: '' })
+              setCorrApplying(false)
+            }}
+            style={{
+              width: '100%', padding: '13px',
+              background: (corrApplying || (correction.diamonds === '' && correction.xp === '' && correction.elo === ''))
+                ? '#0f0808'
+                : 'linear-gradient(135deg,#7f1d1d,#ef4444)',
+              color: '#fff',
+              border: '1.5px solid #ef444455',
+              borderRadius: 10,
+              fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.08em',
+              cursor: corrApplying ? 'not-allowed' : 'pointer',
+              boxShadow: '0 0 18px #ef444422',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+          >
+            <Wrench size={14} />
+            {corrApplying ? 'APPLYING…' : 'APPLY CORRECTION'}
+          </button>
+
+          {correctionToast && (
+            <div style={{
+              marginTop: 10, padding: '8px 12px',
+              background: '#0f0a0a', border: '1px solid #ef444455',
+              borderRadius: 8, textAlign: 'center',
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700,
+              color: '#fca5a5', letterSpacing: '0.06em',
+            }}>
+              {correctionToast}
             </div>
           )}
         </div>
