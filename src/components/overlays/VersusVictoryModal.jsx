@@ -128,19 +128,35 @@ export default function VersusVictoryModal({ reward, onClaim, onRematch }) {
 
         {/* Trophy */}
         <div style={{
-          fontSize: 58, lineHeight: 1, marginBottom: 28,
+          fontSize: 58, lineHeight: 1, marginBottom: 12,
           animation: 'vvm-trophy 2.2s ease-in-out infinite, vvm-slideUp 0.45s ease-out 0.06s both',
         }}>
           🏆
         </div>
 
+        {/* Personalized subtitle */}
+        <div style={{
+          fontFamily: "'Barlow Condensed',sans-serif",
+          fontSize: 14, fontWeight: 700,
+          color: '#fef3c7', letterSpacing: '0.05em',
+          textAlign: 'center', lineHeight: 1.4,
+          marginBottom: 22,
+          animation: 'vvm-slideUp 0.5s ease-out 0.1s both',
+        }}>
+          You won today's Versus Quick Match!
+          <br />
+          <span style={{ color: '#fbbf24', fontWeight: 800 }}>
+            You just earned {reward.diamonds} diamonds!
+          </span>
+        </div>
+
         {/* Reward preview pills */}
         <div style={{
-          display: 'flex', gap: 14, marginBottom: 38,
+          display: 'flex', gap: 14, marginBottom: 32,
           animation: 'vvm-slideUp 0.5s ease-out 0.15s both',
         }}>
           {[
-            { icon: '💎', value: `+${reward.diamonds}`, label: 'DIAMOND' },
+            { icon: '💎', value: `+${reward.diamonds}`, label: 'DIAMONDS' },
             { icon: '⚡', value: `+${reward.xp}`,       label: 'XP BONUS' },
           ].map(({ icon, value, label }) => (
             <div key={label} style={{
@@ -183,7 +199,7 @@ export default function VersusVictoryModal({ reward, onClaim, onRematch }) {
               color: '#fbbf24', letterSpacing: '0.15em',
               animation: 'vvm-shimmer 1.0s ease-in-out infinite',
             }}>
-              TAP DIAMOND TO CLAIM REWARD!
+              CLAIM YOUR REWARDS!
             </div>
           )}
         </button>

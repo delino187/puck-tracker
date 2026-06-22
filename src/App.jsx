@@ -55,6 +55,10 @@ import { subscribeToTeam, subscribeToChallenges, subscribeToPuckGames } from './
 
 import { C, APP_BG } from './styles.js'
 
+// Versus Quick Match win rewards — meaningful difference vs the 1-diamond consolation
+const VERSUS_WIN_DIAMONDS = 10
+const VERSUS_WIN_XP       = 20
+
 export default function App() {
   const [st,          setSt]         = useState(null)
   const [loading,     setLoading]    = useState(true)
@@ -131,6 +135,13 @@ export default function App() {
   const activePlayerIdRef       = useRef(null)
   const coachAwardToastTimerRef = useRef(null)
   const lastChallengeLiRef      = useRef(null)   // null = baseline not yet set
+  // ── Versus win detection refs ─────────────────────────────────────────────
+  // prevChallengesRef: previous snapshot used to diff for newly-completed wins.
+  //   null = first snapshot not yet received (skip to avoid false-positives on load)
+  // seenVictoryIds: Set of challenge IDs already queued for the victory modal
+  //   (prevents double-show when both handlePeerChallengeSubmit and the effect fire)
+  const prevChallengesRef = useRef(null)
+  const seenVictoryIds    = useRef(new Set())
 
   // Reactive read of the technique/challenge XP pool.  Drives XP bar + level display.
   // useShallow prevents re-renders when a new techniqueByPlayer object is written
@@ -539,6 +550,82 @@ export default function App() {
     }
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Versus win detection — challenger perspective ─────────────────────────
+  // handlePeerChallengeSubmit is called by RespondToChallenge when the RECEIVER
+  // submits.  The CHALLENGER never calls that function — they only see their
+  // peerChallenges list update silently via the Firestore snapshot.  This effect
+  // diffs consecutive snapshots, detects newly-completed wins, and queues the
+  // VersusVictoryModal exactly once per challenge.
+  useEffect(() => {
+    // Reset snapshot baseline and seen set when the active player switches
+    prevChallengesRef.current = null
+    seenVictoryIds.current    = new Set()
+  }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!st?.activePlayerId || !st?.players) return
+    const activeId = st.activePlayerId
+
+    // First snapshot: record baseline only — don't show victory for old completions
+    if (prevChallengesRef.current === null) {
+      prevChallengesRef.current = peerChallenges
+      return
+    }
+
+    const prev = prevChallengesRef.current
+    prevChallengesRef.current = peerChallenges
+
+    for (const challenge of peerChallenges) {
+      if (challenge.status !== 'completed')     continue
+      if (challenge.winnerId !== activeId)       continue
+      if (seenVictoryIds.current.has(challenge.id)) continue
+
+      // Only fire for transitions: the same challenge was NOT completed before
+      const prevVersion = prev.find(p => p.id === challenge.id)
+      if (prevVersion?.status === 'completed')  continue
+
+      seenVictoryIds.current.add(challenge.id)
+
+      const opponentId = challenge.challengerId === activeId
+        ? challenge.receiverId
+        : challenge.challengerId
+
+      setVictoryReward({
+        type:     'versus',
+        diamonds: VERSUS_WIN_DIAMONDS,
+        xp:       VERSUS_WIN_XP,
+        opponentId,
+      })
+
+      // Mark "Win 1 Versus Quick Match Today" quest complete for this player
+      const pl = st.players.find(p => p.id === activeId)
+      const today = new Date().toDateString()
+      if (pl?.last_quest_spin === today) {
+        setSt(prev => {
+          const pid    = prev.activePlayerId
+          const player = prev.players.find(p => p.id === pid)
+          if (!player) return prev
+          const qi = (player.daily_quests || []).findIndex(
+            q => /win.*versus/i.test(q.text) && !q.completed && !q.claimed
+          )
+          if (qi < 0) return prev
+          return {
+            ...prev,
+            players: prev.players.map(p =>
+              p.id !== pid ? p : {
+                ...p,
+                daily_quests: p.daily_quests.map((q, i) =>
+                  i === qi ? { ...q, currentProgress: 1, targetProgress: 1, completed: true } : q
+                ),
+              }
+            ),
+          }
+        })
+      }
+      break  // one victory modal at a time; next win shows after this one dismisses
+    }
+  }, [peerChallenges, st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function handleStreakRevive() {
     const prev = streakBrokenData?.prevCount ?? 0
     upd({
@@ -780,7 +867,10 @@ export default function App() {
         : (challenge.receiverVideo   ?? null)
 
       if (challenge.winnerId === activeId) {
-        setVictoryReward({ type: 'versus', diamonds: 1, xp: 2, opponentId })
+        // Mark as seen BEFORE setting victoryReward so the snapshot useEffect
+        // (which fires simultaneously) doesn't double-queue the same modal.
+        seenVictoryIds.current.add(challenge.id)
+        setVictoryReward({ type: 'versus', diamonds: VERSUS_WIN_DIAMONDS, xp: VERSUS_WIN_XP, opponentId })
         // Mark "Win 1 Versus Quick Match Today" quest complete
         const today = new Date().toDateString()
         if (aPlayer?.last_quest_spin === today) {
@@ -1455,6 +1545,7 @@ export default function App() {
               })
               useAppStore.getState().logTechniqueShots(pid, 0, victoryReward.xp)
               setVictoryReward(null)
+              setTab('dashboard')
             }}
             onRematch={() => {
               const opponentId = victoryReward.opponentId
