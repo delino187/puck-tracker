@@ -500,14 +500,23 @@ export default function App() {
   // grant it now.  The guard inside markRookieQuest is idempotent — safe to call
   // repeatedly.  The retroactiveCheckDoneRef prevents re-firing on every puckGames
   // snapshot update after the first pass.
+  //
+  // IMPORTANT: Do NOT close over `aPlayer` here.  This effect is registered BEFORE
+  // the `if (loading || !st) return` guard at line ~700, so on the first render
+  // (when st is null) `const aPlayer` is never reached — its binding stays in the
+  // TDZ.  Any access inside the callback would throw "Cannot access 'aPlayer' before
+  // initialization".  Instead, derive the player fresh from `st` inside the callback
+  // where we can verify st is defined.
   const retroactiveHorseRef = useRef(null)
   useEffect(() => {
-    if (!aPlayer?.id || aPlayer?.rookieQuests?.horseGame) return
+    if (!st?.activePlayerId || !st?.players) return  // st not yet loaded
+    const player = st.players.find(p => p.id === st.activePlayerId)
+    if (!player?.id || player?.rookieQuests?.horseGame) return
     // Only check once per player session; re-check if player switches
-    if (retroactiveHorseRef.current === aPlayer.id) return
+    if (retroactiveHorseRef.current === player.id) return
     // Wait until puckGames has been hydrated (avoids false-negative on first render)
     if (puckGames.length === 0) return
-    retroactiveHorseRef.current = aPlayer.id
+    retroactiveHorseRef.current = player.id
     const hasFinishedGame = puckGames.some(g => g.status !== 'active')
     if (hasFinishedGame) {
       console.log('[milestone] retroactively granting horseGame — completed game found in history')
@@ -624,25 +633,26 @@ export default function App() {
     // Even if the subsequent setSt render crashes, this write already landed.
     saveSt(nextSt)
 
-    // ── Queue React state update for UI + per-quest toast ───────────────────
-    setSt(() => {
-      // Per-quest toast (deferred so setSt runs first)
-      clearTimeout(rookieToastTimer.current)
+    // ── Queue React state update (pure updater — no side effects) ───────────
+    // Side effects (toasts, audio) run AFTER setSt, not inside it.
+    // React may call the updater multiple times in Strict Mode, so the updater
+    // must be a pure function that only returns the next state.
+    setSt(() => nextSt)
+
+    // ── Side effects: toasts and celebration audio ───────────────────────────
+    clearTimeout(rookieToastTimer.current)
+    setTimeout(() => {
+      setRookieToast({ label: quest.label, reward: quest.reward, icon: quest.icon })
+      rookieToastTimer.current = setTimeout(() => setRookieToast(null), 4500)
+    }, 0)
+
+    // Grand finale — all milestones done for the first time
+    if (allDoneNow && !alreadyGrad && grantedBadges.some(b => b.id === 'rookie_grad')) {
       setTimeout(() => {
-        setRookieToast({ label: quest.label, reward: quest.reward, icon: quest.icon })
-        rookieToastTimer.current = setTimeout(() => setRookieToast(null), 4500)
-      }, 0)
-
-      // Grand finale — all milestones done for the first time
-      if (allDoneNow && !alreadyGrad && grantedBadges.some(b => b.id === 'rookie_grad')) {
-        setTimeout(() => {
-          audioEngine.playBadgeUnlock()
-          setEpicCeleb({ type: 'badge', badge: BADGES.find(b => b.id === 'rookie_grad') })
-        }, 1200)
-      }
-
-      return nextSt
-    })
+        audioEngine.playBadgeUnlock()
+        setEpicCeleb({ type: 'badge', badge: BADGES.find(b => b.id === 'rookie_grad') })
+      }, 1200)
+    }
   }
 
   // ── Alpha-test career reset ───────────────────────────────────────────────

@@ -119,7 +119,7 @@ export default function ShootTracker({
 
           {/* 🎯 Target Practice */}
           <button
-            onClick={() => setSubMode('target')}
+            onClick={() => { setSubMode('target'); onStart?.() }}
             style={{
               width: '100%', textAlign: 'left', display: 'block',
               background: 'var(--card-bg)', border: '2px solid #3b82f644',
@@ -246,12 +246,6 @@ export default function ShootTracker({
       return <TechniqueTracker player={player} onBack={() => setSubMode(null)} onGoalReached={onGoalReached} />
     }
 
-    // ── Target Practice: skip "Start a Session" config screen, auto-start ──────
-    // Fire onStart immediately so the player lands directly on the zone scoreboard.
-    if (subMode === 'target') {
-      onStart?.()
-      return null
-    }
   }
 
   const sLeft  = Math.max(0, sesGoal - session.sets.length)
