@@ -93,7 +93,7 @@ function VideoPicker({ previewUrl, onSelect, onClear, error, maxSecs = MAX_SECS 
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function PuckGame({ player, players, puckGames, onBack, onUpdate, onConcede, onEloUpdate, autoOpenGameId }) {
+export default function PuckGame({ player, players, puckGames, onBack, onUpdate, onConcede, onEloUpdate, autoOpenGameId, setPendingRoundOutcome }) {
   const [view,          setView]         = useState('list')   // 'list' | 'new' | 'game' | 'set' | 'match'
   const [selectedGame,  setSelectedGame] = useState(null)
   // Tracks which game's trombone has already played so it only fires once per loss view
@@ -259,6 +259,16 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
         p2Elo: p2?.elo || 1600,
       })
       await refresh(updated)
+
+      // Set pending outcome so the setter sees what happened
+      const setterName = selectedGame.setterPlayerId === selectedGame.p1Id ? selectedGame.p1Name : selectedGame.p2Name
+      const letterAwarded = !made ? (selectedGame.setterPlayerId === selectedGame.p1Id ? selectedGame.p2Letters?.length : selectedGame.p1Letters?.length) : null
+      setPendingRoundOutcome?.({
+        type: made ? 'made' : 'missed',
+        letterAwarded,
+        opponentName: setterName,
+        gameId: selectedGame.id,
+      })
     } catch (err) {
       console.error('🚨 PUCK defender save failed (video uploaded OK):', err?.message, err)
       setError('Video uploaded but result could not be saved — please try again.')

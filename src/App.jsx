@@ -6,6 +6,7 @@ import { saveToFirestore, deletePlayerData, forceSessionSync } from './utils/fir
 import { audioEngine } from './services/audioEngine.js'
 import { sendRageBait, subscribeToRageBaits, dismissRageBait, sendCompliment, subscribeToCompliments, dismissNotification } from './services/rageBaitService.js'
 import { RageBaitSenderModal, RageBaitReceiverModal, ComplimentSenderModal, ComplimentReceiverModal } from './components/overlays/RageBaitModal.jsx'
+import PuckRoundOutcomeModal from './components/modals/PuckRoundOutcomeModal.jsx'
 import { playerStats, newId, getWeekStart, getLevel } from './utils/stats.js'
 import { useAppStore } from './store/useAppStore.js'
 import { useShallow } from 'zustand/react/shallow'
@@ -76,8 +77,9 @@ export default function App() {
   const [rankDetailOpen,  setRankDetailOpen]   = useState(false)
   const [peerChallenges,  setPeerChallenges]   = useState([])
   const [challengeScreen, setChallengeScreen]  = useState(null) // null | 'create' | { mode:'respond', challenge }
-  const [puckGames,       setPuckGames]        = useState([])
-  const [deepLinkPuckGameId, setDeepLinkPuckGameId] = useState(null)
+  const [puckGames,            setPuckGames]            = useState([])
+  const [deepLinkPuckGameId,   setDeepLinkPuckGameId]   = useState(null)
+  const [pendingRoundOutcome,  setPendingRoundOutcome]  = useState(null)  // { type, letterAwarded, opponentName, gameId }
   // Clear the deep-link game ID whenever the player leaves the session tab.
   // This avoids PuckGame auto-re-selecting a stale game on subsequent visits.
   // We clear on tab change (not inside ShootTracker) so the ID remains alive
@@ -1378,6 +1380,16 @@ export default function App() {
             }}
           />
         )}
+
+        {/* ── PUCK round outcome pop-up ────────────────────────────── */}
+        {pendingRoundOutcome && (
+          <PuckRoundOutcomeModal
+            outcome={pendingRoundOutcome}
+            opponentName={pendingRoundOutcome.opponentName}
+            onDismiss={() => setPendingRoundOutcome(null)}
+          />
+        )}
+
         {badgePreview && (
           <BadgePopup
             badge={badgePreview.badge}
@@ -1585,6 +1597,7 @@ export default function App() {
                   return { ...p, elo: Math.max(0, (p.elo || 1600) + delta) }
                 }),
               }))}
+              setPendingRoundOutcome={setPendingRoundOutcome}
             />
           )}
           {tab === 'challenges' && (

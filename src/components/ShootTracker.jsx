@@ -28,6 +28,7 @@ export default function ShootTracker({
   puckGames = [], onSubmitGame, onPuckGameUpdate,
   onConcedeGame, onPuckEloUpdate,
   deepLinkPuckGameId = null,
+  setPendingRoundOutcome,
   isSaving = false, weakConnToast = false,
   onGoalReached,
 }) {
@@ -92,6 +93,7 @@ export default function ShootTracker({
         onConcede={onConcedeGame}
         onEloUpdate={onPuckEloUpdate}
         autoOpenGameId={deepLinkPuckGameId}
+        setPendingRoundOutcome={setPendingRoundOutcome}
       />
     )
   }
