@@ -193,11 +193,15 @@ export async function submitDefenderResponse(game, { videoUrl, made, p1Elo = 160
   const update = {
     p1Letters, p2Letters,
     status: newStatus,
-    eloResult: eloResult || undefined,
     currentRound: newStatus === 'active'
       ? freshRound(nextSetterPlayerId)
       : { ...game.currentRound, defenderVideo: videoUrl, defenderMade: made, status: 'complete' },
     lastActivityAt: now,
+  }
+
+  // Only add eloResult if it exists — never write explicit undefined to Firestore
+  if (eloResult) {
+    update.eloResult = eloResult
   }
 
   try {
