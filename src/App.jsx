@@ -1340,7 +1340,7 @@ export default function App() {
           />
         )}
 
-        {/* ── Coach award toast — fires when diamonds increase remotely ── */}
+        {/* ── Diamond reward toast — fires when remote Firestore diamond delta is detected ── */}
         {coachAwardToast && (
           <div
             onClick={() => { clearTimeout(coachAwardToastTimerRef.current); setCoachAwardToast(null) }}
@@ -1357,9 +1357,6 @@ export default function App() {
           >
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 26, color: '#fbbf24', letterSpacing: '0.08em', lineHeight: 1 }}>
               💎 YOU JUST EARNED {coachAwardToast.amount} DIAMONDS!
-            </div>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#c4b5fd', marginTop: 5, letterSpacing: '0.08em' }}>
-              REWARD FROM YOUR COACH 🏒⚡
             </div>
           </div>
         )}
@@ -1811,43 +1808,37 @@ export default function App() {
               border: '1.5px solid #a855f7',
               borderRadius: 18, padding: '14px 20px',
               boxShadow: '0 0 28px #a855f755, 0 4px 20px rgba(0,0,0,0.65)',
-              maxWidth: '88vw', minWidth: 220,
+              maxWidth: '88vw', minWidth: 240,
               animation: 'rookieSlideUp 0.3s ease-out both',
             }}>
-              {/* Header label */}
+              {/* Achievement context header */}
               <div style={{
                 fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
                 color: '#a855f7', letterSpacing: '0.2em', textTransform: 'uppercase',
-                marginBottom: 8,
+                marginBottom: 6,
               }}>
-                ✅ ROOKIE MILESTONE COMPLETED
+                ✅ ACHIEVEMENT COMPLETED
               </div>
 
-              {/* Milestone text with strike-through animation */}
+              {/* Milestone name with strike-through animation */}
               <div style={{
                 fontFamily: "'Barlow Condensed',sans-serif", fontSize: 15, fontWeight: 700,
                 color: '#d8b4fe', letterSpacing: '0.04em', lineHeight: 1.3,
+                marginBottom: 8,
               }}>
                 <span className="rookie-strike-wrap">
                   {rookieToast.icon} {rookieToast.label}
                 </span>
               </div>
 
-              {/* Diamond reward */}
+              {/* Diamond reward — explicit sentence */}
               <div style={{
-                marginTop: 10,
-                display: 'inline-flex', alignItems: 'center', gap: 4,
-                background: 'rgba(251,191,36,0.1)',
-                border: '1px solid #fbbf2433',
-                borderRadius: 20, padding: '3px 10px',
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700,
+                color: '#fbbf24', letterSpacing: '0.04em',
+                display: 'flex', alignItems: 'center', gap: 5,
               }}>
-                <span style={{ fontSize: 13 }}>💎</span>
-                <span style={{
-                  fontFamily: "'Bangers',sans-serif", fontSize: 16,
-                  color: '#fbbf24', letterSpacing: '0.06em', lineHeight: 1,
-                }}>
-                  +{rookieToast.reward}
-                </span>
+                <span style={{ fontSize: 14 }}>💎</span>
+                You just earned {rookieToast.reward} diamonds!
               </div>
             </div>
           </>

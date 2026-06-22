@@ -4,7 +4,8 @@
  */
 // Minimum gap between badge-unlock stings (ms).  Prevents the cinematic impact
 // from stacking when several badges are granted near-simultaneously on first login.
-const BADGE_COOLDOWN_MS = 3000
+const BADGE_COOLDOWN_MS   = 3000
+const UTILITY_COOLDOWN_MS = 4000   // prevents melodical-flute stacking on rapid notifications
 
 class AudioEngine {
   constructor() {
@@ -17,7 +18,11 @@ class AudioEngine {
     // ── Badge-sting throttle ───────────────────────────────────────────────
     // Tracks when the last badge-unlock sound finished so rapid successive
     // calls (e.g. 5 retroactive badges on first login) don't pile on.
-    this._badgeCooldownUntil = 0
+    this._badgeCooldownUntil   = 0
+    // ── Utility-chime throttle ────────────────────────────────────────────
+    // Prevents the melodical-flute notification from firing back-to-back
+    // when multiple onboarding notifications clear in rapid succession.
+    this._utilityCooldownUntil = 0
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -257,8 +262,13 @@ class AudioEngine {
     this.playMp3('/movie-trailer-epic-impact.mp3', 0.8)
   }
 
-  /** Melodic flute chime — fires on streak freeze use or cosmetic equip */
+  /** Melodic flute chime — fires on streak freeze use, cosmetic equip, or
+   *  diamond reward notification.  Throttled to once per UTILITY_COOLDOWN_MS
+   *  so consecutive onboarding notifications don't stack the same sound. */
   playUtilitySuccess() {
+    const now = Date.now()
+    if (now < this._utilityCooldownUntil) return
+    this._utilityCooldownUntil = now + UTILITY_COOLDOWN_MS
     this.playMp3('/melodical-flute-music-notification.mp3', 0.85)
   }
 
