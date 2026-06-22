@@ -590,7 +590,7 @@ export default function App() {
       // Per-quest toast (deferred so setSt runs first)
       clearTimeout(rookieToastTimer.current)
       setTimeout(() => {
-        setRookieToast(`🎯 Quest complete! +${quest.reward}💎  "${quest.label}"`)
+        setRookieToast({ label: quest.label, reward: quest.reward, icon: quest.icon })
         rookieToastTimer.current = setTimeout(() => setRookieToast(null), 4500)
       }, 0)
 
@@ -1719,21 +1719,81 @@ export default function App() {
           {tab === 'ranks' && <RanksTab stats={stats} openDetail={rankDetailOpen} onDetailClose={() => setRankDetailOpen(false)} />}
         </div>
 
-        {/* ── Rookie quest completion toast ───────────────────────────────── */}
+        {/* ── Rookie milestone completion toast ──────────────────────────── */}
         {rookieToast && (
-          <div style={{
-            position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
-            zIndex: 310,
-            background: 'linear-gradient(135deg,#1a0a30,#2d1060)',
-            border: '1.5px solid #a855f7',
-            borderRadius: 14, padding: '10px 18px',
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700,
-            color: '#d8b4fe', letterSpacing: '0.04em',
-            boxShadow: '0 0 20px #a855f755, 0 4px 16px rgba(0,0,0,0.6)',
-            whiteSpace: 'nowrap', maxWidth: '90vw', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {rookieToast}
-          </div>
+          <>
+            <style>{`
+              @keyframes rookieSlideUp {
+                from { transform: translateX(-50%) translateY(20px); opacity: 0 }
+                to   { transform: translateX(-50%) translateY(0);    opacity: 1 }
+              }
+              @keyframes rookieStrike {
+                from { width: 0 }
+                to   { width: 100% }
+              }
+              .rookie-strike-wrap {
+                position: relative;
+                display: inline-block;
+              }
+              .rookie-strike-wrap::after {
+                content: '';
+                position: absolute;
+                left: 0;
+                top: 50%;
+                height: 2px;
+                width: 0;
+                background: #a855f7;
+                animation: rookieStrike 0.55s ease-out 0.35s forwards;
+              }
+            `}</style>
+            <div style={{
+              position: 'fixed', bottom: 80, left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 310,
+              background: 'linear-gradient(135deg,#1a0a30,#2d1060)',
+              border: '1.5px solid #a855f7',
+              borderRadius: 18, padding: '14px 20px',
+              boxShadow: '0 0 28px #a855f755, 0 4px 20px rgba(0,0,0,0.65)',
+              maxWidth: '88vw', minWidth: 220,
+              animation: 'rookieSlideUp 0.3s ease-out both',
+            }}>
+              {/* Header label */}
+              <div style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
+                color: '#a855f7', letterSpacing: '0.2em', textTransform: 'uppercase',
+                marginBottom: 8,
+              }}>
+                ✅ ROOKIE MILESTONE COMPLETED
+              </div>
+
+              {/* Milestone text with strike-through animation */}
+              <div style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 15, fontWeight: 700,
+                color: '#d8b4fe', letterSpacing: '0.04em', lineHeight: 1.3,
+              }}>
+                <span className="rookie-strike-wrap">
+                  {rookieToast.icon} {rookieToast.label}
+                </span>
+              </div>
+
+              {/* Diamond reward */}
+              <div style={{
+                marginTop: 10,
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: 'rgba(251,191,36,0.1)',
+                border: '1px solid #fbbf2433',
+                borderRadius: 20, padding: '3px 10px',
+              }}>
+                <span style={{ fontSize: 13 }}>💎</span>
+                <span style={{
+                  fontFamily: "'Bangers',sans-serif", fontSize: 16,
+                  color: '#fbbf24', letterSpacing: '0.06em', lineHeight: 1,
+                }}>
+                  +{rookieToast.reward}
+                </span>
+              </div>
+            </div>
+          </>
         )}
 
         {/* ── Undo last set toast ──────────────────────────────────────────── */}
