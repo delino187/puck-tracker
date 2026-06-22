@@ -177,10 +177,33 @@ const getQuestProgress = (quest, sessions) =>
 
 // ── Quest row ─────────────────────────────────────────────────────────────────
 function QuestRow({ quest, progress, isSpinning, shuffleText, onNavigate, onClaim }) {
-  const tc          = TIER_COLORS[quest.tier] || TIER_COLORS.common
-  const label       = isSpinning ? shuffleText : quest.text
-  const tabTarget   = questTab(label)
+  const tc            = TIER_COLORS[quest.tier] || TIER_COLORS.common
+  const label         = isSpinning ? shuffleText : quest.text
+  const tabTarget     = questTab(label)
   const isPlaceholder = quest.reward === '?'
+  // New-day locked placeholder — shows "????" until the player spins the wheel
+  if (quest.isNewDayPlaceholder) {
+    return (
+      <div style={{
+        background: 'rgba(15,23,42,0.6)',
+        border: '1.5px solid #1e293b',
+        borderRadius: 14, padding: '14px 16px',
+        display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8,
+        opacity: 0.55,
+      }}>
+        <span style={{ fontSize: 20, lineHeight: 1 }}>🔒</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 15, fontWeight: 700, color: '#475569', letterSpacing: '0.04em' }}>
+            ????
+          </div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#334155', marginTop: 3 }}>
+            Spin today's wheel to unlock
+          </div>
+        </div>
+        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color: '#334155' }}>? 💎</div>
+      </div>
+    )
+  }
 
   const isDone      = quest.completed || (!isPlaceholder && progress ? progress.current >= progress.target : false)
   const isClaimed   = quest.claimed || false
@@ -591,7 +614,7 @@ export default function DailyQuests({
     }, 2000)
   }
 
-  // Placeholder row shown before first spin
+  // Placeholder row shown before first spin (never spun yet)
   const placeholders = [0, 1, 2].map(i => ({
     id: `placeholder-${i}`,
     text: '— PULL THE LEVER —',
@@ -600,7 +623,26 @@ export default function DailyQuests({
     icon: '❓',
   }))
 
-  const displayQuests = currentQuests.length ? currentQuests : placeholders
+  // New-day placeholder cards ("????") shown when the player has quests from
+  // yesterday but hasn't spun for today yet.  Prevents stale completed quests
+  // from appearing claimable or partially pre-filled on a fresh day.
+  const newDayPlaceholders = [0, 1, 2].map(i => ({
+    id: `newday-${i}`,
+    text: '????',
+    tier: 'common',
+    reward: '?',
+    icon: '🔒',
+    isNewDayPlaceholder: true,
+  }))
+
+  // If it's a new day AND the player has stored quests from yesterday, hide
+  // those stale cards and show locked "????" rows instead.
+  const isNewDayWithStaleQuests = spinAvailable && currentQuests.length > 0
+  const displayQuests = isNewDayWithStaleQuests
+    ? newDayPlaceholders
+    : currentQuests.length
+      ? currentQuests
+      : placeholders
 
   return (
     <div style={{ padding: '16px 16px 80px', position: 'relative' }}>

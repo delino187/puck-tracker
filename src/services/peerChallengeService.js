@@ -250,6 +250,30 @@ export async function markChallengesAsSeen(playerId, challenges) {
   )
 }
 
+// ── Claim win rewards (idempotent) ────────────────────────────────────────────
+// Uses a Firestore transaction to atomically check + set winnerRewardsClaimed.
+// Returns true if this call was the first to claim (rewards should be granted),
+// or false if rewards were already claimed (player logged in on a second device
+// or refreshed the page before the flag was written).
+export async function claimChallengeWinReward(challengeId) {
+  const ref = doc(COL(), challengeId)
+  let granted = false
+
+  try {
+    await runTransaction(db, async tx => {
+      const snap = await tx.get(ref)
+      if (!snap.exists()) return
+      if (snap.data().winnerRewardsClaimed) return   // already claimed on another device/session
+      tx.update(ref, { winnerRewardsClaimed: true })
+      granted = true
+    })
+  } catch (err) {
+    console.error('[claimChallengeWinReward] transaction failed:', err.message)
+  }
+
+  return granted
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 export function formatCountdown(expiresAt) {
   const ms   = Math.max(0, expiresAt - Date.now())

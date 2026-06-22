@@ -50,7 +50,7 @@ import VersusDefeatModal   from './components/overlays/VersusDefeatModal.jsx'
 import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
 import { getGameAction } from './services/puckGameService.js'
-import { markChallengesAsSeen } from './services/peerChallengeService.js'
+import { markChallengesAsSeen, claimChallengeWinReward } from './services/peerChallengeService.js'
 import { subscribeToTeam, subscribeToChallenges, subscribeToPuckGames } from './services/realtimeSync.js'
 
 import { C, APP_BG } from './styles.js'
@@ -580,13 +580,16 @@ export default function App() {
     prevChallengesRef.current = peerChallenges
 
     for (const challenge of peerChallenges) {
-      if (challenge.status !== 'completed')     continue
-      if (challenge.winnerId !== activeId)       continue
-      if (seenVictoryIds.current.has(challenge.id)) continue
+      if (challenge.status !== 'completed')          continue
+      if (challenge.winnerId !== activeId)            continue
+      if (seenVictoryIds.current.has(challenge.id))  continue
+      // Server-side idempotency guard: if rewards were already claimed on a
+      // previous session or device, never re-show the victory modal.
+      if (challenge.winnerRewardsClaimed)            continue
 
       // Only fire for transitions: the same challenge was NOT completed before
       const prevVersion = prev.find(p => p.id === challenge.id)
-      if (prevVersion?.status === 'completed')  continue
+      if (prevVersion?.status === 'completed')       continue
 
       seenVictoryIds.current.add(challenge.id)
 
@@ -595,10 +598,11 @@ export default function App() {
         : challenge.challengerId
 
       setVictoryReward({
-        type:     'versus',
-        diamonds: VERSUS_WIN_DIAMONDS,
-        xp:       VERSUS_WIN_XP,
+        type:        'versus',
+        diamonds:    VERSUS_WIN_DIAMONDS,
+        xp:          VERSUS_WIN_XP,
         opponentId,
+        challengeId: challenge.id,   // threaded so onClaim can write the flag
       })
 
       // Mark "Win 1 Versus Quick Match Today" quest complete for this player
@@ -903,10 +907,13 @@ export default function App() {
         : (challenge.receiverVideo   ?? null)
 
       if (challenge.winnerId === activeId) {
+        // Skip if rewards were already claimed (shouldn't happen here since this
+        // fires right after the match completes, but guard for correctness)
+        if (challenge.winnerRewardsClaimed) return
         // Mark as seen BEFORE setting victoryReward so the snapshot useEffect
         // (which fires simultaneously) doesn't double-queue the same modal.
         seenVictoryIds.current.add(challenge.id)
-        setVictoryReward({ type: 'versus', diamonds: VERSUS_WIN_DIAMONDS, xp: VERSUS_WIN_XP, opponentId })
+        setVictoryReward({ type: 'versus', diamonds: VERSUS_WIN_DIAMONDS, xp: VERSUS_WIN_XP, opponentId, challengeId: challenge.id })
         // Mark "Win 1 Versus Quick Match Today" quest complete
         const today = new Date().toDateString()
         if (aPlayer?.last_quest_spin === today) {
@@ -1570,8 +1577,21 @@ export default function App() {
         {victoryReward && !challengeScreen && (
           <VersusVictoryModal
             reward={victoryReward}
-            onClaim={() => {
-              const pid = st.activePlayerId
+            onClaim={async () => {
+              const pid         = st.activePlayerId
+              const challengeId = victoryReward.challengeId
+
+              // Atomically write winnerRewardsClaimed before granting anything.
+              // If another session already claimed, skip the award silently.
+              if (challengeId) {
+                const granted = await claimChallengeWinReward(challengeId)
+                if (!granted) {
+                  setVictoryReward(null)
+                  setTab('dashboard')
+                  return
+                }
+              }
+
               upd({
                 players: st.players.map(p =>
                   p.id === pid

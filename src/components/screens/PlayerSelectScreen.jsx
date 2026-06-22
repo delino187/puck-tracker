@@ -6,15 +6,22 @@ import { getStreakAuraClass } from '../../utils/streakAura.js'
 import Scaffold from '../shared/Scaffold.jsx'
 import LevelBadge from '../shared/LevelBadge.jsx'
 import Avatar from '../shared/Avatar.jsx'
+import { useAppStore } from '../../store/useAppStore.js'
 
 export default function PlayerSelectScreen({ players, sessions, onSelect, onBack }) {
+  // Read Zustand's technique bonus XP so the level badge reflects ALL activity
+  // (Target Practice + Technique Only + PUCK game rounds + Versus challenges),
+  // not just the shots stored in sessions.  Without this the login screen shows
+  // a lower rank than the player's actual in-app level.
+  const techniqueByPlayer = useAppStore(s => s.techniqueByPlayer)
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [pw,   setPw]   = useState('')
   const [err,  setErr]  = useState(false)
   const [show, setShow] = useState(false)
 
   if (selectedPlayer) {
-    const { li: selectedLi } = playerStats(selectedPlayer, sessions)
+    const selectedBonusXP = techniqueByPlayer[selectedPlayer.id]?.bonusXP || 0
+    const { li: selectedLi } = playerStats(selectedPlayer, sessions, selectedBonusXP)
     return (
       <Scaffold onBack={() => { setSelectedPlayer(null); setPw(''); setErr(false) }} title="">
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
@@ -66,7 +73,8 @@ export default function PlayerSelectScreen({ players, sessions, onSelect, onBack
           No players yet — ask your coach!
         </div>
       ) : players.map(p => {
-        const { li, streak: str, weekShots } = playerStats(p, sessions)
+        const bonusXP = techniqueByPlayer[p.id]?.bonusXP || 0
+        const { li, streak: str, weekShots } = playerStats(p, sessions, bonusXP)
 
         return (
           <button
