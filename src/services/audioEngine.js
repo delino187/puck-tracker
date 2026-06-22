@@ -13,6 +13,11 @@ class AudioEngine {
     if (!this.ctx) {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)()
     }
+    // AudioContext starts suspended until a user gesture. Resume every time
+    // init() is called — harmless when already running.
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume().catch(() => {})
+    }
   }
 
   setMute(state) { this.isMuted = state }
@@ -179,11 +184,20 @@ class AudioEngine {
   // ── MP3 file player — for pre-recorded sound assets in /public ───────────
   playMp3(path, volume = 0.9) {
     if (this.isMuted) return
+    // Resume the audio context first so sounds triggered inside real-time
+    // Firestore snapshot listeners aren't blocked by the browser's autoplay policy.
+    if (this.ctx?.state === 'suspended') {
+      this.ctx.resume().catch(() => {})
+    }
     try {
       const audio = new Audio(path)
       audio.volume = volume
-      audio.play().catch(() => {})
-    } catch {}
+      audio.play().catch(err => {
+        console.warn(`[AudioEngine] playMp3 deferred (${path}):`, err?.message ?? err)
+      })
+    } catch (err) {
+      console.warn(`[AudioEngine] playMp3 failed (${path}):`, err?.message ?? err)
+    }
   }
 
   /** Cinematic impact sting — fires when a new badge achievement unlocks */

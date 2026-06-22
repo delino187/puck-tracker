@@ -6,9 +6,14 @@ const PUCK_LETTERS = ['P', 'U', 'C', 'K']
 export default function PuckRoundOutcomeModal({ outcome, opponentName, playerId, defenderId, onDismiss }) {
   const [animate, setAnimate] = useState(false)
 
-  // Determine perspective: defensive (I got a letter) or offensive (I forced them to get one)
+  // Determine perspective using the explicit 'perspective' field set by the caller.
+  // This is the primary gate — we don't guess from playerId/defenderId comparisons
+  // because playerId can be undefined on first render if the parent's player ref
+  // hasn't resolved yet.  A missing 'perspective' falls back to the playerId check
+  // so old outcome objects still render correctly.
   const isOffensiveVictory = outcome?.perspective === 'offensive'
-  const playerReceivedLetter = playerId === defenderId && outcome?.type === 'missed' && !isOffensiveVictory
+  const isDefensiveLetter  = outcome?.perspective === 'defensive' ||
+    (outcome?.perspective == null && playerId != null && playerId === defenderId && outcome?.type === 'missed')
 
   // Play sound and trigger animation on mount
   useEffect(() => {
@@ -85,7 +90,7 @@ export default function PuckRoundOutcomeModal({ outcome, opponentName, playerId,
           marginBottom: 16,
           lineHeight: 1,
         }}>
-          {isMade ? 'CHALLENGE MATCHED!' : (isOffensiveVictory ? 'LETTER DELIVERED! 🎯' : (playerReceivedLetter ? 'YOU GOT A LETTER!' : 'LETTER AWARDED!'))}
+          {isMade ? 'CHALLENGE MATCHED!' : (isOffensiveVictory ? 'LETTER DELIVERED! 🎯' : (isDefensiveLetter ? 'YOU GOT A LETTER!' : 'LETTER AWARDED!'))}
         </div>
 
         {/* Opponent name + outcome text */}
@@ -103,7 +108,7 @@ export default function PuckRoundOutcomeModal({ outcome, opponentName, playerId,
               <br />
               They just took a letter.
             </>
-          ) : playerReceivedLetter ? (
+          ) : isDefensiveLetter ? (
             <>
               You missed the match challenge.
               <br />
