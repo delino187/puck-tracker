@@ -186,9 +186,13 @@ export async function submitDefenderResponse(game, { videoUrl, made, p1Elo = 160
     }
   }
 
-  // For the next round: the defender becomes the new setter
-  // (P1 was setter, P2 defended → P2 becomes next setter, P1 defends)
-  const nextSetterPlayerId = game.setterPlayerId === game.p1Id ? game.p2Id : game.p1Id
+  // Determine who the current defender is (opposite of the setter)
+  const defenderId = isP1Setter ? game.p2Id : game.p1Id
+
+  // Next setter logic:
+  // - If defender MADE the shot: defender becomes the new setter
+  // - If defender MISSED the shot: original setter stays the setter
+  const nextSetterPlayerId = made ? defenderId : game.setterPlayerId
 
   const update = {
     p1Letters, p2Letters,
