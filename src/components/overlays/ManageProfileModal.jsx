@@ -181,9 +181,26 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
               {player.name}
               {player.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{player.jerseyNum}</span> : null}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 4 }}>
-              <img src={level.img} alt={level.name} style={{ width: 16, height: 16, objectFit: 'cover', borderRadius: '50%' }} />
-              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: level.color, letterSpacing: '0.06em' }}>
+
+            {/* ── Rank coin + name — scaled up for prime visual importance ── */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 12 }}>
+              <img
+                src={level.img}
+                alt={level.name}
+                style={{
+                  width: 56, height: 56,
+                  objectFit: 'cover', borderRadius: '50%',
+                  border: `3px solid ${level.color}`,
+                  boxShadow: `0 0 20px ${level.glow}66, 0 0 6px ${level.glow}44`,
+                }}
+              />
+              <span style={{
+                fontFamily: "'Bangers',sans-serif",
+                fontSize: 22, letterSpacing: '0.08em',
+                color: level.color,
+                textShadow: `0 0 14px ${level.glow}66`,
+                lineHeight: 1,
+              }}>
                 {level.name}
               </span>
             </div>
@@ -262,23 +279,29 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
           </div>
         )}
 
-        {/* ── Stats row ─────────────────────────────────────────────────────── */}
+        {/* ── Stats row — 2-col: Shots + Streak only ────────────────────────── */}
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
-          background: '#0f172a', borderRadius: 12, padding: '12px 8px',
-          marginBottom: medals.length > 0 ? 16 : 0, gap: 4,
+          display: 'grid', gridTemplateColumns: '1fr 1fr',
+          background: '#0f172a', borderRadius: 14, padding: '18px 12px',
+          marginBottom: medals.length > 0 ? 16 : 0, gap: 8,
         }}>
           {[
-            { label: 'Shots',   value: careerShots.toLocaleString() },
-            { label: 'Hits',    value: (stats.totalHits ?? 0).toLocaleString() },
-            { label: 'Acc',     value: stats.totalShots > 0 ? `${stats.acc.toFixed(0)}%` : '—' },
-            { label: 'Streak',  value: displayStreak > 0 ? `${displayStreak}d` : '—' },
-          ].map(({ label, value }) => (
+            { label: 'Shots',  value: careerShots.toLocaleString(),                    color: '#60a5fa' },
+            { label: 'Streak', value: displayStreak > 0 ? `${displayStreak}d` : '—', color: '#f97316' },
+          ].map(({ label, value, color }) => (
             <div key={label} style={{ textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, letterSpacing: '0.04em', color: '#f1f5f9', lineHeight: 1 }}>
+              <div style={{
+                fontFamily: "'Bangers',sans-serif", fontSize: 38,
+                letterSpacing: '0.04em', color, lineHeight: 1,
+                textShadow: `0 0 18px ${color}44`,
+              }}>
                 {value}
               </div>
-              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800, color: '#06b6d4', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 4 }}>
+              <div style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11,
+                fontWeight: 800, color: '#475569',
+                letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: 6,
+              }}>
                 {label}
               </div>
             </div>

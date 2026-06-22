@@ -13,6 +13,11 @@ export default function PlayerHeader({ player, stats, onBack, theme, onThemeTogg
   const dispMax = next ? next.xpNeeded : stats.xp
   const isDark = theme === 'dark'
 
+  // Master puck total — unified across all game modes:
+  //   stats.totalShots  → Target Practice sessions + ATW hits (from playerStats/sessions)
+  //   techniquePucks    → Technique-only + Versus challenges + PUCK horse rounds (Zustand)
+  // Both sources are reactive: stats recomputes on every st.sessions change;
+  // techniquePucks subscribes to Zustand, which updates on every logTechniqueShots call.
   const techniquePucks = useAppStore(s => s.techniqueByPlayer[player.id]?.totalPucks || 0)
   const totalPucks     = (stats.totalShots ?? 0) + techniquePucks
 
