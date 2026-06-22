@@ -831,6 +831,38 @@ export default function App() {
     // Rookie quest: first issued challenge (challengerId = the player who sent it)
     if (challenge.challengerId === st.activePlayerId) markRookieQuest('issueChallenge')
 
+    // Daily quest: "Issue a Versus Challenge Today"
+    // Only fires on a brand-new (pending) challenge, not on a completed one.
+    if (
+      challenge.status === 'pending' &&
+      challenge.challengerId === st.activePlayerId
+    ) {
+      const today = new Date().toDateString()
+      const pl = st.players.find(p => p.id === st.activePlayerId)
+      if (pl?.last_quest_spin === today) {
+        setSt(prev => {
+          const pid    = prev.activePlayerId
+          const player = prev.players.find(p => p.id === pid)
+          if (!player) return prev
+          const qi = (player.daily_quests || []).findIndex(
+            q => /issue.*challenge|send.*challenge/i.test(q.text) && !q.completed && !q.claimed
+          )
+          if (qi < 0) return prev
+          return {
+            ...prev,
+            players: prev.players.map(p =>
+              p.id !== pid ? p : {
+                ...p,
+                daily_quests: p.daily_quests.map((q, i) =>
+                  i === qi ? { ...q, currentProgress: 1, targetProgress: 1, completed: true } : q
+                ),
+              }
+            ),
+          }
+        })
+      }
+    }
+
     // Merge updated challenge into local list
     setPeerChallenges(prev => {
       const idx = prev.findIndex(c => c.id === challenge.id)

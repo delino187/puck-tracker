@@ -118,7 +118,16 @@ const SHUFFLE_POOL = [
   'Log 50 Slap Shots', 'Accuracy Grind 50%', 'Dominate Versus Tab',
 ]
 
-function pickQuests() {
+function pickQuests(sessions = []) {
+  // Capture the player's current shot total at the exact moment the wheel spins.
+  // This becomes the baseline so quests always start at 0/N progress even if the
+  // player already had shots logged today before pulling the lever.
+  const today = new Date().toDateString()
+  const todaySessions   = sessions.filter(s => new Date(s.date).toDateString() === today)
+  const todaySets       = todaySessions.flatMap(s => s.sets)
+  const spinTimeShots   = todaySets.length * 10
+    + todaySessions.reduce((sum, s) => sum + (s.pucks ?? 0), 0)
+
   const pick  = arr => arr[Math.floor(Math.random() * arr.length)]
   const stamp = q => ({
     ...q,
@@ -127,6 +136,8 @@ function pickQuests() {
     completed:       false,
     claimed:         false,
     suffix:          parseQuestSuffix(q.text),
+    // Only shot-count quests need a baseline; binary/social quests start at 0 naturally
+    baseline: /Log (\d+)/i.test(q.text) ? spinTimeShots : 0,
   })
   return [
     stamp(pick(QUEST_POOL.volume)),
@@ -159,8 +170,10 @@ function questTab(text) {
 }
 
 // Thin wrapper — delegates to the shared helper so display and reward logic
-// always use the same computation.
-const getQuestProgress = (text, sessions) => computeQuestProgress(text, sessions)
+// always use the same computation.  Passes the stored baseline so live
+// progress display is relative to spin time, not absolute today totals.
+const getQuestProgress = (quest, sessions) =>
+  computeQuestProgress(quest.text, sessions, 0, quest.baseline ?? 0)
 
 // ── Quest row ─────────────────────────────────────────────────────────────────
 function QuestRow({ quest, progress, isSpinning, shuffleText, onNavigate, onClaim }) {
@@ -447,7 +460,7 @@ export default function DailyQuests({
     // Mirror QuestRow's isDone logic: completed flag OR live progress meeting target.
     // Without this, clicking "TAP TO CLAIM!" on a progress-complete but not yet
     // flagged quest silently no-ops because quest.completed is still false.
-    const prog   = quest.reward !== '?' ? computeQuestProgress(quest.text, sessions) : null
+    const prog   = quest.reward !== '?' ? computeQuestProgress(quest.text, sessions, 0, quest.baseline ?? 0) : null
     const isDone = quest.completed || (prog ? prog.current >= prog.target : false)
     if (!isDone) return
 
@@ -570,7 +583,7 @@ export default function DailyQuests({
       lockAudio.volume = 0.6
       lockAudio.play().catch(err => console.log('lock audio blocked:', err))
 
-      const picked = pickQuests()
+      const picked = pickQuests(sessions)  // pass sessions so baseline is captured now
       setCurrentQuests(picked)
       setShuffleTexts(['', '', ''])
       setSpinning(false)
@@ -694,7 +707,7 @@ export default function DailyQuests({
                 <QuestRow
                   key={i}
                   quest={quest}
-                  progress={quest.reward !== '?' ? getQuestProgress(quest.text, sessions) : null}
+                  progress={quest.reward !== '?' ? getQuestProgress(quest, sessions) : null}
                   isSpinning={spinning}
                   shuffleText={shuffleTexts[i] || SHUFFLE_POOL[0]}
                   onNavigate={onNavigate}

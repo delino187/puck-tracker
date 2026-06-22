@@ -38,8 +38,12 @@ export function parseQuestSuffix(text) {
  *   - Versus / PUCK game shots are logged via logTechniqueShots and flow through
  *     the Zustand techniqueByPlayer store, not into sessions.  They're included
  *     via the optional `extraShots` parameter passed in by App.jsx at session-end.
+ *
+ * baseline: shots already logged at the moment the wheel was spun.  Progress is
+ *   computed as (totalToday - baseline) so the quest always starts at 0/N even if
+ *   the player already had shots logged before spinning.
  */
-export function computeQuestProgress(text, sessions, extraShots = 0) {
+export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 0) {
   const today     = new Date().toDateString()
   const todaySessions = sessions.filter(s => new Date(s.date).toDateString() === today)
   const todaySets     = todaySessions.flatMap(s => s.sets)
@@ -51,8 +55,11 @@ export function computeQuestProgress(text, sessions, extraShots = 0) {
 
   // "Log N Total/Wrist/Backhand Shots …" (any phrasing with a shot count)
   if (/Log (\d+)/i.test(text)) {
-    const target = parseInt(text.match(/\d+/)[0])
-    return { current: todayShots, target, suffix: '' }
+    const target  = parseInt(text.match(/\d+/)[0])
+    // Subtract the spin-time baseline so progress starts at 0 not at the shots
+    // already logged before the wheel was pulled.
+    const current = Math.max(0, todayShots - baseline)
+    return { current, target, suffix: '' }
   }
 
   // "Hit N% Accuracy in a Session" — best single-session accuracy today
@@ -109,7 +116,9 @@ export function applyQuestProgress(player, sessions) {
   const updatedQuests = quests.map(q => {
     if (q.claimed) return q   // fully settled — never touch again
 
-    const prog    = computeQuestProgress(q.text, sessions)
+    // Pass the stored baseline (shots at spin time) so progress is always
+    // relative to when the wheel was pulled, never the absolute daily total.
+    const prog    = computeQuestProgress(q.text, sessions, 0, q.baseline ?? 0)
     const target  = q.targetProgress ?? prog.target
     const current = prog.current
     const nowDone = current >= target
