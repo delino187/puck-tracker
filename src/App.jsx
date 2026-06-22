@@ -1386,6 +1386,8 @@ export default function App() {
           <PuckRoundOutcomeModal
             outcome={pendingRoundOutcome}
             opponentName={pendingRoundOutcome.opponentName}
+            playerId={user?.id}
+            defenderId={pendingRoundOutcome?.defenderId}
             onDismiss={() => setPendingRoundOutcome(null)}
           />
         )}

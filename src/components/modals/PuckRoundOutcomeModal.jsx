@@ -1,22 +1,26 @@
 import { useEffect, useState } from 'react'
+import { audioEngine } from '../../services/audioEngine.js'
 
 const PUCK_LETTERS = ['P', 'U', 'C', 'K']
 
-export default function PuckRoundOutcomeModal({ outcome, opponentName, onDismiss }) {
+export default function PuckRoundOutcomeModal({ outcome, opponentName, playerId, defenderId, onDismiss }) {
   const [animate, setAnimate] = useState(false)
+
+  // Check if active player is the one who received the letter (defender who missed)
+  const playerReceivedLetter = playerId === defenderId && outcome?.type === 'missed'
 
   // Play sound and trigger animation on mount
   useEffect(() => {
     // Delay animation slightly so mount is visible first
     const timer = setTimeout(() => setAnimate(true), 100)
 
-    // Play audio
+    // Play audio using audioEngine service
+    // audioEngine.init() unlocks the audio context on first user interaction
     try {
-      const audio = new Audio('/sounds/retro-game-notification.mp3')
-      audio.volume = 0.6
-      audio.play().catch(err => console.log('Audio autoplay deferred:', err))
+      audioEngine.init()
+      audioEngine.playMp3('/sounds/retro-game-notification.mp3', 0.6)
     } catch (err) {
-      console.log('Audio playback error:', err)
+      console.warn('[PuckOutcome] Audio playback failed:', err?.message || err)
     }
 
     return () => clearTimeout(timer)
@@ -71,7 +75,7 @@ export default function PuckRoundOutcomeModal({ outcome, opponentName, onDismiss
           marginBottom: 16,
           lineHeight: 1,
         }}>
-          {isMade ? 'CHALLENGE MATCHED!' : 'LETTER AWARDED!'}
+          {isMade ? 'CHALLENGE MATCHED!' : (playerReceivedLetter ? 'YOU GOT A LETTER!' : 'LETTER AWARDED!')}
         </div>
 
         {/* Opponent name + outcome text */}
@@ -83,11 +87,21 @@ export default function PuckRoundOutcomeModal({ outcome, opponentName, onDismiss
           marginBottom: 28,
           lineHeight: 1.6,
         }}>
-          <strong style={{ color: '#f1f5f9' }}>{opponentName}</strong>
-          {' '}
-          {isMade ? 'matched your shot.' : 'missed the match!'}
-          <br />
-          {isMade ? 'Defensive pressure cleared!' : 'They take a letter.'}
+          {playerReceivedLetter ? (
+            <>
+              You missed the match challenge.
+              <br />
+              A letter has been added to your scoreboard.
+            </>
+          ) : (
+            <>
+              <strong style={{ color: '#f1f5f9' }}>{opponentName}</strong>
+              {' '}
+              {isMade ? 'matched your shot.' : 'missed the match!'}
+              <br />
+              {isMade ? 'Defensive pressure cleared!' : 'They take a letter.'}
+            </>
+          )}
         </div>
 
         {/* Letter display — only for missed shots */}

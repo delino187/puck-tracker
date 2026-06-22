@@ -236,6 +236,13 @@ class AudioEngine {
     this.playMp3('/swift-sword-strike.mp3', 0.88)
   }
 
+  /** Alert chime — fires when it's your turn in a PUCK game */
+  playYourTurn() {
+    this.init()
+    // Quick ascending arpeggio: snappy and attention-grabbing
+    ;[523, 659, 784, 1047].forEach((f, i) => this._note(f, i * 0.08, 0.20, 'sine', 0.18))
+  }
+
   // ── Universal dispatcher (maps legacy type strings) ────────────────────────
   play(type) {
     if (this.isMuted) return

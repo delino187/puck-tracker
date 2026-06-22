@@ -143,6 +143,28 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
     }
   }, [puckGames]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Detect when it becomes the player's turn and show a brief alert
+  const lastSetterRef = useRef(null)
+  const [turnAlert, setTurnAlert] = useState(null)
+  useEffect(() => {
+    if (!selectedGame?.currentRound?.setterPlayerId || !player?.id) return
+    const isMyTurn = selectedGame.currentRound.setterPlayerId === player.id
+    const prevSetter = lastSetterRef.current
+    lastSetterRef.current = selectedGame.currentRound.setterPlayerId
+
+    // Fire alert only when setter ID changes AND it becomes my turn
+    if (isMyTurn && prevSetter && prevSetter !== selectedGame.currentRound.setterPlayerId) {
+      audioEngine.playYourTurn()
+      const opponentName = selectedGame.p1Id === player.id ? selectedGame.p2Name : selectedGame.p1Name
+      const lastRound = selectedGame.currentRound
+      const actionText = lastRound.setterMade
+        ? `${opponentName} made a ${lastRound.trickStyle || 'shot'}. It's your turn!`
+        : `${opponentName} missed. It's your turn!`
+      setTurnAlert(actionText)
+      setTimeout(() => setTurnAlert(null), 4000)
+    }
+  }, [selectedGame?.currentRound?.setterPlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function resetVideo() { setVideoFile(null); setPreviewUrl(null); setVideoError(''); setFileWarnMb(null) }
 
   function handleVideoSelect(file, url, err) {
@@ -261,12 +283,15 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
       await refresh(updated)
 
       // Set pending outcome so the setter sees what happened
-      const setterName = selectedGame.setterPlayerId === selectedGame.p1Id ? selectedGame.p1Name : selectedGame.p2Name
-      const letterAwarded = !made ? (selectedGame.setterPlayerId === selectedGame.p1Id ? selectedGame.p2Letters?.length : selectedGame.p1Letters?.length) : null
+      const isP1Setter = selectedGame.setterPlayerId === selectedGame.p1Id
+      const setterName = isP1Setter ? selectedGame.p1Name : selectedGame.p2Name
+      const defenderId = isP1Setter ? selectedGame.p2Id : selectedGame.p1Id
+      const letterAwarded = !made ? (isP1Setter ? selectedGame.p2Letters?.length : selectedGame.p1Letters?.length) : null
       setPendingRoundOutcome?.({
         type: made ? 'made' : 'missed',
         letterAwarded,
         opponentName: setterName,
+        defenderId,  // Who received the letter (if missed)
         gameId: selectedGame.id,
       })
     } catch (err) {
@@ -726,6 +751,30 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
             )
           })}
         </>
+      )}
+
+      {/* ── Your turn alert toast ────────────────────────────────────────────── */}
+      {turnAlert && (
+        <div style={{
+          position: 'fixed', top: 80, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 400,
+          background: 'linear-gradient(135deg,#1a3a52,#0f4c75)',
+          border: '1.5px solid #3b82f6',
+          borderRadius: 14, padding: '12px 20px',
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 700,
+          color: '#93c5fd', letterSpacing: '0.04em',
+          boxShadow: '0 4px 16px rgba(59,130,246,0.3)',
+          whiteSpace: 'nowrap',
+          animation: 'slideDown 0.3s ease-out',
+        }}>
+          <style>{`
+            @keyframes slideDown {
+              from { transform: translateX(-50%) translateY(-20px); opacity: 0 }
+              to { transform: translateX(-50%) translateY(0); opacity: 1 }
+            }
+          `}</style>
+          🎯 {turnAlert}
+        </div>
       )}
 
       {/* ── Concede confirmation modal ──────────────────────────────────────── */}
