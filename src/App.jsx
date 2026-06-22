@@ -77,6 +77,7 @@ export default function App() {
   const [peerChallenges,  setPeerChallenges]   = useState([])
   const [challengeScreen, setChallengeScreen]  = useState(null) // null | 'create' | { mode:'respond', challenge }
   const [puckGames,       setPuckGames]        = useState([])
+  const [deepLinkPuckGameId, setDeepLinkPuckGameId] = useState(null)
 
   const [streakBrokenData, setStreakBrokenData] = useState(null)
   const [feedbackOpen,     setFeedbackOpen]     = useState(false)
@@ -1495,7 +1496,7 @@ export default function App() {
               peerChallenges={peerChallenges}
               onAcceptChallenge={c => setChallengeScreen({ mode: 'respond', challenge: c })}
               puckGames={puckGames}
-              onPlayPuckGame={() => setTab('session')}
+              onPlayPuckGame={game => { setDeepLinkPuckGameId(game.id); setTab('session') }}
             />
           )}
           {tab === 'session' && (
@@ -1564,6 +1565,8 @@ export default function App() {
                   }
                 }
               }}
+              deepLinkPuckGameId={deepLinkPuckGameId}
+              onDeepLinkConsumed={() => setDeepLinkPuckGameId(null)}
               onConcedeGame={gameId => {
                 // Optimistic removal — real-time listener confirms the final state
                 setPuckGames(prev => prev.filter(g => g.id !== gameId))

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, Video, Upload, AlertCircle, Zap } from 'lucide-react'
 import { ZONES } from '../../constants/zones.js'
 import { C } from '../../styles.js'
@@ -93,7 +93,7 @@ function VideoPicker({ previewUrl, onSelect, onClear, error, maxSecs = MAX_SECS 
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function PuckGame({ player, players, puckGames, onBack, onUpdate, onConcede, onEloUpdate }) {
+export default function PuckGame({ player, players, puckGames, onBack, onUpdate, onConcede, onEloUpdate, autoOpenGameId }) {
   const [view,          setView]         = useState('list')   // 'list' | 'new' | 'game' | 'set' | 'match'
   const [selectedGame,  setSelectedGame] = useState(null)
   // Tracks which game's trombone has already played so it only fires once per loss view
@@ -116,6 +116,17 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
 
   const logTechniqueShots = useAppStore(s => s.logTechniqueShots)
   const friends = players.filter(p => p.id !== player.id)
+
+  // Deep-link from Dashboard active-turn card: jump straight into this game's
+  // action screen so the player bypasses the game list entirely.
+  useEffect(() => {
+    if (!autoOpenGameId) return
+    const game = puckGames.find(g => g.id === autoOpenGameId)
+    if (game) {
+      setSelectedGame(game)
+      setView('game')
+    }
+  }, [autoOpenGameId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function resetVideo() { setVideoFile(null); setPreviewUrl(null); setVideoError(''); setFileWarnMb(null) }
 

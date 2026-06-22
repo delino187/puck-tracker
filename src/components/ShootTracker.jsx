@@ -26,6 +26,8 @@ export default function ShootTracker({
   onLogSet, onLogAll, onEndSession, onStart,
   flashZone, flashType, puckAnim,
   puckGames = [], onSubmitGame, onPuckGameUpdate,
+  onConcedeGame, onPuckEloUpdate,
+  deepLinkPuckGameId = null, onDeepLinkConsumed,
   isSaving = false, weakConnToast = false,
   onGoalReached,
 }) {
@@ -43,6 +45,15 @@ export default function ShootTracker({
       setZoneInputs({})
     }
   }, [!session]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Deep-link from Dashboard: when a specific PUCK game ID is passed, skip the
+  // mode fork and jump straight into the P-U-C-K screen so the player lands
+  // directly on their active turn without extra taps.
+  useEffect(() => {
+    if (!deepLinkPuckGameId) return
+    setActiveGame('puck')
+    onDeepLinkConsumed?.()
+  }, [deepLinkPuckGameId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Net-shake ref: restart CSS animation on every new puckAnim ─────────────
   const netRef = useRef(null)
@@ -74,6 +85,9 @@ export default function ShootTracker({
         puckGames={puckGames}
         onBack={() => setActiveGame(null)}
         onUpdate={onPuckGameUpdate}
+        onConcede={onConcedeGame}
+        onEloUpdate={onPuckEloUpdate}
+        autoOpenGameId={deepLinkPuckGameId}
       />
     )
   }
