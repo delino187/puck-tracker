@@ -15,7 +15,7 @@ export default function PuckGameTurnCard({ game, playerId, players = [], onPlay 
 
   return (
     <div
-      onClick={onPlay}
+      onClick={() => onPlay?.(game)}
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
         background: 'linear-gradient(135deg,#0d0b18,#14102a)',
@@ -90,7 +90,7 @@ export default function PuckGameTurnCard({ game, playerId, players = [], onPlay 
 
       {/* Right: PLAY button */}
       <button
-        onClick={e => { e.stopPropagation(); onPlay?.() }}
+        onClick={e => { e.stopPropagation(); onPlay?.(game) }}
         style={{
           flexShrink: 0,
           background: isExpired

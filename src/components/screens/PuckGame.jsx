@@ -128,6 +128,21 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
     }
   }, [autoOpenGameId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Keep selectedGame in sync with live puckGames prop updates.
+  // When the setter submits their shot Firestore pushes a snapshot → puckGames
+  // prop updates → without this effect the defender holds a stale game object
+  // where currentRound still has status 'awaiting_setter'.  A stale currentRound
+  // causes submitDefenderResponse to write incorrect state to Firestore, which
+  // surfaces as "upload failed" even though the video itself succeeded.
+  useEffect(() => {
+    if (!selectedGame?.id) return
+    const fresh = puckGames.find(g => g.id === selectedGame.id)
+    if (fresh && fresh !== selectedGame) {
+      console.log('[PuckGame] selectedGame refreshed from live puckGames update, id:', fresh.id)
+      setSelectedGame(fresh)
+    }
+  }, [puckGames]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function resetVideo() { setVideoFile(null); setPreviewUrl(null); setVideoError(''); setFileWarnMb(null) }
 
   function handleVideoSelect(file, url, err) {
