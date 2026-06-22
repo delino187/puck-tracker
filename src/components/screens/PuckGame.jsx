@@ -165,6 +165,42 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
     }
   }, [selectedGame?.currentRound?.setterPlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Detect offensive victory: when I'm the setter and defender just missed
+  // This shows the setter an immediate "LETTER DELIVERED!" notification
+  const seenRoundResultRef = useRef(null)
+  useEffect(() => {
+    if (!selectedGame?.currentRound || !player?.id) return
+    const round = selectedGame.currentRound
+    const isImeTheSetterRef = round.setterPlayerId === player.id
+    const roundId = round.id
+
+    // Only fire if: (1) round just completed, (2) I'm the setter, (3) defender missed, (4) haven't seen it yet
+    if (
+      round.status === 'complete' &&
+      isImeTheSetterRef &&
+      round.defenderMade === false &&
+      seenRoundResultRef.current !== roundId
+    ) {
+      seenRoundResultRef.current = roundId
+      const opponentName = selectedGame.p1Id === player.id ? selectedGame.p2Name : selectedGame.p1Name
+
+      // Trigger offensive victory modal for setter
+      // Calculate which letters the opponent has now
+      const opponentLetters = round.setterPlayerId === selectedGame.p1Id
+        ? selectedGame.p2Letters?.length ?? 0
+        : selectedGame.p1Letters?.length ?? 0
+
+      setPendingRoundOutcome?.({
+        type: 'missed',
+        perspective: 'offensive',  // Setter's perspective: they forced a miss
+        letterAwarded: opponentLetters,  // How many letters opponent has now
+        opponentName,
+        defenderId: round.setterPlayerId === selectedGame.p1Id ? selectedGame.p2Id : selectedGame.p1Id,
+        gameId: selectedGame.id,
+      })
+    }
+  }, [selectedGame?.currentRound?.id, selectedGame?.currentRound?.status, selectedGame?.currentRound?.defenderMade]) // eslint-disable-line react-hooks/exhaustive-deps
+
   function resetVideo() { setVideoFile(null); setPreviewUrl(null); setVideoError(''); setFileWarnMb(null) }
 
   function handleVideoSelect(file, url, err) {
@@ -289,6 +325,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
       const letterAwarded = !made ? (isP1Setter ? selectedGame.p2Letters?.length : selectedGame.p1Letters?.length) : null
       setPendingRoundOutcome?.({
         type: made ? 'made' : 'missed',
+        perspective: 'defensive',  // Defender's perspective
         letterAwarded,
         opponentName: setterName,
         defenderId,  // Who received the letter (if missed)
