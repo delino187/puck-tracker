@@ -1,21 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { audioEngine } from '../../services/audioEngine.js'
 
 const CONFETTI_COLORS = ['#fbbf24','#22c55e','#06b6d4','#a855f7','#f97316','#fff','#fef08a']
 
 export default function VersusVictoryModal({ reward, onClaim, onRematch }) {
   const [tapped, setTapped] = useState(false)
-  const victoryAudioRef = useRef(null)
 
-  // Play victory theme on mount; pause + release on unmount or early exit
+  // Play victory theme on mount — route through audioEngine so only one
+  // heavy track plays at a time.  Cleanup stops the music on unmount.
   useEffect(() => {
-    const audio = new Audio('/level-up-music.mp3')
-    audio.volume = 0.75
-    audio.play().catch(() => {})
-    victoryAudioRef.current = audio
-    return () => {
-      audio.pause()
-      audio.currentTime = 0
-    }
+    audioEngine.playHeavyMp3('/level-up-music.mp3', 0.75)
+    return () => audioEngine.stopHeavyAudio()
   }, [])
 
   // Seeded once on mount so particles are stable across re-renders
@@ -33,8 +28,8 @@ export default function VersusVictoryModal({ reward, onClaim, onRematch }) {
 
   function handleTap() {
     if (tapped) return
-    // Mute victory music instantly (synchronous — no await, no delay)
-    if (victoryAudioRef.current) victoryAudioRef.current.volume = 0
+    // Mute victory music instantly via engine (no direct ref needed)
+    audioEngine.stopHeavyAudio()
     // Fire sparkle SFX before the React state update so there's zero latency
     try {
       const sparkle = new Audio('/fairy-arcade-sparkle.mp3')

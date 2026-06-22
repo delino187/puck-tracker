@@ -2,10 +2,22 @@
  * Centralized Web Audio synthesizer — singleton, class-based.
  * All sound logic lives here; useAudio.js is a thin React adapter.
  */
+// Minimum gap between badge-unlock stings (ms).  Prevents the cinematic impact
+// from stacking when several badges are granted near-simultaneously on first login.
+const BADGE_COOLDOWN_MS = 3000
+
 class AudioEngine {
   constructor() {
-    this.ctx      = null
-    this.isMuted  = false
+    this.ctx              = null
+    this.isMuted          = false
+    // ── Heavy-audio ownership ──────────────────────────────────────────────
+    // All level-up / boss-music MP3s go through _heavyEl so only one can
+    // play at a time and any caller can stop it cleanly.
+    this._heavyEl         = null
+    // ── Badge-sting throttle ───────────────────────────────────────────────
+    // Tracks when the last badge-unlock sound finished so rapid successive
+    // calls (e.g. 5 retroactive badges on first login) don't pile on.
+    this._badgeCooldownUntil = 0
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -200,8 +212,48 @@ class AudioEngine {
     }
   }
 
-  /** Cinematic impact sting — fires when a new badge achievement unlocks */
+  // ── Heavy / long-form audio (level-up music, etc.) ────────────────────────
+  // Only one heavy track plays at a time.  Calling playHeavyMp3() while
+  // a track is already playing stops the old one first, preventing chorus
+  // overlap when multiple state effects fire close together.
+  playHeavyMp3(path, volume = 0.9) {
+    if (this.isMuted) return
+    this.stopHeavyAudio()
+    try {
+      const audio = new Audio(path)
+      audio.volume = volume
+      this._heavyEl = audio
+      audio.play().catch(err => {
+        console.warn(`[AudioEngine] heavy audio deferred (${path}):`, err?.message ?? err)
+        this._heavyEl = null
+      })
+      audio.addEventListener('ended', () => { this._heavyEl = null }, { once: true })
+    } catch (err) {
+      console.warn(`[AudioEngine] heavy audio failed (${path}):`, err?.message ?? err)
+    }
+  }
+
+  /** Stop and discard any currently-playing heavy track. */
+  stopHeavyAudio() {
+    if (this._heavyEl) {
+      try { this._heavyEl.pause(); this._heavyEl.currentTime = 0 } catch {}
+      this._heavyEl = null
+    }
+  }
+
+  /** True while level-up music (or any heavy track) is playing. */
+  get isHeavyAudioPlaying() {
+    return this._heavyEl !== null && !this._heavyEl.paused && !this._heavyEl.ended
+  }
+
+  /** Cinematic impact sting — fires when a new badge achievement unlocks.
+   *  Throttled: only one play per BADGE_COOLDOWN_MS window, and silenced
+   *  entirely while level-up music is already playing. */
   playBadgeUnlock() {
+    const now = Date.now()
+    if (now < this._badgeCooldownUntil) return          // within throttle window
+    if (this.isHeavyAudioPlaying) return                // yield to level-up music
+    this._badgeCooldownUntil = now + BADGE_COOLDOWN_MS
     this.playMp3('/movie-trailer-epic-impact.mp3', 0.8)
   }
 

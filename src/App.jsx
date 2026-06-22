@@ -462,10 +462,7 @@ export default function App() {
     const { li, level } = getLevel(totalXP)
 
     if (lastChallengeLiRef.current !== null && li > lastChallengeLiRef.current) {
-      const audio = new Audio('/level-up-music.mp3')
-      audio.volume = 0.75
-      epicAudioRef.current = audio
-      audio.play().catch(() => {})
+      audioEngine.playHeavyMp3('/level-up-music.mp3', 0.75)
       setEpicCeleb({ type: 'levelup', level })
     }
     lastChallengeLiRef.current = li
@@ -713,9 +710,10 @@ export default function App() {
 
   // ── Badge queue helpers ───────────────────────────────────────────────────
   function stopEpicAudio() {
+    audioEngine.stopHeavyAudio()
+    // Clear legacy ref in case it was set before this refactor
     if (epicAudioRef.current) {
-      epicAudioRef.current.pause()
-      epicAudioRef.current.currentTime = 0
+      try { epicAudioRef.current.pause(); epicAudioRef.current.currentTime = 0 } catch {}
       epicAudioRef.current = null
     }
   }
@@ -724,7 +722,7 @@ export default function App() {
     if (badgeQRef.current.length === 0) return
     const next = badgeQRef.current.shift()
     setEpicCeleb({ type: 'badge', badge: next })
-    audioEngine.playBadgeUnlock()
+    audioEngine.playBadgeUnlock()  // throttled internally — safe to call every pop
   }
 
   function handleBadgeClose() {
@@ -936,10 +934,7 @@ export default function App() {
     const prevLi = playerStats(aPlayer, st.sessions, techBonusXP).li
     const newSt  = playerStats(aPlayer, updSessions, techBonusXP)
     if (newSt.li > prevLi) {
-      const audio = new Audio('/level-up-music.mp3')
-      audio.volume = 0.75
-      epicAudioRef.current = audio
-      audio.play().catch(() => {})
+      audioEngine.playHeavyMp3('/level-up-music.mp3', 0.75)
       setEpicCeleb({ type: 'levelup', level: newSt.level })
     }
 
@@ -998,10 +993,7 @@ export default function App() {
     const prevLi = playerStats(aPlayer, st.sessions, techBonusXP).li
     const newSt  = playerStats(aPlayer, updSessions, techBonusXP)
     if (newSt.li > prevLi) {
-      const audio = new Audio('/level-up-music.mp3')
-      audio.volume = 0.75
-      epicAudioRef.current = audio
-      audio.play().catch(() => {})
+      audioEngine.playHeavyMp3('/level-up-music.mp3', 0.75)
       setEpicCeleb({ type: 'levelup', level: newSt.level })
     }
 
@@ -1110,10 +1102,7 @@ export default function App() {
         <CoachPortal
           st={st} upd={upd}
           onPlayerLevelUp={(playerId, newLevel) => {
-            const audio = new Audio('/level-up-music.mp3')
-            audio.volume = 0.75
-            epicAudioRef.current = audio
-            audio.play().catch(() => {})
+            audioEngine.playHeavyMp3('/level-up-music.mp3', 0.75)
             setEpicCeleb({ type: 'levelup', level: newLevel })
           }}
           onPuckCreditAdded={playerId => {
