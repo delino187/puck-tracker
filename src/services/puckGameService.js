@@ -186,17 +186,34 @@ export async function submitDefenderResponse(game, { videoUrl, made, p1Elo = 160
     }
   }
 
+  // For the next round: the defender becomes the new setter
+  // (P1 was setter, P2 defended → P2 becomes next setter, P1 defends)
+  const nextSetterPlayerId = game.setterPlayerId === game.p1Id ? game.p2Id : game.p1Id
+
   const update = {
     p1Letters, p2Letters,
     status: newStatus,
     eloResult: eloResult || undefined,
     currentRound: newStatus === 'active'
-      ? freshRound(game.setterPlayerId)
+      ? freshRound(nextSetterPlayerId)
       : { ...game.currentRound, defenderVideo: videoUrl, defenderMade: made, status: 'complete' },
     lastActivityAt: now,
   }
 
-  await updateDoc(doc(db, 'teams', TEAM_ID, 'puckGames', game.id), update)
+  try {
+    await updateDoc(doc(db, 'teams', TEAM_ID, 'puckGames', game.id), update)
+  } catch (err) {
+    console.error('🚨 CRITICAL DATABASE SAVE ERROR (submitDefenderResponse):', {
+      gameId: game.id,
+      gameStatus: game.status,
+      newStatus,
+      updateKeys: Object.keys(update),
+      errorCode: err?.code,
+      errorMessage: err?.message,
+      fullError: err,
+    })
+    throw err
+  }
   return { ...game, ...update }
 }
 
