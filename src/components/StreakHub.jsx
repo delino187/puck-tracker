@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { audioEngine } from '../services/audioEngine.js'
 import PageHelpButton from './shared/PageHelpButton.jsx'
+import { playerStats } from '../utils/stats.js'
+import { useAppStore } from '../store/useAppStore.js'
+import { usePlayer } from '../context/PlayerContext.jsx'
 
 const FREEZE_COST       = 75
 const WEEK_FREEZE_COST  = 400
@@ -180,7 +183,10 @@ function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwn
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function StreakHub({ player, stats, onPurchaseItem, onNavigate }) {
+export default function StreakHub({ onPurchaseItem, onNavigate }) {
+  const { activePlayer: player, st } = usePlayer()
+  const techBonusXP = useAppStore(s => s.techniqueByPlayer[player?.id]?.bonusXP ?? 0)
+  const stats = playerStats(player, st.sessions, techBonusXP)
   const totalDiamonds       = player.diamonds            || 0
   const hasEloShield        = player.hasEloShield        || false
   const boughtBorderGlow    = player.boughtBorderGlow    || false

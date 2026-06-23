@@ -1,13 +1,21 @@
 import { Star, TrendingUp } from 'lucide-react'
 import { ZONES } from '../constants/zones.js'
 import { heatColor } from '../utils/heatColor.js'
+import { playerStats } from '../utils/stats.js'
 import { C } from '../styles.js'
 import StatCard from './shared/StatCard.jsx'
 import XPBar from './shared/XPBar.jsx'
 import NetSVG from './net/NetSVG.jsx'
 import HeatLegend from './net/HeatLegend.jsx'
+import { useAppStore } from '../store/useAppStore.js'
+import { usePlayer } from '../context/PlayerContext.jsx'
 
-export default function GoalHeatmap({ player, stats, sessions }) {
+export default function GoalHeatmap() {
+  const { activePlayer: player, st } = usePlayer()
+  const techBonusXP = useAppStore(s => s.techniqueByPlayer[player?.id]?.bonusXP ?? 0)
+  const stats = playerStats(player, st.sessions, techBonusXP)
+  const sessions = st.sessions
+
   // Filter sessions belonging to this player, excluding any with a missing or
   // invalid date — old/corrupted docs should never cause a render crash.
   const pss = sessions

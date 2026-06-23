@@ -6,8 +6,11 @@ import { allTimeStreakPB } from '../utils/badgeHelpers.js'
 import { C } from '../styles.js'
 import BadgeCircle from './shared/BadgeCircle.jsx'
 import TierKeyPopup from './overlays/TierKeyPopup.jsx'
+import { usePlayer } from '../context/PlayerContext.jsx'
 
-export default function BadgeGrid({ player, sessions, newBadgeIds, onBadgeClick }) {
+export default function BadgeGrid({ newBadgeIds, onBadgeClick }) {
+  const { activePlayer: player, st } = usePlayer()
+  const sessions = st.sessions
   const [showTierKey, setShowTierKey] = useState(false)
   const earned = Object.keys(player.earnedBadges || {})
 

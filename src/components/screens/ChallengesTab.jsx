@@ -2,15 +2,16 @@ import { Plus, Clock, Trophy, Info, Swords } from 'lucide-react'
 import { useState } from 'react'
 import PeerChallengeCard from '../shared/PeerChallengeCard.jsx'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
+import { usePlayer } from '../../context/PlayerContext.jsx'
 
 export default function ChallengesTab({
-  player,
-  players,
-  sessions = [],
   peerChallenges = [],
   onCreateChallenge,
   onAcceptChallenge,
 }) {
+  const { activePlayer: player, st } = usePlayer()
+  const players = st.players
+  const sessions = st.sessions
   const [showTips, setShowTips] = useState(false)
 
   const incoming  = peerChallenges.filter(c => c.receiverId   === player.id && c.status === 'pending')

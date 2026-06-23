@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import Avatar from '../shared/Avatar.jsx'
 import { getStreakAuraClass } from '../../utils/streakAura.js'
 import { playerStats } from '../../utils/stats.js'
+import { usePlayer } from '../../context/PlayerContext.jsx'
 
 const TEAM_ID = 'team_main'
 const MS_24H  = 24 * 60 * 60 * 1000
@@ -69,7 +70,10 @@ function getMetric(p, stats, sortBy) {
   }
 }
 
-export default function Leaderboard({ player, players, sessions = [] }) {
+export default function Leaderboard() {
+  const { activePlayer: player, st } = usePlayer()
+  const players  = st.players
+  const sessions = st.sessions
   const [challenges,  setChallenges]  = useState([])
   const [topVideo,    setTopVideo]    = useState(null)
   const [loadingVid,  setLoadingVid]  = useState(false)

@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
+import { usePlayer } from '../context/PlayerContext.jsx'
 
 const ENCOURAGE_MSGS = [
   "Keep your head up when you shoot! 🏒",
@@ -21,7 +22,6 @@ import { syncQueue }     from '../services/syncQueue.js'
 import PageHelpButton    from './shared/PageHelpButton.jsx'
 
 export default function ShootTracker({
-  player, sessions = [], players = [],
   session, sesGoal, setSesGoal,
   onLogSet, onLogAll, onEndSession, onStart,
   flashZone, flashType, puckAnim,
@@ -32,6 +32,9 @@ export default function ShootTracker({
   isSaving = false, weakConnToast = false,
   onGoalReached,
 }) {
+  const { activePlayer: player, st } = usePlayer()
+  const sessions = st.sessions
+  const players  = st.players
   // null = mode fork  |  'target' = zone tracker  |  'technique' = technique mode
   const [subMode,    setSubMode]    = useState(null)
   const [activeGame, setActiveGame] = useState(null)  // null | 'puck' | 'atw'

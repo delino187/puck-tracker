@@ -4,9 +4,10 @@ import { ROOKIE_QUESTS } from '../constants/rookieQuests.js'
 import { LEVELS } from '../constants/levels.js'
 import { BADGES } from '../constants/badges.js'
 import { STREAK_BADGES } from '../constants/streakBadges.js'
-import { getWeekStart } from '../utils/stats.js'
+import { playerStats, getWeekStart } from '../utils/stats.js'
 import { getGameAction } from '../services/puckGameService.js'
 import { useAppStore } from '../store/useAppStore.js'
+import { usePlayer } from '../context/PlayerContext.jsx'
 import { C } from '../styles.js'
 import StatCard           from './shared/StatCard.jsx'
 import XPBar              from './shared/XPBar.jsx'
@@ -18,7 +19,12 @@ import LiveFeed           from './shared/LiveFeed.jsx'
 
 // ── Challenge card helpers ─────────────────────────────────────────────────────
 // ── Main Dashboard ─────────────────────────────────────────────────────────────
-export default function Dashboard({ player, stats, sessions, players, onStartSession, newBadgeIds, onBadgeClick, onNavigate, peerChallenges = [], onAcceptChallenge, puckGames = [], onPlayPuckGame }) {
+export default function Dashboard({ onStartSession, newBadgeIds, onBadgeClick, onNavigate, peerChallenges = [], onAcceptChallenge, puckGames = [], onPlayPuckGame }) {
+  const { activePlayer: player, st } = usePlayer()
+  const sessions = st.sessions
+  const players  = st.players
+  const techBonusXP      = useAppStore(s => s.techniqueByPlayer[player?.id]?.bonusXP ?? 0)
+  const stats            = playerStats(player, sessions, techBonusXP)
   const ws      = getWeekStart()
   const cur     = LEVELS[stats.li]
   const next    = LEVELS[stats.li + 1]

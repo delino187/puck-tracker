@@ -1,13 +1,18 @@
 import { useState } from 'react'
 import { ChevronLeft, Flame, Sun, Moon } from 'lucide-react'
 import { LEVELS } from '../../constants/levels.js'
+import { playerStats } from '../../utils/stats.js'
 import { useAppStore } from '../../store/useAppStore.js'
+import { usePlayer } from '../../context/PlayerContext.jsx'
 import XPBar from './XPBar.jsx'
 import Avatar from './Avatar.jsx'
 import ManageProfileModal from '../overlays/ManageProfileModal.jsx'
 import { getStreakAuraClass } from '../../utils/streakAura.js'
 
-export default function PlayerHeader({ player, stats, onBack, theme, onThemeToggle, onStreakClick, onPhotoUpload, onResetCareer, onSwitchProfile }) {
+export default function PlayerHeader({ onBack, theme, onThemeToggle, onStreakClick, onPhotoUpload, onResetCareer, onSwitchProfile }) {
+  const { activePlayer: player, st } = usePlayer()
+  const techBonusXP = useAppStore(s => s.techniqueByPlayer[player?.id]?.bonusXP ?? 0)
+  const stats = playerStats(player, st.sessions, techBonusXP)
   const cur    = LEVELS[stats.li]
   const next   = LEVELS[stats.li + 1]
   const dispMax = next ? next.xpNeeded : stats.xp

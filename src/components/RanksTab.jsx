@@ -1,8 +1,14 @@
 import { useState, useEffect } from 'react'
 import { CheckCircle } from 'lucide-react'
 import { LEVELS } from '../constants/levels.js'
+import { playerStats } from '../utils/stats.js'
+import { useAppStore } from '../store/useAppStore.js'
+import { usePlayer } from '../context/PlayerContext.jsx'
 
-export default function RanksTab({ stats, openDetail, onDetailClose }) {
+export default function RanksTab({ openDetail, onDetailClose }) {
+  const { activePlayer: player, st } = usePlayer()
+  const techBonusXP = useAppStore(s => s.techniqueByPlayer[player?.id]?.bonusXP ?? 0)
+  const stats = playerStats(player, st.sessions, techBonusXP)
   const { xp, li } = stats
   const [selectedLevel, setSelectedLevel] = useState(null)
 

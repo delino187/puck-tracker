@@ -3,6 +3,7 @@ import { computeQuestProgress, parseQuestTarget, parseQuestSuffix } from '../../
 import { playCashRegister } from '../../utils/arcadeSounds.js'
 import { getWeekStart } from '../../utils/stats.js'
 import { audioEngine } from '../../services/audioEngine.js'
+import { usePlayer } from '../../context/PlayerContext.jsx'
 
 // ── Quest pool — strictly achievable within 24 hours ─────────────────────────
 const QUEST_POOL = {
@@ -413,9 +414,11 @@ function StadiumLever({ disabled, onSpin, isSpinning }) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function DailyQuests({
-  player, sessions = [], onNavigate, onDiamondEarn, onSpinComplete, onClaimQuest,
+  onNavigate, onDiamondEarn, onSpinComplete, onClaimQuest,
   onClaimWeeklyQuest, onWeeklySpinComplete, onInitWeeklyQuests,
 }) {
+  const { activePlayer: player, st } = usePlayer()
+  const sessions = st.sessions
   const [spinning,      setSpinning]      = useState(false)
   const [currentQuests, setCurrentQuests] = useState(
     player.daily_quests?.length ? player.daily_quests : []

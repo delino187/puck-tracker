@@ -1296,8 +1296,6 @@ export default function App() {
 
   // ── Player view ───────────────────────────────────────────────────────────
   if (st.view === 'player' && aPlayer) {
-    const techBonusXP    = techniqueByPlayer[aPlayer.id]?.bonusXP || 0
-    const stats          = playerStats(aPlayer, st.sessions, techBonusXP)
     const earnedBadgeObj = aPlayer.earnedBadges || {}
 
     // ── Notification dot flags (reactive — clear instantly when turn completes) ──
@@ -1538,8 +1536,6 @@ export default function App() {
         )}
 
         <PlayerHeader
-          player={aPlayer}
-          stats={stats}
           onBack={() => upd({ view: 'playerSelect', activePlayerId: null, activeSessionId: null })}
           theme={theme}
           onThemeToggle={toggleOutsideMode}
@@ -1568,10 +1564,6 @@ export default function App() {
         <div style={{ maxWidth: 520, margin: '0 auto' }}>
           {tab === 'dashboard' && (
             <Dashboard
-              player={aPlayer}
-              stats={stats}
-              sessions={st.sessions}
-              players={st.players}
               newBadgeIds={newBadgeIds}
               onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
               onStartSession={() => { startSession(); setTab('session') }}
@@ -1584,9 +1576,6 @@ export default function App() {
           )}
           {tab === 'session' && (
             <ShootTracker
-              player={aPlayer}
-              sessions={st.sessions}
-              players={st.players}
               session={aSess}
               sesGoal={sesGoal}
               setSesGoal={setSesGoal}
@@ -1666,9 +1655,6 @@ export default function App() {
           )}
           {tab === 'challenges' && (
             <ChallengesTab
-              player={aPlayer}
-              players={st.players}
-              sessions={st.sessions}
               peerChallenges={peerChallenges}
               onCreateChallenge={() => setChallengeScreen('create')}
               onAcceptChallenge={c => setChallengeScreen({ mode: 'respond', challenge: c })}
@@ -1676,8 +1662,6 @@ export default function App() {
           )}
           {tab === 'quests' && (
             <DailyQuests
-              player={aPlayer}
-              sessions={st.sessions}
               onNavigate={setTab}
               onDiamondEarn={(amount) => setSt(prev => {
                 const id = prev.activePlayerId
@@ -1730,8 +1714,6 @@ export default function App() {
           )}
           {tab === 'store' && (
             <StreakHub
-              player={aPlayer}
-              stats={stats}
               onNavigate={setTab}
               onPurchaseItem={(itemId, cost) => {
                 const diamonds = aPlayer.diamonds || 0
@@ -1772,28 +1754,18 @@ export default function App() {
             />
           )}
           {tab === 'board' && (
-            <Leaderboard
-              player={aPlayer}
-              players={st.players}
-              sessions={st.sessions}
-            />
+            <Leaderboard />
           )}
           {tab === 'stats' && (
-            <GoalHeatmap
-              player={aPlayer}
-              stats={stats}
-              sessions={st.sessions}
-            />
+            <GoalHeatmap />
           )}
           {tab === 'badges' && (
             <BadgeGrid
-              player={aPlayer}
-              sessions={st.sessions}
               newBadgeIds={newBadgeIds}
               onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
             />
           )}
-          {tab === 'ranks' && <RanksTab stats={stats} openDetail={rankDetailOpen} onDetailClose={() => setRankDetailOpen(false)} />}
+          {tab === 'ranks' && <RanksTab openDetail={rankDetailOpen} onDetailClose={() => setRankDetailOpen(false)} />}
         </div>
 
         {/* ── Rookie milestone completion toast ──────────────────────────── */}
