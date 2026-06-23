@@ -28,33 +28,60 @@ export function getLevel(xp) {
 // bonusXP covers all non-session puck activity: challenges, PUCK games,
 // technique mode, and coach manual credits.  Pass it in so the XP bar and
 // level display reflect the player's true career total.
-export function playerStats(player, sessions, bonusXP = 0) {
-  const pss = getPSessions(player, sessions)
+/**
+ * Calculate lifetime accuracy across all sessions for a player.
+ * No date filters — aggregates entire shooting history.
+ * Handles divide-by-zero safely; returns 0% if player has 0 shots.
+ */
+export function calculateLifetimeAccuracy(player, sessions) {
+  if (!player || !sessions) return { totalShots: 0, totalHits: 0, accuracy: 0, zoneStats: {} }
 
-  // ATW sessions only track successful hits (no misses recorded),
-  // so shots = hits for those sessions to avoid inflating the miss count.
-  // Guard s.sets with || [] — old sessions or Firestore-recovered docs can
-  // occasionally lack the field if they were written before the sets:[]
-  // default was added, or if a write was interrupted mid-session.
+  const pss = getPSessions(player, sessions)
   let totalShots = 0
   let totalHits  = 0
+
+  // Aggregate all sets across all sessions (no date filter)
   pss.forEach(s => {
     const sets = s.sets || []
     const h    = sets.reduce((a, st) => a + (st.hits ?? 0), 0)
+    // ATW sessions only track hits; count shots = hits to avoid inflating miss count
     totalShots += s.source === 'atw' ? h : sets.length * 10
     totalHits  += h
   })
 
+  const accuracy = totalShots > 0 ? (totalHits / totalShots) * 100 : 0
+
+  // Zone-by-zone breakdown for heatmap
   const allSets = pss.flatMap(s => s.sets || [])
-  const acc        = totalShots > 0 ? (totalHits / totalShots) * 100 : 0
+  const zoneStats = {}
+  for (const z of ZONES) {
+    const zs  = allSets.filter(s => s && s.zone === z.id)
+    const zh  = zs.reduce((a, s) => a + (s.hits ?? 0), 0)
+    const zsh = zs.length * 10
+    zoneStats[z.id] = {
+      hits: zh,
+      shots: zsh,
+      acc: zsh > 0 ? (zh / zsh) * 100 : 0,
+      sets: zs.length,
+    }
+  }
+
+  return { totalShots, totalHits, accuracy, zoneStats }
+}
+
+export function playerStats(player, sessions, bonusXP = 0) {
+  const pss = getPSessions(player, sessions)
+
+  // Lifetime accuracy across all sessions (no date filter)
+  const { totalShots, totalHits, accuracy: acc, zoneStats } = calculateLifetimeAccuracy(player, sessions)
+
   const streak     = dayStreak(player, sessions)
   const xp         = calcXP(totalShots, totalHits) + bonusXP
   const { level, li } = getLevel(xp)
   const nextLevel  = LEVELS[li + 1] || null
 
+  // Week accuracy (filtered by week start date)
   const weekStart    = getWeekStart()
-  // Compare session dates at calendar-day granularity (local time) so a
-  // session logged at 11 PM local-time isn't excluded by a UTC boundary.
   const weekSessions = pss.filter(s => {
     if (!s.date) return false
     const d = new Date(s.date)
@@ -69,14 +96,6 @@ export function playerStats(player, sessions, bonusXP = 0) {
     weekHits  += h
   })
   const weekAcc    = weekShots > 0 ? (weekHits / weekShots) * 100 : 0
-
-  const zoneStats = {}
-  for (const z of ZONES) {
-    const zs  = allSets.filter(s => s && s.zone === z.id)
-    const zh  = zs.reduce((a, s) => a + (s.hits ?? 0), 0)
-    const zsh = zs.length * 10
-    zoneStats[z.id] = { hits: zh, shots: zsh, acc: zsh > 0 ? (zh / zsh) * 100 : 0, sets: zs.length }
-  }
 
   return { totalShots, totalHits, acc, streak, xp, level, li, nextLevel, weekShots, weekHits, weekAcc, zoneStats }
 }

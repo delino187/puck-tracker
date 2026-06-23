@@ -12,6 +12,24 @@ import { usePlayer } from '../context/PlayerContext.jsx'
 
 export default function GoalHeatmap() {
   const { activePlayer: player, st } = usePlayer()
+
+  // Guard against missing data during initial load
+  if (!player || !st || !st.sessions) {
+    return (
+      <div style={{ padding: '14px 16px 80px' }}>
+        <div style={{
+          ...C.card, textAlign: 'center',
+          padding: '40px 24px',
+          background: 'linear-gradient(135deg,#080b14,#0f1628)',
+        }}>
+          <div style={{ fontSize: 28, color: '#60a5fa', fontWeight: 700, letterSpacing: '0.1em' }}>
+            LOADING STATS…
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const techBonusXP = useAppStore(s => s.techniqueByPlayer[player?.id]?.bonusXP ?? 0)
   const stats = playerStats(player, st.sessions, techBonusXP)
   const sessions = st.sessions
@@ -32,10 +50,18 @@ export default function GoalHeatmap() {
   }).slice(-10)
   const maxSh = Math.max(...hist.map(d => d.sh), 10)
 
+  // Ensure zoneStats is initialized and safe to access
+  const safeZoneStats = stats.zoneStats || {}
+  ZONES.forEach(z => {
+    if (!safeZoneStats[z.id]) {
+      safeZoneStats[z.id] = { hits: 0, shots: 0, acc: 0, sets: 0 }
+    }
+  })
+
   const best = ZONES.reduce((b, z) =>
-    stats.zoneStats[z.id]?.shots > 0 && (!b || stats.zoneStats[z.id].acc > stats.zoneStats[b.id].acc) ? z : b, null)
+    safeZoneStats[z.id]?.shots > 0 && (!b || safeZoneStats[z.id].acc > safeZoneStats[b.id].acc) ? z : b, null)
   const weak = ZONES.reduce((w, z) =>
-    stats.zoneStats[z.id]?.shots > 0 && (!w || stats.zoneStats[z.id].acc < stats.zoneStats[w.id].acc) ? z : w, null)
+    safeZoneStats[z.id]?.shots > 0 && (!w || safeZoneStats[z.id].acc < safeZoneStats[w.id].acc) ? z : w, null)
 
   // Show a friendly placeholder only when player has logged zero sessions ever.
   // Sessions with empty sets still display with 0 accuracy as a data point.
@@ -84,7 +110,7 @@ export default function GoalHeatmap() {
         <div style={C.label}>Zone Heat Map</div>
         <div style={{ position: 'relative', width: '100%', paddingBottom: '70%', marginBottom: 12 }}>
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,15,26,0.7)', borderRadius: 10, border: '1px solid #1e3a5f', overflow: 'hidden' }}>
-            <NetSVG heatData={stats.zoneStats} />
+            <NetSVG heatData={safeZoneStats} />
           </div>
         </div>
         <HeatLegend />
@@ -94,7 +120,7 @@ export default function GoalHeatmap() {
       <div style={C.card}>
         <div style={C.label}>Zone Breakdown</div>
         {ZONES.map(z => {
-          const d = stats.zoneStats[z.id]
+          const d = safeZoneStats[z.id]
           if (!d || d.shots === 0) {
             return (
               <div key={z.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #0f172a' }}>
@@ -127,7 +153,7 @@ export default function GoalHeatmap() {
               <Star size={16} color="#34d399" style={{ marginBottom: 3 }} />
               <div style={{ color: '#34d399', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', margin: '3px 0' }}>BEST ZONE</div>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-1)' }}>{best.label}</div>
-              <div className="stat-label" style={{ color: '#34d399' }}>{stats.zoneStats[best.id]?.acc.toFixed(0)}%</div>
+              <div className="stat-label" style={{ color: '#34d399' }}>{safeZoneStats[best.id]?.acc.toFixed(0)}%</div>
             </div>
           )}
           {weak && (
@@ -135,7 +161,7 @@ export default function GoalHeatmap() {
               <TrendingUp size={16} color="#ef4444" style={{ marginBottom: 3 }} />
               <div style={{ color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: '0.1em', margin: '3px 0' }}>WORK ON</div>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14, fontWeight: 800, color: 'var(--text-1)' }}>{weak.label}</div>
-              <div className="stat-label" style={{ color: '#ef4444' }}>{stats.zoneStats[weak.id]?.acc.toFixed(0)}%</div>
+              <div className="stat-label" style={{ color: '#ef4444' }}>{safeZoneStats[weak.id]?.acc.toFixed(0)}%</div>
             </div>
           )}
         </div>
