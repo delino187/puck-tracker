@@ -54,6 +54,7 @@ import { getGameAction } from './services/puckGameService.js'
 import { markChallengesAsSeen, claimChallengeWinReward, fetchFreshTeamPlayers } from './services/peerChallengeService.js'
 import { subscribeToChallenges, subscribeToPuckGames } from './services/realtimeSync.js'
 import { usePlayer, ACTIVE_PLAYER_KEY } from './context/PlayerContext.jsx'
+import { useUI } from './context/UIContext.jsx'
 
 import { C, APP_BG } from './styles.js'
 
@@ -62,57 +63,52 @@ const VERSUS_WIN_DIAMONDS = 10
 const VERSUS_WIN_XP       = 20
 
 export default function App() {
-  // ── Player state from context (boot, Firestore sync, active player) ───────
+  // ── Player state (boot, Firestore sync, active player) ───────────────────
   const { st, setSt, upd, loading, activePlayer, coachAwardToast, setCoachAwardToast, lastSaveRef } = usePlayer()
   const aPlayer = activePlayer
 
-  // ── UI-only state (lives here, not in the player provider) ────────────────
-  const [tab,         setTab]        = useState('dashboard')
+  // ── UI state (tab nav, overlays, toasts, modals) ─────────────────────────
+  const {
+    tab, setTab,
+    rankDetailOpen, setRankDetailOpen,
+    challengeScreen, setChallengeScreen,
+    deepLinkPuckGameId, setDeepLinkPuckGameId,
+    epicCeleb, setEpicCeleb,
+    celeb, setCeleb,
+    badgePreview, setBadgePreview,
+    rookieToast, setRookieToast,
+    feedbackToast, setFeedbackToast,
+    rookieToastTimer,
+    feedbackOpen, setFeedbackOpen,
+    streakBrokenData, setStreakBrokenData,
+    victoryReward, setVictoryReward,
+    tieReward, setTieReward,
+    defeatState, setDefeatState,
+    pendingRoundOutcome, setPendingRoundOutcome,
+    rageBaitSender, setRageBaitSender,
+    rageBaitReceived, setRageBaitReceived,
+    complimentSender, setComplimentSender,
+    complimentReceived, setComplimentReceived,
+  } = useUI()
+
+  // ── Session / animation state (tightly coupled to game logic) ────────────
   const [sesGoal,     setSesGoal]    = useState(10)
-  const [badgePreview,setBadgePreview] = useState(null)
-  const [epicCeleb,   setEpicCeleb]   = useState(null)
-  const [celeb,       setCeleb]       = useState(null)
   const [newBadgeIds, setNewBadgeIds] = useState({})
   const [flashZone,   setFlashZone]  = useState(null)
   const [flashType,   setFlashType]  = useState(null)
   const [puckAnim,    setPuckAnim]   = useState(null)
   const [pinInput,    setPinInput]   = useState('')
   const [pinErr,      setPinErr]     = useState(false)
-  const [npName,        setNpName]       = useState('')
-  const [npNum,         setNpNum]        = useState('')
-  const [npPw,          setNpPw]         = useState('')
-  const [npEmail,       setNpEmail]      = useState('')
-  const [rankDetailOpen,  setRankDetailOpen]   = useState(false)
-  const [peerChallenges,  setPeerChallenges]   = useState([])
-  const [challengeScreen, setChallengeScreen]  = useState(null) // null | 'create' | { mode:'respond', challenge }
-  const [puckGames,            setPuckGames]            = useState([])
-  const [deepLinkPuckGameId,   setDeepLinkPuckGameId]   = useState(null)
-  const [pendingRoundOutcome,  setPendingRoundOutcome]  = useState(null)  // { type, letterAwarded, opponentName, gameId }
-  // Clear the deep-link game ID whenever the player leaves the session tab.
-  // This avoids PuckGame auto-re-selecting a stale game on subsequent visits.
-  // We clear on tab change (not inside ShootTracker) so the ID remains alive
-  // long enough for PuckGame to process it before it's nulled out.
-  useEffect(() => {
-    if (tab !== 'session') setDeepLinkPuckGameId(null)
-  }, [tab])
-
-  const [streakBrokenData, setStreakBrokenData] = useState(null)
-  const [feedbackOpen,     setFeedbackOpen]     = useState(false)
-  const [feedbackToast,    setFeedbackToast]    = useState(false)
-  const [rookieToast,      setRookieToast]      = useState(null)
-  const rookieToastTimer                         = useRef(null)
-  const [isSaving,         setIsSaving]         = useState(false)
-  const [weakConnToast,    setWeakConnToast]    = useState(false)
-  const [rageBaitSender,     setRageBaitSender]     = useState(false)
-  const [rageBaitReceived,   setRageBaitReceived]   = useState(null)
-  const [complimentSender,   setComplimentSender]   = useState(false)
-  const [complimentReceived, setComplimentReceived] = useState(null)
-
-  const [undoSnapshot,    setUndoSnapshot]    = useState(null)
-  const [victoryReward,   setVictoryReward]   = useState(null)
-  const [tieReward,       setTieReward]       = useState(null)
-  const [defeatState,     setDefeatState]     = useState(null)
-  const undoTimerRef                           = useRef(null)
+  const [npName,      setNpName]     = useState('')
+  const [npNum,       setNpNum]      = useState('')
+  const [npPw,        setNpPw]       = useState('')
+  const [npEmail,     setNpEmail]    = useState('')
+  const [peerChallenges, setPeerChallenges] = useState([])
+  const [puckGames,      setPuckGames]      = useState([])
+  const [isSaving,       setIsSaving]       = useState(false)
+  const [weakConnToast,  setWeakConnToast]  = useState(false)
+  const [undoSnapshot,   setUndoSnapshot]   = useState(null)
+  const undoTimerRef = useRef(null)
 
   const badgeQRef               = useRef([])
   const epicAudioRef            = useRef(null)
@@ -122,15 +118,15 @@ export default function App() {
   const complimentUnsubRef      = useRef(null)
   const challengesUnsubRef      = useRef(null)
   const puckGamesUnsubRef       = useRef(null)
-  const lastChallengeLiRef      = useRef(null)   // null = baseline not yet set
+  const lastChallengeLiRef      = useRef(null)
   // ── Versus win/defeat detection ───────────────────────────────────────────
   // seenVictoryIds: in-session Set preventing double-fire on the winner side.
   // seenDefeatIds:  in-session Set preventing double-fire on the loser side.
   //   The receiver's defeat is triggered from handlePeerChallengeSubmit and
   //   added to seenDefeatIds synchronously so the peerChallenges effect skips it.
   //   The challenger's defeat (not in the submit flow) is detected by that effect.
-  const seenVictoryIds    = useRef(new Set())
-  const seenDefeatIds     = useRef(new Set())
+  const seenVictoryIds = useRef(new Set())
+  const seenDefeatIds  = useRef(new Set())
 
   // Reactive read of the technique/challenge XP pool.  Drives XP bar + level display.
   // useShallow prevents re-renders when a new techniqueByPlayer object is written
@@ -352,10 +348,10 @@ export default function App() {
         : challenge.challengerId
 
       // Capture stable references before the async boundary
-      const cid       = challenge.id
-      const pid       = activeId
-      const pl        = st.players.find(p => p.id === activeId)
-      const today     = new Date().toDateString()
+      const cid   = challenge.id
+      const pid   = activeId
+      const pl    = st.players.find(p => p.id === activeId)
+      const today = new Date().toDateString()
 
       // Atomically write to Firestore FIRST — if this returns false, rewards
       // were already claimed on another device or session; skip everything.
@@ -540,7 +536,7 @@ export default function App() {
     const quest = ROOKIE_QUESTS.find(q => q.key === key)
     if (!quest || !aPlayer) return
 
-    const rqNow       = aPlayer.rookieQuests || {}
+    const rqNow = aPlayer.rookieQuests || {}
     if (rqNow[key]) return   // idempotent early exit — already granted
 
     // ── Compute next state synchronously ────────────────────────────────────
@@ -667,7 +663,6 @@ export default function App() {
   // ── Badge queue helpers ───────────────────────────────────────────────────
   function stopEpicAudio() {
     audioEngine.stopHeavyAudio()
-    // Clear legacy ref in case it was set before this refactor
     if (epicAudioRef.current) {
       try { epicAudioRef.current.pause(); epicAudioRef.current.currentTime = 0 } catch {}
       epicAudioRef.current = null
@@ -678,7 +673,7 @@ export default function App() {
     if (badgeQRef.current.length === 0) return
     const next = badgeQRef.current.shift()
     setEpicCeleb({ type: 'badge', badge: next })
-    audioEngine.playBadgeUnlock()  // throttled internally — safe to call every pop
+    audioEngine.playBadgeUnlock()
   }
 
   function handleBadgeClose() {
@@ -1115,7 +1110,6 @@ export default function App() {
             setEpicCeleb({ type: 'levelup', level: newLevel })
           }}
           onPuckCreditAdded={playerId => {
-            // Mark puckSet100 rookie quest on the target player if not already done
             setSt(prev => {
               const player = prev.players.find(p => p.id === playerId)
               if (!player) return prev
@@ -1259,7 +1253,7 @@ export default function App() {
               style={C.btnP}
               onClick={() => {
                 if (!npName.trim()) return
-                const base  = npName.trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 6) || 'player'
+                const base   = npName.trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 6) || 'player'
                 const autoPw = `${base}${Math.floor(100 + Math.random() * 900)}`
                 const p = {
                   id:                newId(),
@@ -1349,7 +1343,7 @@ export default function App() {
         {/* ── Diamond reward toast — fires when remote Firestore diamond delta is detected ── */}
         {coachAwardToast && (
           <div
-            onClick={() => { setCoachAwardToast(null) }}
+            onClick={() => setCoachAwardToast(null)}
             style={{
               position: 'fixed', top: 72, left: '50%', transform: 'translateX(-50%)',
               zIndex: 9000, cursor: 'pointer',
@@ -1452,8 +1446,6 @@ export default function App() {
           <VersusVictoryModal
             reward={victoryReward}
             onClaim={() => {
-              // Rewards were applied and Firestore flag was written before this
-              // modal was shown.  Claim just closes and navigates home.
               setVictoryReward(null)
               setTab('dashboard')
             }}
@@ -1499,7 +1491,6 @@ export default function App() {
               defeatState={defeatState}
               winner={defeatWinner}
               onClaim={() => {
-                // Rewards already pre-applied before the modal was shown — just close and navigate
                 setDefeatState(null)
                 setTab('dashboard')
               }}
@@ -1639,7 +1630,6 @@ export default function App() {
               }}
               deepLinkPuckGameId={deepLinkPuckGameId}
               onConcedeGame={gameId => {
-                // Optimistic removal — real-time listener confirms the final state
                 setPuckGames(prev => prev.filter(g => g.id !== gameId))
               }}
               onPuckEloUpdate={deltas => setSt(prev => ({
@@ -1719,8 +1709,6 @@ export default function App() {
                 const diamonds = aPlayer.diamonds || 0
                 if (diamonds < cost) return
                 if (itemId === 'streakFreeze') {
-                  // Audio is played by StreakHub.buyItem() before this callback —
-                  // no second sound needed here to avoid double-play
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) })
                 } else if (itemId === 'weekStreakFreeze') {
                   upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, week_streak_freezes: (p.week_streak_freezes || 0) + 1 } : p) })
@@ -1753,12 +1741,8 @@ export default function App() {
               }}
             />
           )}
-          {tab === 'board' && (
-            <Leaderboard />
-          )}
-          {tab === 'stats' && (
-            <GoalHeatmap />
-          )}
+          {tab === 'board' && <Leaderboard />}
+          {tab === 'stats' && <GoalHeatmap />}
           {tab === 'badges' && (
             <BadgeGrid
               newBadgeIds={newBadgeIds}
@@ -1806,7 +1790,6 @@ export default function App() {
               maxWidth: '88vw', minWidth: 240,
               animation: 'rookieSlideUp 0.3s ease-out both',
             }}>
-              {/* Achievement context header */}
               <div style={{
                 fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
                 color: '#a855f7', letterSpacing: '0.2em', textTransform: 'uppercase',
@@ -1814,8 +1797,6 @@ export default function App() {
               }}>
                 ✅ ACHIEVEMENT COMPLETED
               </div>
-
-              {/* Milestone name with strike-through animation */}
               <div style={{
                 fontFamily: "'Barlow Condensed',sans-serif", fontSize: 15, fontWeight: 700,
                 color: '#d8b4fe', letterSpacing: '0.04em', lineHeight: 1.3,
@@ -1825,8 +1806,6 @@ export default function App() {
                   {rookieToast.icon} {rookieToast.label}
                 </span>
               </div>
-
-              {/* Diamond reward — explicit sentence */}
               <div style={{
                 fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700,
                 color: '#fbbf24', letterSpacing: '0.04em',
