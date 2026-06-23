@@ -221,7 +221,12 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
   const hasTrombone         = player.sadTromboneUnlocked || false
 
   // Safe defaults for inventory tracking with validation
-  const ownedItems = Array.isArray(player.ownedItems) ? player.ownedItems : (hasTrombone ? ['sad_trombone'] : [])
+  // Support both old field (sadTromboneUnlocked) and new field (ownedItems array)
+  let ownedItems = Array.isArray(player.ownedItems) ? player.ownedItems : []
+  // If player has old sadTromboneUnlocked flag but it's not in ownedItems, add it
+  if (hasTrombone && !ownedItems.includes('sad_trombone')) {
+    ownedItems = [...ownedItems, 'sad_trombone']
+  }
   const equippedTaunt = player.equippedTaunt || 'standard'
 
   const [showLowBalance,       setShowLowBalance]       = useState(false)
@@ -690,25 +695,42 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
       )}
 
       {/* ── Divider ─────────────────────────────────────────────────────────── */}
-      {ownedItems.length > 0 && (
-        <div style={{ height: 2, background: 'linear-gradient(90deg,transparent,#334155,transparent)', marginBottom: 18, marginTop: 12 }} />
-      )}
+      <div style={{ height: 2, background: 'linear-gradient(90deg,transparent,#334155,transparent)', marginBottom: 18, marginTop: 12 }} />
 
       {/* ── Your Locker Room: Cosmetic Items ────────────────────────────────── */}
-      {ownedItems.length > 0 && (
+      <div style={{
+        background: 'linear-gradient(135deg,#081b3d,#0f172a)',
+        border: '1px solid #334155',
+        borderRadius: 16, padding: '16px 18px', marginBottom: 14,
+      }}>
         <div style={{
-          background: 'linear-gradient(135deg,#081b3d,#0f172a)',
-          border: '1px solid #334155',
-          borderRadius: 16, padding: '16px 18px', marginBottom: 14,
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800,
+          color: '#60a5fa', letterSpacing: '0.18em', marginBottom: 14, textTransform: 'uppercase',
         }}>
-          <div style={{
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800,
-            color: '#60a5fa', letterSpacing: '0.18em', marginBottom: 14, textTransform: 'uppercase',
-          }}>
-            🎒 YOUR LOCKER ROOM
-          </div>
+          🎒 YOUR LOCKER ROOM
+        </div>
 
-          {/* Owned items grid */}
+        {/* Owned items grid or empty state */}
+        {ownedItems.length === 0 ? (
+          <div style={{
+            textAlign: 'center', padding: '20px 16px',
+            background: 'rgba(30, 58, 95, 0.3)', borderRadius: 12,
+          }}>
+            <div style={{ fontSize: 24, marginBottom: 8 }}>🎁</div>
+            <div style={{
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13,
+              color: '#94a3b8', letterSpacing: '0.05em',
+            }}>
+              No cosmetics yet
+            </div>
+            <div style={{
+              fontFamily: "'Barlow',sans-serif", fontSize: 11,
+              color: '#64748b', marginTop: 6,
+            }}>
+              Purchase taunts from the Pro Shop to unlock them here.
+            </div>
+          </div>
+        ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {ownedItems.map(itemId => {
               const item = COSMETIC_ITEMS[itemId]
@@ -896,8 +918,8 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
     </div>
   )
