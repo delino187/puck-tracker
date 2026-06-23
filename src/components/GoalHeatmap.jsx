@@ -8,10 +8,17 @@ import NetSVG from './net/NetSVG.jsx'
 import HeatLegend from './net/HeatLegend.jsx'
 
 export default function GoalHeatmap({ player, stats, sessions }) {
-  const pss  = sessions.filter(s => s.playerId === player.id)
+  // Filter sessions belonging to this player, excluding any with a missing or
+  // invalid date — old/corrupted docs should never cause a render crash.
+  const pss = sessions
+    .filter(s => s.playerId === player.id && s.date && !isNaN(new Date(s.date)))
+    // Sort chronologically so .slice(-10) reliably gives the 10 most recent
+    // sessions regardless of the order they arrived from the Firestore merge.
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+
   const hist = pss.map(s => {
     const sets = s.sets || []
-    const hits = sets.reduce((a, x) => a + x.hits, 0)
+    const hits = sets.reduce((a, x) => a + (x.hits ?? 0), 0)
     const sh   = s.source === 'atw' ? hits : sets.length * 10
     return { d: new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), sh }
   }).slice(-10)
@@ -21,6 +28,35 @@ export default function GoalHeatmap({ player, stats, sessions }) {
     stats.zoneStats[z.id]?.shots > 0 && (!b || stats.zoneStats[z.id].acc > stats.zoneStats[b.id].acc) ? z : b, null)
   const weak = ZONES.reduce((w, z) =>
     stats.zoneStats[z.id]?.shots > 0 && (!w || stats.zoneStats[z.id].acc < stats.zoneStats[w.id].acc) ? z : w, null)
+
+  // Show a friendly placeholder instead of an empty white screen when no
+  // Target Practice sessions have been saved for this player yet.
+  if (pss.length === 0 && stats.totalShots === 0) {
+    return (
+      <div style={{ padding: '14px 16px 80px' }}>
+        <div style={{
+          ...C.card, textAlign: 'center',
+          padding: '40px 24px',
+          background: 'linear-gradient(135deg,#080b14,#0f1628)',
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 16, lineHeight: 1 }}>🏒</div>
+          <div style={{
+            fontFamily: "'Bangers',sans-serif", fontSize: 26,
+            color: '#60a5fa', letterSpacing: '0.08em', marginBottom: 8,
+          }}>
+            NO TARGET PRACTICE YET
+          </div>
+          <div style={{
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14,
+            color: '#64748b', lineHeight: 1.6,
+          }}>
+            Log a Target Practice session to see<br />
+            your zone heatmap and accuracy stats here.
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div style={{ padding: '14px 16px 80px' }}>

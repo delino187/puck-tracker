@@ -33,15 +33,19 @@ export function playerStats(player, sessions, bonusXP = 0) {
 
   // ATW sessions only track successful hits (no misses recorded),
   // so shots = hits for those sessions to avoid inflating the miss count.
+  // Guard s.sets with || [] — old sessions or Firestore-recovered docs can
+  // occasionally lack the field if they were written before the sets:[]
+  // default was added, or if a write was interrupted mid-session.
   let totalShots = 0
   let totalHits  = 0
   pss.forEach(s => {
-    const h = s.sets.reduce((a, st) => a + st.hits, 0)
-    totalShots += s.source === 'atw' ? h : s.sets.length * 10
+    const sets = s.sets || []
+    const h    = sets.reduce((a, st) => a + (st.hits ?? 0), 0)
+    totalShots += s.source === 'atw' ? h : sets.length * 10
     totalHits  += h
   })
 
-  const allSets = pss.flatMap(s => s.sets)
+  const allSets = pss.flatMap(s => s.sets || [])
   const acc        = totalShots > 0 ? (totalHits / totalShots) * 100 : 0
   const streak     = dayStreak(player, sessions)
   const xp         = calcXP(totalShots, totalHits) + bonusXP
@@ -49,20 +53,27 @@ export function playerStats(player, sessions, bonusXP = 0) {
   const nextLevel  = LEVELS[li + 1] || null
 
   const weekStart    = getWeekStart()
-  const weekSessions = pss.filter(s => new Date(s.date) >= weekStart)
+  // Compare session dates at calendar-day granularity (local time) so a
+  // session logged at 11 PM local-time isn't excluded by a UTC boundary.
+  const weekSessions = pss.filter(s => {
+    if (!s.date) return false
+    const d = new Date(s.date)
+    return !isNaN(d) && d >= weekStart
+  })
   let weekShots = 0
   let weekHits  = 0
   weekSessions.forEach(s => {
-    const h = s.sets.reduce((a, st) => a + st.hits, 0)
-    weekShots += s.source === 'atw' ? h : s.sets.length * 10
+    const sets = s.sets || []
+    const h    = sets.reduce((a, st) => a + (st.hits ?? 0), 0)
+    weekShots += s.source === 'atw' ? h : sets.length * 10
     weekHits  += h
   })
   const weekAcc    = weekShots > 0 ? (weekHits / weekShots) * 100 : 0
 
   const zoneStats = {}
   for (const z of ZONES) {
-    const zs  = allSets.filter(s => s.zone === z.id)
-    const zh  = zs.reduce((a, s) => a + s.hits, 0)
+    const zs  = allSets.filter(s => s && s.zone === z.id)
+    const zh  = zs.reduce((a, s) => a + (s.hits ?? 0), 0)
     const zsh = zs.length * 10
     zoneStats[z.id] = { hits: zh, shots: zsh, acc: zsh > 0 ? (zh / zsh) * 100 : 0, sets: zs.length }
   }
