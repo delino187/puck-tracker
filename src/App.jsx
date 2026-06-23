@@ -853,7 +853,8 @@ export default function App() {
     const hits = aSess.sets.reduce((a, s) => a + s.hits, 0)
 
     // ── Quest progress — mark completed, no auto-reward (tap-to-claim) ────
-    const questResult = aPlayer ? applyQuestProgress(aPlayer, st.sessions) : null
+    const techniqueByPlayer = useAppStore.getState().techniqueByPlayer || {}
+    const questResult = aPlayer ? applyQuestProgress(aPlayer, st.sessions, techniqueByPlayer) : null
     const newlyDone = questResult
       ? questResult.updatedQuests.filter((q, i) =>
           q.completed && !(aPlayer.daily_quests?.[i]?.completed)
@@ -880,7 +881,6 @@ export default function App() {
     // only this player's entry — coach edits (diamonds, ELO, etc.) are preserved.
     const nextSt            = { ...st, ...patch }
     const activePlayerId    = st.activePlayerId
-    const techniqueByPlayer = useAppStore.getState().techniqueByPlayer || {}
     saveSt(nextSt, activePlayerId)   // fire-and-forget localStorage + Firestore backup
     try {
       await saveToFirestore(nextSt, techniqueByPlayer, activePlayerId)

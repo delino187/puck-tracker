@@ -107,18 +107,24 @@ export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 
  *
  * Returns null when there is nothing to update.
  */
-export function applyQuestProgress(player, sessions) {
+export function applyQuestProgress(player, sessions, techniqueByPlayer = {}) {
   const today  = new Date().toDateString()
   const quests = player.daily_quests || []
 
   if (player.last_quest_spin !== today || !quests.length) return null
+
+  // Include technique-only pucks logged today so shot-count quests track all activity
+  const techEntry = techniqueByPlayer[player.id] || {}
+  const dailyLog  = techEntry.dailyLog || {}
+  const todayTechPucks = dailyLog[today] ?? 0
 
   const updatedQuests = quests.map(q => {
     if (q.claimed) return q   // fully settled — never touch again
 
     // Pass the stored baseline (shots at spin time) so progress is always
     // relative to when the wheel was pulled, never the absolute daily total.
-    const prog    = computeQuestProgress(q.text, sessions, 0, q.baseline ?? 0)
+    // Also include technique pucks so all shot activity counts.
+    const prog    = computeQuestProgress(q.text, sessions, todayTechPucks, q.baseline ?? 0)
     const target  = q.targetProgress ?? prog.target
     const current = prog.current
     const nowDone = current >= target

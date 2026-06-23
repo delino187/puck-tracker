@@ -3,6 +3,7 @@ import { computeQuestProgress, parseQuestTarget, parseQuestSuffix } from '../../
 import { playCashRegister } from '../../utils/arcadeSounds.js'
 import { getWeekStart } from '../../utils/stats.js'
 import { audioEngine } from '../../services/audioEngine.js'
+import { useAppStore } from '../../store/useAppStore.js'
 import { usePlayer } from '../../context/PlayerContext.jsx'
 
 // ── Quest pool — strictly achievable within 24 hours ─────────────────────────
@@ -173,8 +174,14 @@ function questTab(text) {
 // Thin wrapper — delegates to the shared helper so display and reward logic
 // always use the same computation.  Passes the stored baseline so live
 // progress display is relative to spin time, not absolute today totals.
-const getQuestProgress = (quest, sessions) =>
-  computeQuestProgress(quest.text, sessions, 0, quest.baseline ?? 0)
+// Also includes technique-only pucks logged today so shot-count quests track all activity.
+function getQuestProgress(quest, sessions, playerId) {
+  const techEntry = useAppStore(s => s.techniqueByPlayer?.[playerId])
+  const dailyLog  = techEntry?.dailyLog || {}
+  const today     = new Date().toDateString()
+  const todayTechPucks = dailyLog[today] ?? 0
+  return computeQuestProgress(quest.text, sessions, todayTechPucks, quest.baseline ?? 0)
+}
 
 // ── Quest row ─────────────────────────────────────────────────────────────────
 function QuestRow({ quest, progress, isSpinning, shuffleText, onNavigate, onClaim }) {
@@ -752,7 +759,7 @@ export default function DailyQuests({
                 <QuestRow
                   key={i}
                   quest={quest}
-                  progress={quest.reward !== '?' ? getQuestProgress(quest, sessions) : null}
+                  progress={quest.reward !== '?' ? getQuestProgress(quest, sessions, player.id) : null}
                   isSpinning={spinning}
                   shuffleText={shuffleTexts[i] || SHUFFLE_POOL[0]}
                   onNavigate={onNavigate}
