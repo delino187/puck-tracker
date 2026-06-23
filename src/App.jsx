@@ -46,6 +46,7 @@ import CoachMsgPopup       from './components/overlays/CoachMsgPopup.jsx'
 import StreakBrokenModal   from './components/overlays/StreakBrokenModal.jsx'
 import FeedbackModal       from './components/overlays/FeedbackModal.jsx'
 import VersusVictoryModal  from './components/overlays/VersusVictoryModal.jsx'
+import VersusTieModal      from './components/overlays/VersusTieModal.jsx'
 import VersusDefeatModal   from './components/overlays/VersusDefeatModal.jsx'
 import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
@@ -107,6 +108,7 @@ export default function App() {
   const [undoSnapshot,    setUndoSnapshot]    = useState(null)
   const [coachAwardToast, setCoachAwardToast] = useState(null)
   const [victoryReward,   setVictoryReward]   = useState(null)
+  const [tieReward,       setTieReward]       = useState(null)
   const [defeatState,     setDefeatState]     = useState(null)
   const undoTimerRef                           = useRef(null)
 
@@ -924,36 +926,41 @@ export default function App() {
         ? (challenge.challengerVideo ?? null)
         : (challenge.receiverVideo   ?? null)
 
-      if (challenge.winnerId === activeId) {
+      // Mark "Play 1 Versus Quick Match Today" quest complete — ties count the same as wins
+      const today = new Date().toDateString()
+      if (aPlayer?.last_quest_spin === today) {
+        setSt(prev => {
+          const pid = prev.activePlayerId
+          const pl  = prev.players.find(p => p.id === pid)
+          if (!pl) return prev
+          // Match quest: can be "Play 1 Versus..." or "Win 1 Versus..." — both count
+          const qi = (pl.daily_quests || []).findIndex(
+            q => /play.*versus|win.*versus/i.test(q.text) && !q.completed && !q.claimed
+          )
+          if (qi < 0) return prev
+          return {
+            ...prev,
+            players: prev.players.map(p =>
+              p.id !== pid ? p : {
+                ...p,
+                daily_quests: p.daily_quests.map((q, i) =>
+                  i === qi ? { ...q, currentProgress: 1, targetProgress: 1, completed: true } : q
+                ),
+              }
+            ),
+          }
+        })
+      }
+
+      // Tie: both players get equal partial reward
+      if (challenge.isTie) {
+        setTieReward({ type: 'versus', diamonds: 5, xp: 10, opponentId, opponentName: challenge.challengerId === activeId ? challenge.receiverName : challenge.challengerName, challengeId: challenge.id })
+      } else if (challenge.winnerId === activeId) {
         // The snapshot useEffect handles win detection, Firestore flag write,
         // reward application, and modal show atomically.  Mark as seen here so
         // the effect doesn't double-queue if the snapshot arrives before the
         // peerChallenges state update for this submit.
         seenVictoryIds.current.add(challenge.id)
-        // Mark "Win 1 Versus Quick Match Today" quest complete
-        const today = new Date().toDateString()
-        if (aPlayer?.last_quest_spin === today) {
-          setSt(prev => {
-            const pid = prev.activePlayerId
-            const pl  = prev.players.find(p => p.id === pid)
-            if (!pl) return prev
-            const qi = (pl.daily_quests || []).findIndex(
-              q => /win.*versus/i.test(q.text) && !q.completed && !q.claimed
-            )
-            if (qi < 0) return prev
-            return {
-              ...prev,
-              players: prev.players.map(p =>
-                p.id !== pid ? p : {
-                  ...p,
-                  daily_quests: p.daily_quests.map((q, i) =>
-                    i === qi ? { ...q, currentProgress: 1, targetProgress: 1, completed: true } : q
-                  ),
-                }
-              ),
-            }
-          })
-        }
       } else {
         setDefeatState({ type: 'versus', diamonds: 1, xp: 2, opponentId, opponentVideoUrl: winnerVideoUrl })
       }
@@ -1603,6 +1610,32 @@ export default function App() {
             onRematch={() => {
               const opponentId = victoryReward.opponentId
               setVictoryReward(null)
+              setChallengeScreen({ mode: 'create', defaultFriendId: opponentId })
+            }}
+          />
+        )}
+
+        {/* ── Versus tie reward — both players get equal partial rewards ── */}
+        {tieReward && !challengeScreen && (
+          <VersusTieModal
+            reward={tieReward}
+            opponentName={tieReward.opponentName}
+            onClaim={() => {
+              const pid = st.activePlayerId
+              upd({
+                players: st.players.map(p =>
+                  p.id === pid
+                    ? { ...p, diamonds: (p.diamonds || 0) + tieReward.diamonds }
+                    : p
+                ),
+              })
+              useAppStore.getState().logTechniqueShots(pid, 0, tieReward.xp)
+              setTieReward(null)
+              setTab('dashboard')
+            }}
+            onRematch={() => {
+              const opponentId = tieReward.opponentId
+              setTieReward(null)
               setChallengeScreen({ mode: 'create', defaultFriendId: opponentId })
             }}
           />

@@ -84,19 +84,25 @@ export async function createChallenge({
 
 // ── Respond ───────────────────────────────────────────────────────────────────
 export async function respondToChallenge(challenge, receiverHits, videoUrl) {
-  const winnerId = receiverHits >= challenge.challengerHits
-    ? challenge.receiverId
-    : challenge.challengerId
+  // Detect tie: both players scored the same number of hits
+  const isTie = receiverHits === challenge.challengerHits
+  const winnerId = isTie ? null : (
+    receiverHits > challenge.challengerHits
+      ? challenge.receiverId
+      : challenge.challengerId
+  )
 
   await updateDoc(doc(db, 'teams', TEAM_ID, 'peerChallenges', challenge.id), {
     receiverHits,
     receiverVideo: videoUrl,
     winnerId,
+    isTie,
     status:        'completed',
     respondedAt:   Date.now(),
   })
 
   // Atomic transaction: update ELO + totalWins for both players simultaneously.
+  // Ties: outcome=0.5 for both players, no one gets a win, minimal ELO change.
   // Skipped entirely for unranked matches — ELO stays frozen, wins still counted.
   const isRanked = challenge.matchType !== 'unranked'
   let eloResult  = isRanked ? null : { unranked: true }
@@ -115,11 +121,13 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
 
         const ratingC     = challenger.elo ?? 1000
         const ratingR     = receiver.elo   ?? 1000
-        const outcome     = winnerId === challenge.challengerId ? 1 : 0
 
-        // Pass winner's active streak for Daily Heat multiplier
-        const winner       = winnerId === challenge.challengerId ? challenger : receiver
-        const winnerStreak = winner.streakCount || winner.streak || 0
+        // Tie: outcome=0.5 for both players (no ELO swing for draws)
+        // Win: outcome=1 for challenger, 0 for receiver
+        const outcome     = isTie ? 0.5 : (winnerId === challenge.challengerId ? 1 : 0)
+
+        // Pass winner's active streak for Daily Heat multiplier (no boost for ties)
+        const winnerStreak = isTie ? 0 : (winnerId === challenge.challengerId ? challenger.streakCount || 0 : receiver.streakCount || 0)
 
         const eloCalc = calculateNewRatings(ratingC, ratingR, outcome, winnerStreak)
         const { deltaA, deltaB } = eloCalc
@@ -137,6 +145,7 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
 
         // Store breakdown for the victory screen + local state sync
         eloResult = {
+          isTie,
           receiverDelta:           finalDeltaB,
           challengerDelta:         finalDeltaA,   // needed for instant local state sync
           baseDelta:               eloCalc.baseDelta,
@@ -159,7 +168,8 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
                 elo:            ratingC + finalDeltaA,
                 eloLastDelta:   finalDeltaA,
                 eloLastUpdated: now,
-                totalWins:      (p.totalWins || 0) + (winnerId === p.id ? 1 : 0),
+                // Ties don't count as wins; winnerId is null on ties
+                totalWins:      (p.totalWins || 0) + (winnerId && winnerId === p.id ? 1 : 0),
                 // Consume shield atomically — cannot be saved by closing the app
                 hasEloShield:   false,
               }
@@ -170,7 +180,7 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
                 elo:            ratingR + finalDeltaB,
                 eloLastDelta:   finalDeltaB,
                 eloLastUpdated: now,
-                totalWins:      (p.totalWins || 0) + (winnerId === p.id ? 1 : 0),
+                totalWins:      (p.totalWins || 0) + (winnerId && winnerId === p.id ? 1 : 0),
                 // Consume shield atomically — cannot be saved by closing the app
                 hasEloShield:   false,
               }
@@ -184,6 +194,7 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
     }
   } else {
     // Unranked: still credit totalWins so career stats stay accurate
+    // Ties don't count as wins; winnerId is null on ties
     try {
       const teamRef = doc(db, 'teams', TEAM_ID)
       await runTransaction(db, async (tx) => {
@@ -193,7 +204,7 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
         tx.update(teamRef, {
           players: players.map(p => {
             if (p.id === challenge.challengerId || p.id === challenge.receiverId) {
-              return { ...p, totalWins: (p.totalWins || 0) + (winnerId === p.id ? 1 : 0) }
+              return { ...p, totalWins: (p.totalWins || 0) + (winnerId && winnerId === p.id ? 1 : 0) }
             }
             return p
           }),
