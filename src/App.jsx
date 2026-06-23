@@ -1720,6 +1720,9 @@ export default function App() {
           {tab === 'store' && (
             <StreakHub
               onNavigate={setTab}
+              onEquipTaunt={(tauntId) => {
+                upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, equippedTaunt: tauntId } : p) })
+              }}
               onPurchaseItem={(itemId, cost) => {
                 const diamonds = aPlayer.diamonds || 0
                 if (diamonds < cost) return

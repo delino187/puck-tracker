@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Volume2, CheckCircle } from 'lucide-react'
 import { audioEngine } from '../services/audioEngine.js'
 import PageHelpButton from './shared/PageHelpButton.jsx'
 import { playerStats } from '../utils/stats.js'
@@ -183,7 +184,7 @@ function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwn
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
-export default function StreakHub({ onPurchaseItem, onNavigate }) {
+export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) {
   const { activePlayer: player, st } = usePlayer()
   const techBonusXP = useAppStore(s => s.techniqueByPlayer[player?.id]?.bonusXP ?? 0)
   const stats = playerStats(player, st.sessions, techBonusXP)
@@ -207,6 +208,12 @@ export default function StreakHub({ onPurchaseItem, onNavigate }) {
     audioEngine.playMp3('/retro-game-notification.mp3', 0.85)
     onPurchaseItem?.(itemId, cost)
     setTimeout(() => setIsProcessingPurchase(false), 600)
+  }
+
+  // Update the player's equipped taunt via parent callback
+  function equipTaunt(tauntId) {
+    onEquipTaunt?.(tauntId)
+    audioEngine.playMp3('/retro-game-notification.mp3', 0.5)
   }
 
   return (
@@ -527,8 +534,10 @@ export default function StreakHub({ onPurchaseItem, onNavigate }) {
                 owned={hasTrombone ? 1 : 0}
                 canBuy={!hasTrombone && totalDiamonds >= TROMBONE_COST}
                 isOwned={hasTrombone}
+                isEquipped={player.equippedTaunt === 'sad_trombone'}
                 onPreview={() => audioEngine.playTauntTrombone()}
                 onBuy={() => buyItem('sadTrombone', TROMBONE_COST)}
+                onEquip={() => equipTaunt(hasTrombone ? 'sad_trombone' : 'standard')}
                 balance={totalDiamonds}
                 processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
@@ -617,6 +626,87 @@ export default function StreakHub({ onPurchaseItem, onNavigate }) {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── My Locker: Cosmetic Items ─────────────────────────────────────── */}
+      {hasTrombone && (
+        <div style={{
+          background: 'var(--card-bg)', border: 'var(--card-border)',
+          borderRadius: 16, padding: '16px 18px', marginBottom: 14, marginTop: 4,
+        }}>
+          <div style={{
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
+            color: 'var(--text-muted)', letterSpacing: '0.2em', marginBottom: 12,
+          }}>
+            🎒 YOUR AUDIO TAUNTS
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Sad Trombone Taunt */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px', background: 'var(--card-bg)',
+              border: player.equippedTaunt === 'sad_trombone' ? '2px solid #fbbf24' : '1px solid #1e293b',
+              borderRadius: 12, position: 'relative',
+            }}>
+              {player.equippedTaunt === 'sad_trombone' && (
+                <div style={{
+                  position: 'absolute', top: -8, right: -8,
+                  background: '#fbbf24', border: '2px solid #d97706',
+                  borderRadius: 20, padding: '1px 6px',
+                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
+                  color: '#000', letterSpacing: '0.08em',
+                }}>
+                  ✨ EQUIPPED
+                </div>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
+                <span style={{ fontSize: 22 }}>🎺</span>
+                <div>
+                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>Sad Trombone</div>
+                  <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 11, color: 'var(--text-muted)' }}>Plays when opponent wins</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={() => audioEngine.playTauntTrombone()}
+                  title="Preview sound"
+                  style={{
+                    background: '#1e3a5f', border: '1px solid #334155',
+                    borderRadius: 8, padding: '6px 8px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 4,
+                  }}
+                >
+                  <Volume2 size={14} color="#60a5fa" />
+                </button>
+                {player.equippedTaunt !== 'sad_trombone' ? (
+                  <button
+                    onClick={() => equipTaunt('sad_trombone')}
+                    style={{
+                      background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', border: 'none',
+                      borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
+                      fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700,
+                      color: '#fff', letterSpacing: '0.06em',
+                    }}
+                  >
+                    EQUIP
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => equipTaunt('standard')}
+                    style={{
+                      background: '#1e3a5f', border: '1px solid #334155',
+                      borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
+                      fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700,
+                      color: '#64748b', letterSpacing: '0.06em',
+                    }}
+                  >
+                    UNEQUIP
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
