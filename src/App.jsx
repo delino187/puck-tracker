@@ -137,12 +137,14 @@ export default function App() {
   const activePlayerIdRef       = useRef(null)
   const coachAwardToastTimerRef = useRef(null)
   const lastChallengeLiRef      = useRef(null)   // null = baseline not yet set
-  // ── Versus win detection ──────────────────────────────────────────────────
-  // seenVictoryIds: in-session Set of challenge IDs already processed this session.
-  //   Prevents rapid snapshot re-fires from calling claimChallengeWinReward twice.
-  //   Reset on player switch.  The Firestore field winnerRewardsClaimed is the
-  //   persistent cross-session guard; seenVictoryIds is just a session-level lock.
+  // ── Versus win/defeat detection ───────────────────────────────────────────
+  // seenVictoryIds: in-session Set preventing double-fire on the winner side.
+  // seenDefeatIds:  in-session Set preventing double-fire on the loser side.
+  //   The receiver's defeat is triggered from handlePeerChallengeSubmit and
+  //   added to seenDefeatIds synchronously so the peerChallenges effect skips it.
+  //   The challenger's defeat (not in the submit flow) is detected by that effect.
   const seenVictoryIds    = useRef(new Set())
+  const seenDefeatIds     = useRef(new Set())
 
   // Reactive read of the technique/challenge XP pool.  Drives XP bar + level display.
   // useShallow prevents re-renders when a new techniqueByPlayer object is written
@@ -562,8 +564,9 @@ export default function App() {
   // diffs consecutive snapshots, detects newly-completed wins, and queues the
   // VersusVictoryModal exactly once per challenge.
   useEffect(() => {
-    // Reset the in-session claim-lock set when the player switches accounts
+    // Reset in-session claim-lock sets when the player switches accounts
     seenVictoryIds.current = new Set()
+    seenDefeatIds.current  = new Set()
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -663,6 +666,60 @@ export default function App() {
       })
 
       break  // process one at a time; next win shows after this modal dismisses
+    }
+  }, [peerChallenges, st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Defeat detection for the CHALLENGER (loser who didn't call respondToChallenge)
+  // The receiver's defeat is handled in handlePeerChallengeSubmit and immediately
+  // added to seenDefeatIds so this effect skips it.  This effect exists purely for
+  // the challenger who lost and learns the result via a Firestore snapshot.
+  //
+  // 30-minute recency gate prevents showing stale defeat modals on fresh login.
+  // Consolation rewards are pre-applied here (same as the victory flow) so onClaim
+  // only needs to close the modal and navigate.
+  useEffect(() => {
+    if (!st?.activePlayerId || !st?.players) return
+    const activeId = st.activePlayerId
+    const DEFEAT_WINDOW_MS = 30 * 60 * 1000
+    const cutoff = Date.now() - DEFEAT_WINDOW_MS
+
+    for (const challenge of peerChallenges) {
+      if (challenge.status !== 'completed')         continue
+      if (challenge.isTie)                           continue  // tie handled separately
+      if (challenge.winnerId === null)               continue  // safety: no winner means tie or pending
+      if (challenge.winnerId === activeId)           continue  // they won, not our concern
+      // Must be a participant in this match
+      if (challenge.challengerId !== activeId && challenge.receiverId !== activeId) continue
+      if (seenDefeatIds.current.has(challenge.id))  continue  // already shown this session
+      if ((challenge.respondedAt ?? 0) < cutoff)    continue  // too old; skip on fresh login
+
+      seenDefeatIds.current.add(challenge.id)
+
+      const opponentId   = challenge.challengerId === activeId ? challenge.receiverId   : challenge.challengerId
+      const opponentName = challenge.challengerId === activeId ? challenge.receiverName : challenge.challengerName
+      const myHits       = challenge.challengerId === activeId ? challenge.challengerHits : challenge.receiverHits
+      const opponentHits = challenge.challengerId === activeId ? challenge.receiverHits  : challenge.challengerHits
+      const winnerVideoUrl = challenge.winnerId === challenge.challengerId
+        ? (challenge.challengerVideo ?? null)
+        : (challenge.receiverVideo   ?? null)
+
+      // Pre-apply consolation rewards before showing the modal
+      const pid = activeId
+      setSt(prev => ({
+        ...prev,
+        players: prev.players.map(p =>
+          p.id === pid ? { ...p, diamonds: (p.diamonds || 0) + 1 } : p
+        ),
+      }))
+      useAppStore.getState().logTechniqueShots(pid, 0, 2)
+
+      setDefeatState({
+        type: 'versus', diamonds: 1, xp: 2,
+        opponentId, opponentName,
+        myHits: myHits ?? 0, opponentHits: opponentHits ?? 0,
+        opponentVideoUrl: winnerVideoUrl,
+      })
+      break  // show one defeat at a time
     }
   }, [peerChallenges, st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -974,7 +1031,19 @@ export default function App() {
         // peerChallenges state update for this submit.
         seenVictoryIds.current.add(challenge.id)
       } else {
-        setDefeatState({ type: 'versus', diamonds: 1, xp: 2, opponentId, opponentVideoUrl: winnerVideoUrl })
+        // Mark seen so the defeat detection useEffect doesn't double-fire for the receiver
+        seenDefeatIds.current.add(challenge.id)
+        // Pre-apply consolation rewards before showing the modal (mirrors victory flow)
+        upd({ players: st.players.map(p => p.id === activeId ? { ...p, diamonds: (p.diamonds || 0) + 1 } : p) })
+        useAppStore.getState().logTechniqueShots(activeId, 0, 2)
+        setDefeatState({
+          type: 'versus', diamonds: 1, xp: 2,
+          opponentId,
+          opponentName: challenge.challengerId === activeId ? challenge.receiverName : challenge.challengerName,
+          myHits:       challenge.challengerId === activeId ? challenge.challengerHits : (challenge.receiverHits ?? 0),
+          opponentHits: challenge.challengerId === activeId ? (challenge.receiverHits ?? 0) : challenge.challengerHits,
+          opponentVideoUrl: winnerVideoUrl,
+        })
       }
     }
   }
@@ -1661,15 +1730,9 @@ export default function App() {
               defeatState={defeatState}
               winner={defeatWinner}
               onClaim={() => {
-                const pid = st.activePlayerId
-                upd({
-                  players: st.players.map(p =>
-                    p.id === pid
-                      ? { ...p, diamonds: (p.diamonds || 0) + defeatState.diamonds }
-                      : p
-                  ),
-                })
+                // Rewards already pre-applied before the modal was shown — just close and navigate
                 setDefeatState(null)
+                setTab('dashboard')
               }}
               onRematch={() => {
                 const opponentId = defeatState.opponentId

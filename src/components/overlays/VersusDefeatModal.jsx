@@ -1,30 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { audioEngine } from '../../services/audioEngine.js'
 
 const PARTICLE_COLORS = ['#ef4444','#dc2626','#f97316','#7f1d1d','#fbbf24','#fff']
 
 export default function VersusDefeatModal({ defeatState, winner, onClaim, onRematch }) {
   const opponentVideoUrl = defeatState?.opponentVideoUrl ?? null
+  const opponentName     = defeatState?.opponentName ?? winner?.name ?? 'Opponent'
+  const myHits           = defeatState?.myHits       ?? null
+  const opponentHits     = defeatState?.opponentHits ?? null
+  const hasScore         = myHits !== null && opponentHits !== null
   const [tapped, setTapped] = useState(false)
-  const bgAudioRef = useRef(null)
 
   // Defeat audio: sad trombone if the winner bought it, otherwise streak-broken sting.
   // 300 ms delay lets the overlay transition settle before the sound hits.
   useEffect(() => {
-    const src = winner?.sadTromboneUnlocked
-      ? '/sad-game-over-trombone.mp3'
-      : '/streak-broken.mp3'
-    const audio = new Audio(src)
-    audio.volume = winner?.sadTromboneUnlocked ? 0.85 : 0.9
-    const t = setTimeout(() => audio.play().catch(() => {}), 300)
-    bgAudioRef.current = audio
+    const src    = winner?.sadTromboneUnlocked ? '/sad-game-over-trombone.mp3' : '/streak-broken.mp3'
+    const volume = winner?.sadTromboneUnlocked ? 0.85 : 0.9
+    const t = setTimeout(() => audioEngine.playHeavyMp3(src, volume), 300)
     return () => {
       clearTimeout(t)
-      audio.pause()
-      audio.currentTime = 0
+      audioEngine.stopHeavyAudio()
     }
   }, []) // eslint-disable-line
 
-  // Seeded once on mount
   const particles = useMemo(() =>
     Array.from({ length: 18 }, (_, i) => ({
       id:       i,
@@ -39,9 +37,7 @@ export default function VersusDefeatModal({ defeatState, winner, onClaim, onRema
 
   function handleTap() {
     if (tapped) return
-    // Kill defeat audio immediately — synchronous, zero-latency
-    if (bgAudioRef.current) bgAudioRef.current.volume = 0
-    // Sparkle SFX fires before React re-render
+    audioEngine.stopHeavyAudio()
     try {
       const sparkle = new Audio('/fairy-arcade-sparkle.mp3')
       sparkle.volume = 0.9
@@ -126,41 +122,100 @@ export default function VersusDefeatModal({ defeatState, winner, onClaim, onRema
         maxWidth: 360, width: '100%',
       }}>
 
-        {/* NICE TRY! */}
+        {/* DEFEAT */}
         <div style={{
           fontFamily: "'Bangers',sans-serif",
           fontSize: 'clamp(62px,17vw,98px)',
           letterSpacing: '0.08em', lineHeight: 0.9,
           color: '#ef4444',
           animation: 'vdm-title 1.6s ease-in-out infinite, vdm-slideUp 0.4s ease-out both',
-          marginBottom: 6,
+          marginBottom: 4,
         }}>
-          NICE TRY!
+          TOUGH LUCK!
         </div>
 
         {/* Skull */}
         <div style={{
-          fontSize: 56, lineHeight: 1, marginBottom: 18,
+          fontSize: 52, lineHeight: 1, marginBottom: 10,
           animation: 'vdm-skull 2.4s ease-in-out infinite, vdm-slideUp 0.45s ease-out 0.06s both',
         }}>
           💀
         </div>
 
-        {/* XP auto-credited notice */}
+        {/* Lost to [name] subtitle */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          background: 'rgba(34,197,94,0.08)',
-          border: '1px solid rgba(34,197,94,0.22)',
-          borderRadius: 10, padding: '7px 16px', marginBottom: 24,
+          fontFamily: "'Barlow Condensed',sans-serif",
+          fontSize: 14, fontWeight: 700,
+          color: '#94a3b8', letterSpacing: '0.05em',
+          textAlign: 'center', marginBottom: 16,
+          animation: 'vdm-slideUp 0.46s ease-out 0.08s both',
+        }}>
+          Lost to <span style={{ color: '#ef4444', fontWeight: 800 }}>{opponentName}</span> today's Versus Quick Match
+        </div>
+
+        {/* Score breakdown */}
+        {hasScore && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 0,
+            background: 'rgba(0,0,0,0.50)', backdropFilter: 'blur(10px)',
+            border: '1.5px solid #ef444433', borderRadius: 14,
+            overflow: 'hidden', marginBottom: 20, width: '100%',
+            animation: 'vdm-slideUp 0.48s ease-out 0.10s both',
+          }}>
+            <div style={{
+              flex: 1, textAlign: 'center', padding: '12px 8px',
+              background: 'rgba(239,68,68,0.06)',
+              borderRight: '1px solid #ef444422',
+            }}>
+              <div style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
+                fontWeight: 800, color: '#64748b', letterSpacing: '0.14em',
+                marginBottom: 4,
+              }}>YOU</div>
+              <div style={{
+                fontFamily: "'Bangers',sans-serif", fontSize: 32,
+                letterSpacing: '0.04em', color: '#ef4444', lineHeight: 1,
+              }}>{myHits}</div>
+              <div style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9,
+                color: '#475569', letterSpacing: '0.1em', marginTop: 2,
+              }}>HITS</div>
+            </div>
+            <div style={{
+              padding: '0 12px',
+              fontFamily: "'Bangers',sans-serif", fontSize: 18,
+              color: '#334155', letterSpacing: '0.06em',
+            }}>VS</div>
+            <div style={{
+              flex: 1, textAlign: 'center', padding: '12px 8px',
+              borderLeft: '1px solid #ef444422',
+            }}>
+              <div style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
+                fontWeight: 800, color: '#64748b', letterSpacing: '0.14em',
+                marginBottom: 4,
+              }}>{opponentName.split(' ')[0].toUpperCase()}</div>
+              <div style={{
+                fontFamily: "'Bangers',sans-serif", fontSize: 32,
+                letterSpacing: '0.04em', color: '#22c55e', lineHeight: 1,
+              }}>{opponentHits}</div>
+              <div style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9,
+                color: '#475569', letterSpacing: '0.1em', marginTop: 2,
+              }}>HITS</div>
+            </div>
+          </div>
+        )}
+
+        {/* "You just earned X XP!" */}
+        <div style={{
+          fontFamily: "'Barlow Condensed',sans-serif",
+          fontSize: 13, fontWeight: 700,
+          color: '#34d399', letterSpacing: '0.06em',
+          textAlign: 'center', marginBottom: 20,
           animation: 'vdm-slideUp 0.48s ease-out 0.12s both',
         }}>
-          <span style={{ fontSize: 14 }}>⚡</span>
-          <span style={{
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12,
-            fontWeight: 700, color: '#34d399', letterSpacing: '0.08em',
-          }}>
-            +{defeatState.xp} XP CREDITED INSTANTLY
-          </span>
+          ⚡ You just earned <span style={{ fontWeight: 800 }}>{defeatState.xp} XP</span>!
         </div>
 
         {/* Reward pill */}
@@ -180,7 +235,7 @@ export default function VersusDefeatModal({ defeatState, winner, onClaim, onRema
           <div style={{
             fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9,
             fontWeight: 800, color: '#78350f', letterSpacing: '0.18em', marginTop: 3,
-          }}>DIAMOND</div>
+          }}>CONSOLATION DIAMOND</div>
         </div>
 
         {/* Diamond tap target */}
@@ -204,13 +259,12 @@ export default function VersusDefeatModal({ defeatState, winner, onClaim, onRema
               color: '#fbbf24', letterSpacing: '0.15em',
               animation: 'vdm-shimmer 1.0s ease-in-out infinite',
             }}>
-              TAP DIAMOND TO CLAIM!
+              TAP TO RETURN TO DASHBOARD
             </div>
           )}
         </button>
 
         {/* ── Study Game Tape ─────────────────────────────────────────── */}
-        {/* Video served from Vercel Blob public CDN — loads directly, no auth token needed */}
         <div style={{
           width: '100%', marginBottom: 24,
           animation: 'vdm-slideUp 0.5s ease-out 0.55s both',
@@ -235,15 +289,13 @@ export default function VersusDefeatModal({ defeatState, winner, onClaim, onRema
                 }}>
                   Study Opponent Game Tape
                 </span>
-                {winner && (
-                  <span style={{
-                    marginLeft: 'auto',
-                    fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
-                    color: '#64748b', letterSpacing: '0.06em',
-                  }}>
-                    {winner.name}'s winning shot
-                  </span>
-                )}
+                <span style={{
+                  marginLeft: 'auto',
+                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
+                  color: '#64748b', letterSpacing: '0.06em',
+                }}>
+                  {opponentName}'s winning shot
+                </span>
               </div>
               <video
                 src={opponentVideoUrl}
