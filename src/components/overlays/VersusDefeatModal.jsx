@@ -3,19 +3,21 @@ import { audioEngine } from '../../services/audioEngine.js'
 
 const PARTICLE_COLORS = ['#ef4444','#dc2626','#f97316','#7f1d1d','#fbbf24','#fff']
 
-export default function VersusDefeatModal({ defeatState, winner, onClaim, onRematch }) {
+export default function VersusDefeatModal({ defeatState, onClaim, onRematch }) {
   const opponentVideoUrl = defeatState?.opponentVideoUrl ?? null
-  const opponentName     = defeatState?.opponentName ?? winner?.name ?? 'Opponent'
+  const opponentName     = defeatState?.opponentName ?? 'Opponent'
   const myHits           = defeatState?.myHits       ?? null
   const opponentHits     = defeatState?.opponentHits ?? null
   const hasScore         = myHits !== null && opponentHits !== null
   const [tapped, setTapped] = useState(false)
 
-  // Defeat audio: sad trombone if the winner bought it, otherwise streak-broken sting.
+  // Defeat audio: use winner's equipped taunt path if set, otherwise streak-broken sting.
+  // The hook resolves tauntAudioPath from Firestore before setting defeatState, so the
+  // correct sound is known the moment the modal mounts.
   // 300 ms delay lets the overlay transition settle before the sound hits.
   useEffect(() => {
-    const src    = winner?.sadTromboneUnlocked ? '/sad-game-over-trombone.mp3' : '/streak-broken.mp3'
-    const volume = winner?.sadTromboneUnlocked ? 0.85 : 0.9
+    const src    = defeatState?.tauntAudioPath ?? '/streak-broken.mp3'
+    const volume = defeatState?.tauntAudioPath ? 0.85 : 0.9
     const t = setTimeout(() => audioEngine.playHeavyMp3(src, volume), 300)
     return () => {
       clearTimeout(t)
