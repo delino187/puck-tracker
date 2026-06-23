@@ -5,7 +5,7 @@
  */
 import { db } from '../firebase.js'
 import {
-  collection, doc, addDoc, updateDoc, getDocs, runTransaction, writeBatch,
+  collection, doc, getDoc, addDoc, updateDoc, getDocs, runTransaction, writeBatch,
 } from 'firebase/firestore'
 import { calculateNewRatings } from '../utils/elo.js'
 import { upload } from '@vercel/blob/client'
@@ -94,11 +94,12 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
 
   await updateDoc(doc(db, 'teams', TEAM_ID, 'peerChallenges', challenge.id), {
     receiverHits,
-    receiverVideo: videoUrl,
+    receiverVideo:  videoUrl,
     winnerId,
     isTie,
-    status:        'completed',
-    respondedAt:   Date.now(),
+    status:         'completed',
+    respondedAt:    Date.now(),
+    eloProcessed:   false,   // ELO transaction will flip this to true atomically
   })
 
   // Atomic transaction: update ELO + totalWins for both players simultaneously.
@@ -109,15 +110,30 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
 
   if (isRanked) {
     try {
-      const teamRef = doc(db, 'teams', TEAM_ID)
+      const teamRef      = doc(db, 'teams', TEAM_ID)
+      const challengeRef = doc(db, 'teams', TEAM_ID, 'peerChallenges', challenge.id)
       await runTransaction(db, async (tx) => {
-        const teamDoc = await tx.get(teamRef)
+        // Always read both docs first — Firestore requires all reads before writes in a transaction.
+        const [teamDoc, challengeDoc] = await Promise.all([
+          tx.get(teamRef),
+          tx.get(challengeRef),
+        ])
         if (!teamDoc.exists()) return
+
+        // Per-match idempotency guard — prevents double ELO application if the
+        // receiver's device retries or the snapshot listener fires a second time.
+        if (challengeDoc.exists() && challengeDoc.data()?.eloProcessed) {
+          console.log(`[ELO] Already processed for challenge ${challenge.id} — skipping`)
+          return
+        }
 
         const players    = teamDoc.data().players || []
         const challenger = players.find(p => p.id === challenge.challengerId)
         const receiver   = players.find(p => p.id === challenge.receiverId)
-        if (!challenger || !receiver) return
+        if (!challenger || !receiver) {
+          console.warn(`[ELO] Player not found in team doc. challengerId=${challenge.challengerId} receiverId=${challenge.receiverId}. players=[${players.map(p=>p.id).join(',')}]`)
+          return
+        }
 
         const ratingC     = challenger.elo ?? 1000
         const ratingR     = receiver.elo   ?? 1000
@@ -187,6 +203,16 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
             }
             return p
           }),
+        })
+
+        // Write eloProcessed flag + per-player deltas to the challenge doc in the
+        // same transaction so the challenger's device can read these from the
+        // peerChallenges snapshot without waiting for the team-doc snapshot.
+        tx.update(challengeRef, {
+          eloProcessed:      true,
+          challengerEloDelta: finalDeltaA,
+          receiverEloDelta:   finalDeltaB,
+          eloTimestamp:       now,
         })
       })
     } catch (err) {
@@ -283,6 +309,20 @@ export async function claimChallengeWinReward(challengeId) {
   }
 
   return granted
+}
+
+// ── Fresh ELO sync ────────────────────────────────────────────────────────────
+// Point-in-time read of the team doc's players array.  Used by the win/defeat
+// detection effects to bypass the snapshot rate-limiter and ensure the challenger
+// (who never called respondToChallenge) sees updated ELO immediately.
+export async function fetchFreshTeamPlayers() {
+  try {
+    const snap = await getDoc(doc(db, 'teams', TEAM_ID))
+    return snap.exists() ? (snap.data().players || []) : []
+  } catch (err) {
+    console.warn('[fetchFreshTeamPlayers] read failed:', err.message)
+    return []
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

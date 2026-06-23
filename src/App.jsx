@@ -51,7 +51,7 @@ import VersusDefeatModal   from './components/overlays/VersusDefeatModal.jsx'
 import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
 import { getGameAction } from './services/puckGameService.js'
-import { markChallengesAsSeen, claimChallengeWinReward } from './services/peerChallengeService.js'
+import { markChallengesAsSeen, claimChallengeWinReward, fetchFreshTeamPlayers } from './services/peerChallengeService.js'
 import { subscribeToTeam, subscribeToChallenges, subscribeToPuckGames } from './services/realtimeSync.js'
 
 import { C, APP_BG } from './styles.js'
@@ -626,7 +626,7 @@ export default function App() {
 
       // Atomically write to Firestore FIRST — if this returns false, rewards
       // were already claimed on another device or session; skip everything.
-      claimChallengeWinReward(cid).then(granted => {
+      claimChallengeWinReward(cid).then(async granted => {
         if (!granted) return
 
         // Apply rewards to local state immediately after the flag is written
@@ -659,6 +659,29 @@ export default function App() {
               ),
             }
           })
+        }
+
+        // Force-sync ELO from the server directly — the ELO transaction committed
+        // before our claimChallengeWinReward call, so this read is guaranteed to
+        // have the correct post-match ratings.  This bypasses the snapshot
+        // rate-limiter that can silently drop team-doc snapshots when multiple
+        // writes burst in after Match 1 (causing Match 2's ELO to appear stale).
+        const freshPlayers = await fetchFreshTeamPlayers()
+        if (freshPlayers.length > 0) {
+          setSt(prev => ({
+            ...prev,
+            players: prev.players.map(lp => {
+              const sp = freshPlayers.find(p => p.id === lp.id)
+              if (!sp) return lp
+              return {
+                ...lp,
+                elo:            sp.elo            ?? lp.elo,
+                eloLastDelta:   sp.eloLastDelta   ?? lp.eloLastDelta,
+                eloLastUpdated: sp.eloLastUpdated ?? lp.eloLastUpdated,
+                totalWins:      Math.max(sp.totalWins ?? 0, lp.totalWins ?? 0),
+              }
+            }),
+          }))
         }
 
         // Show the modal — purely visual at this point, rewards already applied
@@ -712,6 +735,27 @@ export default function App() {
         ),
       }))
       useAppStore.getState().logTechniqueShots(pid, 0, 2)
+
+      // Force-sync ELO from server so the challenger's leaderboard reflects
+      // their reduced rating immediately rather than waiting for a snapshot that
+      // the rate-limiter may have already dropped.
+      fetchFreshTeamPlayers().then(freshPlayers => {
+        if (freshPlayers.length === 0) return
+        setSt(prev => ({
+          ...prev,
+          players: prev.players.map(lp => {
+            const sp = freshPlayers.find(p => p.id === lp.id)
+            if (!sp) return lp
+            return {
+              ...lp,
+              elo:            sp.elo            ?? lp.elo,
+              eloLastDelta:   sp.eloLastDelta   ?? lp.eloLastDelta,
+              eloLastUpdated: sp.eloLastUpdated ?? lp.eloLastUpdated,
+              totalWins:      Math.max(sp.totalWins ?? 0, lp.totalWins ?? 0),
+            }
+          }),
+        }))
+      }).catch(() => {})
 
       setDefeatState({
         type: 'versus', diamonds: 1, xp: 2,
