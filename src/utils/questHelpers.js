@@ -82,10 +82,11 @@ export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 
     return { current: Math.min(best, target), target, suffix: '' }
   }
 
-  // "Score 8+ Hits in Any Zone"
+  // "Score 8+ Hits in Any Zone" — CUMULATIVE across all sets today
+  // Sum all zone hits from all sets in today's sessions (cumulative, not max)
   if (/8\+ Hits/i.test(text)) {
-    const best = todaySets.reduce((max, s) => Math.max(max, s.hits), 0)
-    return { current: best, target: 8, suffix: '' }
+    const totalHits = todaySets.reduce((sum, s) => sum + (s.hits ?? 0), 0)
+    return { current: Math.min(totalHits, 8), target: 8, suffix: '' }
   }
 
   // Social / binary quests — can't auto-track without peerChallenges/puckGames

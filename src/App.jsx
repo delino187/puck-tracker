@@ -29,6 +29,7 @@ import TeamLeaderboards from './components/TeamLeaderboards.jsx'
 import Leaderboard      from './components/screens/Leaderboard.jsx'
 import { updateStreak }      from './utils/streakService.js'
 import { applyQuestProgress } from './utils/questHelpers.js'
+import { updateMultipleQuestsFromSession } from './services/questProgressService.js'
 import GoalHeatmap      from './components/GoalHeatmap.jsx'
 import BadgeGrid        from './components/BadgeGrid.jsx'
 import RanksTab         from './components/RanksTab.jsx'
@@ -672,6 +673,26 @@ export default function App() {
     // which includes this session because it was cached at creation time with
     // sets: [].  forceSessionSync bypasses that cache so the real shot data lands.
     await forceSessionSync(aSess)
+
+    // ── Cumulative quest tracking: update daily quests with session data ────
+    // This handles "8+ Hits in Any Zone" and other cumulative quests with
+    // atomic Firestore increments, and triggers completion celebrations.
+    if (aPlayer?.daily_quests?.length > 0) {
+      const completedQuests = await updateMultipleQuestsFromSession(
+        aPlayer.id,
+        aPlayer.daily_quests,
+        aSess.sets || [],
+        0  // techPucksToday would be computed from techniqueByPlayer if needed
+      )
+
+      // Show a celebratory toast for each newly completed quest
+      completedQuests.forEach(cq => {
+        setTimeout(() => {
+          setEpicCeleb({ type: 'quest', quest: cq })
+          audioEngine.playBadgeUnlock()
+        }, 500)
+      })
+    }
 
     clearTimeout(weakConnTimerRef.current)
     setWeakConnToast(false)
