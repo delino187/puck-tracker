@@ -5,6 +5,7 @@ import PageHelpButton from './shared/PageHelpButton.jsx'
 import { playerStats } from '../utils/stats.js'
 import { useAppStore } from '../store/useAppStore.js'
 import { usePlayer } from '../context/PlayerContext.jsx'
+import { useUI } from '../context/UIContext.jsx'
 
 const FREEZE_COST       = 75
 const WEEK_FREEZE_COST  = 400
@@ -17,6 +18,17 @@ const ELO_RESET_COST    = 200
 const GLOW_COST         = 150
 const PFP_COST          = 50
 const BASE_ELO       = 1000
+
+// ── Cosmetic items inventory ────────────────────────────────────────────────
+const COSMETIC_ITEMS = {
+  'sad_trombone': {
+    id: 'sad_trombone',
+    name: 'Sad Trombone',
+    emoji: '🎺',
+    desc: 'Plays when opponent wins',
+    audioPath: '/sad-game-over-trombone.mp3',
+  },
+}
 
 // ── Individual showcase card inside the stall grid ────────────────────────────
 function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwned, owned, onBuy, onInsufficientFunds, isEquipped, onEquip, onPreview, processing }) {
@@ -185,7 +197,8 @@ function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwn
 
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) {
-  const { activePlayer: player, st } = usePlayer()
+  const { activePlayer: player, st, upd } = usePlayer()
+  const { setRookieToast, rookieToastTimer } = useUI()
   const techBonusXP = useAppStore(s => s.techniqueByPlayer[player?.id]?.bonusXP ?? 0)
   const stats = playerStats(player, st.sessions, techBonusXP)
   const totalDiamonds       = player.diamonds            || 0
@@ -197,6 +210,10 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
   const doubleXpQty         = player.doubleXpTokens      || 0
   const hasTrombone         = player.sadTromboneUnlocked || false
 
+  // Safe defaults for inventory tracking
+  const ownedItems = player.ownedItems || (hasTrombone ? ['sad_trombone'] : [])
+  const equippedTaunt = player.equippedTaunt || 'standard'
+
   const [showLowBalance,       setShowLowBalance]       = useState(false)
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false)
 
@@ -207,13 +224,40 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
     setIsProcessingPurchase(true)
     audioEngine.playMp3('/retro-game-notification.mp3', 0.85)
     onPurchaseItem?.(itemId, cost)
+
+    // Add item to ownedItems if it's a taunt
+    if (itemId === 'sadTrombone' && !ownedItems.includes('sad_trombone')) {
+      upd({
+        players: st.players.map(p =>
+          p.id === player.id
+            ? { ...p, ownedItems: [...ownedItems, 'sad_trombone'] }
+            : p
+        ),
+      })
+    }
+
     setTimeout(() => setIsProcessingPurchase(false), 600)
   }
 
-  // Update the player's equipped taunt via parent callback
+  // Update the player's equipped taunt and show success notification
   function equipTaunt(tauntId) {
     onEquipTaunt?.(tauntId)
     audioEngine.playMp3('/retro-game-notification.mp3', 0.5)
+
+    // Update equipped taunt locally
+    upd({
+      players: st.players.map(p =>
+        p.id === player.id
+          ? { ...p, equippedTaunt: tauntId }
+          : p
+      ),
+    })
+
+    // Show success toast
+    clearTimeout(rookieToastTimer.current)
+    const itemName = tauntId === 'standard' ? 'Standard' : COSMETIC_ITEMS[tauntId]?.name || tauntId
+    setRookieToast({ label: `${itemName} Equipped!`, reward: 0, icon: '✨' })
+    rookieToastTimer.current = setTimeout(() => setRookieToast(null), 3500)
   }
 
   return (
@@ -630,82 +674,211 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
         </div>
       )}
 
-      {/* ── My Locker: Cosmetic Items ─────────────────────────────────────── */}
-      {hasTrombone && (
+      {/* ── Divider ─────────────────────────────────────────────────────────── */}
+      {ownedItems.length > 0 && (
+        <div style={{ height: 2, background: 'linear-gradient(90deg,transparent,#334155,transparent)', marginBottom: 18, marginTop: 12 }} />
+      )}
+
+      {/* ── Your Locker Room: Cosmetic Items ────────────────────────────────── */}
+      {ownedItems.length > 0 && (
         <div style={{
-          background: 'var(--card-bg)', border: 'var(--card-border)',
-          borderRadius: 16, padding: '16px 18px', marginBottom: 14, marginTop: 4,
+          background: 'linear-gradient(135deg,#081b3d,#0f172a)',
+          border: '1px solid #334155',
+          borderRadius: 16, padding: '16px 18px', marginBottom: 14,
         }}>
           <div style={{
-            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
-            color: 'var(--text-muted)', letterSpacing: '0.2em', marginBottom: 12,
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800,
+            color: '#60a5fa', letterSpacing: '0.18em', marginBottom: 14, textTransform: 'uppercase',
           }}>
-            🎒 YOUR AUDIO TAUNTS
+            🎒 YOUR LOCKER ROOM
           </div>
+
+          {/* Owned items grid */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {/* Sad Trombone Taunt */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '12px', background: 'var(--card-bg)',
-              border: player.equippedTaunt === 'sad_trombone' ? '2px solid #fbbf24' : '1px solid #1e293b',
-              borderRadius: 12, position: 'relative',
-            }}>
-              {player.equippedTaunt === 'sad_trombone' && (
-                <div style={{
-                  position: 'absolute', top: -8, right: -8,
-                  background: '#fbbf24', border: '2px solid #d97706',
-                  borderRadius: 20, padding: '1px 6px',
-                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
-                  color: '#000', letterSpacing: '0.08em',
-                }}>
-                  ✨ EQUIPPED
-                </div>
-              )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
-                <span style={{ fontSize: 22 }}>🎺</span>
-                <div>
-                  <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>Sad Trombone</div>
-                  <div style={{ fontFamily: 'Barlow,sans-serif', fontSize: 11, color: 'var(--text-muted)' }}>Plays when opponent wins</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <button
-                  onClick={() => audioEngine.playTauntTrombone()}
-                  title="Preview sound"
+            {ownedItems.map(itemId => {
+              const item = COSMETIC_ITEMS[itemId]
+              if (!item) return null
+
+              const isEquipped = equippedTaunt === itemId
+              const canPreview = item.audioPath
+
+              return (
+                <div
+                  key={itemId}
                   style={{
-                    background: '#1e3a5f', border: '1px solid #334155',
-                    borderRadius: 8, padding: '6px 8px', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 4,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    background: isEquipped ? 'rgba(34, 197, 94, 0.08)' : 'rgba(30, 58, 95, 0.4)',
+                    border: isEquipped ? '2px solid #22c55e' : '1px solid #334155',
+                    borderRadius: 12,
+                    position: 'relative',
                   }}
                 >
-                  <Volume2 size={14} color="#60a5fa" />
-                </button>
-                {player.equippedTaunt !== 'sad_trombone' ? (
-                  <button
-                    onClick={() => equipTaunt('sad_trombone')}
-                    style={{
-                      background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)', border: 'none',
-                      borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
-                      fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700,
-                      color: '#fff', letterSpacing: '0.06em',
-                    }}
-                  >
-                    EQUIP
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => equipTaunt('standard')}
-                    style={{
-                      background: '#1e3a5f', border: '1px solid #334155',
-                      borderRadius: 8, padding: '6px 12px', cursor: 'pointer',
-                      fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700,
-                      color: '#64748b', letterSpacing: '0.06em',
-                    }}
-                  >
-                    UNEQUIP
-                  </button>
-                )}
+                  {/* Badge */}
+                  {isEquipped && (
+                    <div style={{
+                      position: 'absolute', top: -10, right: -10,
+                      background: '#22c55e', border: '2px solid #16a34a',
+                      borderRadius: 20, padding: '2px 8px',
+                      fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, fontWeight: 900,
+                      color: '#000', letterSpacing: '0.1em',
+                    }}>
+                      ACTIVE
+                    </div>
+                  )}
+
+                  {/* Item info */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                    <span style={{ fontSize: 24, lineHeight: 1 }}>{item.emoji}</span>
+                    <div>
+                      <div style={{
+                        fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800,
+                        color: isEquipped ? '#34d399' : '#e2e8f0', letterSpacing: '0.04em',
+                      }}>
+                        {item.name}
+                      </div>
+                      <div style={{
+                        fontFamily: "'Barlow',sans-serif", fontSize: 10, color: '#64748b',
+                      }}>
+                        {item.desc}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {/* Preview button */}
+                    {canPreview && (
+                      <button
+                        onClick={() => {
+                          try {
+                            new Audio(item.audioPath).play().catch(() => {})
+                          } catch {}
+                        }}
+                        title="Preview sound"
+                        style={{
+                          background: '#1e3a5f',
+                          border: '1px solid #334155',
+                          borderRadius: 8,
+                          padding: '6px 8px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = '#3b5a7a'
+                          e.currentTarget.style.borderColor = '#60a5fa'
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = '#1e3a5f'
+                          e.currentTarget.style.borderColor = '#334155'
+                        }}
+                      >
+                        <Volume2 size={16} color="#60a5fa" />
+                      </button>
+                    )}
+
+                    {/* Equip/Unequip button */}
+                    <button
+                      onClick={() => equipTaunt(isEquipped ? 'standard' : itemId)}
+                      style={{
+                        background: isEquipped
+                          ? '#1e3a5f'
+                          : 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
+                        border: isEquipped ? '1px solid #334155' : '1px solid #1e40af',
+                        borderRadius: 8,
+                        padding: '6px 12px',
+                        cursor: 'pointer',
+                        fontFamily: "'Barlow Condensed',sans-serif",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: isEquipped ? '#64748b' : '#fff',
+                        letterSpacing: '0.05em',
+                        transition: 'all 0.2s',
+                      }}
+                      onMouseEnter={e => {
+                        if (!isEquipped) {
+                          e.currentTarget.style.boxShadow = '0 0 12px #3b82f655'
+                          e.currentTarget.style.transform = 'scale(1.05)'
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.boxShadow = 'none'
+                        e.currentTarget.style.transform = 'scale(1)'
+                      }}
+                    >
+                      {isEquipped ? '✓ EQUIPPED' : '⬜ EQUIP'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Standard (default) option */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 14px',
+                background: equippedTaunt === 'standard' ? 'rgba(34, 197, 94, 0.08)' : 'rgba(30, 58, 95, 0.4)',
+                border: equippedTaunt === 'standard' ? '2px solid #22c55e' : '1px solid #334155',
+                borderRadius: 12,
+                position: 'relative',
+              }}
+            >
+              {equippedTaunt === 'standard' && (
+                <div style={{
+                  position: 'absolute', top: -10, right: -10,
+                  background: '#22c55e', border: '2px solid #16a34a',
+                  borderRadius: 20, padding: '2px 8px',
+                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, fontWeight: 900,
+                  color: '#000', letterSpacing: '0.1em',
+                }}>
+                  ACTIVE
+                </div>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                <span style={{ fontSize: 24, lineHeight: 1 }}>🎮</span>
+                <div>
+                  <div style={{
+                    fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800,
+                    color: equippedTaunt === 'standard' ? '#34d399' : '#e2e8f0', letterSpacing: '0.04em',
+                  }}>
+                    Standard
+                  </div>
+                  <div style={{
+                    fontFamily: "'Barlow',sans-serif", fontSize: 10, color: '#64748b',
+                  }}>
+                    Default defeat sound
+                  </div>
+                </div>
               </div>
+
+              {equippedTaunt === 'standard' && (
+                <button
+                  onClick={() => equipTaunt('sad_trombone')}
+                  style={{
+                    background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
+                    border: '1px solid #1e40af',
+                    borderRadius: 8,
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                    fontFamily: "'Barlow Condensed',sans-serif",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    color: '#fff',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  ⬜ SWITCH
+                </button>
+              )}
             </div>
           </div>
         </div>
