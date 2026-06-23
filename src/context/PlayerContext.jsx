@@ -14,6 +14,11 @@ export function PlayerProvider({ children }) {
   const [coachAwardToast, setCoachAwardToast] = useState(null)
 
   const lastSaveRef             = useRef(0)
+  // Holds the players array from the first subscribeToTeam snapshot when it arrives
+  // before loadSt() completes (st is still null at that point so the normal merge
+  // path returns early).  The boot effect drains this ref and merges it into the
+  // initial state so the login screen always shows current ELO/ranks.
+  const pendingTeamPlayersRef   = useRef(null)
   // Set to true INSIDE the setSt() functional update when the snapshot changes st.
   // Consumed (reset to false) by the [st] save-effect so that exactly the one st
   // change caused by the snapshot is skipped — without any setTimeout race.
@@ -37,7 +42,30 @@ export function PlayerProvider({ children }) {
   // ── Boot: Firestore → localStorage fallback ───────────────────────────────
   useEffect(() => {
     loadSt().then(saved => {
-      const base    = saved || { ...DEFAULT_STATE }
+      const base = saved || { ...DEFAULT_STATE }
+
+      // If the real-time team listener fired before loadSt() resolved, its snapshot
+      // was discarded (st was null).  Merge those fresh players in now so the login
+      // screen shows current ELO/ranks instead of whatever was in the Firestore cache.
+      const pending = pendingTeamPlayersRef.current
+      if (pending && pending.length > 0 && base.players?.length > 0) {
+        base.players = base.players.map(lp => {
+          const sp = pending.find(p => p.id === lp.id)
+          if (!sp) return lp
+          return {
+            ...sp,
+            // Keep local-wins for contested accumulator fields
+            diamonds:    Math.max(sp.diamonds    || 0, lp.diamonds    || 0),
+            streakCount: Math.max(sp.streakCount || 0, lp.streakCount || 0),
+          }
+        })
+        pendingTeamPlayersRef.current = null
+        // Treat this as a snapshot-driven change so the persist effect skips the
+        // immediate echo write back to Firestore.
+        stFromSnapshotRef.current  = true
+        lastSnapshotTimeRef.current = Date.now()
+      }
+
       const savedId = localStorage.getItem(ACTIVE_PLAYER_KEY)
       if (savedId && base.players?.find(p => p.id === savedId)) {
         setSt({ ...base, view: 'player', activePlayerId: savedId, activeSessionId: null })
@@ -135,7 +163,12 @@ export function PlayerProvider({ children }) {
       lastPlayersRef.current = incoming
 
       setSt(prev => {
-        if (!prev) return prev
+        if (!prev) {
+          // Boot hasn't completed yet — stash players so the boot effect can apply
+          // them to the initial state instead of losing this snapshot entirely.
+          pendingTeamPlayersRef.current = incoming
+          return prev
+        }
         const prevPlayers = prev.players || []
 
         // Normalize helper: treat null and undefined as equal for field comparison
