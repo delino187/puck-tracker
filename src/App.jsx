@@ -443,6 +443,7 @@ export default function App() {
       // Must be a participant in this match
       if (challenge.challengerId !== activeId && challenge.receiverId !== activeId) continue
       if (seenDefeatIds.current.has(challenge.id))  continue  // already shown this session
+      if (challenge.loserRewardsClaimed)             continue  // rewards already claimed; never re-trigger
       if ((challenge.respondedAt ?? 0) < cutoff)    continue  // too old; skip on fresh login
 
       seenDefeatIds.current.add(challenge.id)
