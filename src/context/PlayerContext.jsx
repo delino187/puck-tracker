@@ -219,16 +219,21 @@ export function PlayerProvider({ children }) {
       })
 
       // Sync techniqueByPlayer from server into Zustand
-      const serverTech = teamData.techniqueByPlayer
-      if (serverTech && Object.keys(serverTech).length > 0) {
-        const current    = useAppStore.getState().techniqueByPlayer || {}
-        let hasNewData   = false
-        const mergedTech = { ...current }
+      // Safety: ensure both getState and mapping are null-safe
+      try {
+        const serverTech = teamData.techniqueByPlayer
+        if (serverTech && Object.keys(serverTech).length > 0) {
+          const current    = useAppStore.getState()?.techniqueByPlayer || {}
+          let hasNewData   = false
+          const mergedTech = { ...current }
 
-        for (const [pid, srv] of Object.entries(serverTech)) {
-          const local = current[pid] || { totalPucks: 0, bonusXP: 0 }
-          const mergedTotalPucks = Math.max(local.totalPucks ?? 0, srv.totalPucks ?? 0)
-          const mergedBonusXP    = Math.max(local.bonusXP    ?? 0, srv.bonusXP    ?? 0)
+          for (const [pid, srv] of Object.entries(serverTech)) {
+            const local = current[pid] || { totalPucks: 0, bonusXP: 0 }
+            // Validate numeric values to prevent NaN from Math.max
+            const localPucks = Number(local.totalPucks) || 0
+            const serverPucks = Number(srv.totalPucks) || 0
+            const mergedTotalPucks = Math.max(localPucks, serverPucks)
+            const mergedBonusXP    = Math.max(Number(local.bonusXP) || 0, Number(srv.bonusXP) || 0)
 
           const srvLog   = srv.dailyLog   || {}
           const localLog = local.dailyLog || {}
@@ -250,6 +255,9 @@ export function PlayerProvider({ children }) {
         if (hasNewData) {
           useAppStore.setState({ techniqueByPlayer: mergedTech })
         }
+        }
+      } catch (err) {
+        console.error('[realtimeSync] techniqueByPlayer merge failed:', err.message)
       }
     })
 
@@ -273,11 +281,13 @@ export function PlayerProvider({ children }) {
           view:            prev?.view            ?? fresh.view,
           activePlayerId:  prev?.activePlayerId  ?? fresh.activePlayerId,
           activeSessionId: prev?.activeSessionId ?? fresh.activeSessionId,
-          // Per-player: keep whichever diamond total is higher
+          // Per-player: keep whichever diamond total is higher (with NaN safety)
           players: (fresh.players || []).map(fp => {
             const lp = prev?.players?.find(p => p.id === fp.id)
             if (!lp) return fp
-            return { ...fp, diamonds: Math.max(fp.diamonds || 0, lp.diamonds || 0) }
+            const fpDiamonds = Number(fp.diamonds) || 0
+            const lpDiamonds = Number(lp.diamonds) || 0
+            return { ...fp, diamonds: Math.max(fpDiamonds, lpDiamonds) }
           }),
         }))
       })

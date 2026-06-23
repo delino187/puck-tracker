@@ -282,6 +282,42 @@ export default function ShootTracker({
   return (
     <div style={{ padding: '12px 16px 80px', position: 'relative' }}>
 
+      {/* ── Exit button (top-left) ──────────────────────────────────────── */}
+      {session && (
+        <button
+          onClick={() => {
+            if (window.confirm('Exit without saving? Your shots will be lost.')) {
+              setZoneInputs({})
+              onStart?.()
+              setSubMode(null)
+            }
+          }}
+          style={{
+            position: 'fixed', top: 14, left: 16, zIndex: 50,
+            background: 'linear-gradient(135deg,#4b5563,#1e3a5f)',
+            border: '1px solid #334155',
+            borderRadius: 10, padding: '8px 12px',
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800,
+            color: '#cbd5e1', cursor: 'pointer', letterSpacing: '0.05em',
+            display: 'flex', alignItems: 'center', gap: 6,
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = 'linear-gradient(135deg,#5c6b7a,#2d4a6f)'
+            e.currentTarget.style.borderColor = '#475569'
+            e.currentTarget.style.color = '#e2e8f0'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = 'linear-gradient(135deg,#4b5563,#1e3a5f)'
+            e.currentTarget.style.borderColor = '#334155'
+            e.currentTarget.style.color = '#cbd5e1'
+          }}
+        >
+          <span style={{ fontSize: 14 }}>✕</span>
+          EXIT
+        </button>
+      )}
+
       {/* ── Puck result toast ────────────────────────────────────────────── */}
       {puckAnim && (
         <div style={{

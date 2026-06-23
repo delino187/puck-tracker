@@ -199,6 +199,16 @@ function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwn
 export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) {
   const { activePlayer: player, st, upd } = usePlayer()
   const { setRookieToast, rookieToastTimer } = useUI()
+
+  // Safety guard: if player is missing, show loading state
+  if (!player || !st) {
+    return (
+      <div style={{ padding: '40px 20px', textAlign: 'center', color: '#60a5fa' }}>
+        LOADING STORE…
+      </div>
+    )
+  }
+
   const techBonusXP = useAppStore(s => s.techniqueByPlayer[player?.id]?.bonusXP ?? 0)
   const stats = playerStats(player, st.sessions, techBonusXP)
   const totalDiamonds       = player.diamonds            || 0
@@ -210,15 +220,15 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
   const doubleXpQty         = player.doubleXpTokens      || 0
   const hasTrombone         = player.sadTromboneUnlocked || false
 
-  // Safe defaults for inventory tracking
-  const ownedItems = player.ownedItems || (hasTrombone ? ['sad_trombone'] : [])
+  // Safe defaults for inventory tracking with validation
+  const ownedItems = Array.isArray(player.ownedItems) ? player.ownedItems : (hasTrombone ? ['sad_trombone'] : [])
   const equippedTaunt = player.equippedTaunt || 'standard'
 
   const [showLowBalance,       setShowLowBalance]       = useState(false)
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false)
 
   // Plays the purchase chime then fires the purchase handler.
-  // Locks for 600 ms to prevent accidental double-billing.
+  // Locks for 1000 ms to prevent accidental double-billing.
   function buyItem(itemId, cost) {
     if (isProcessingPurchase) return
     setIsProcessingPurchase(true)
@@ -227,16 +237,21 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
 
     // Add item to ownedItems if it's a taunt
     if (itemId === 'sadTrombone' && !ownedItems.includes('sad_trombone')) {
-      upd({
-        players: st.players.map(p =>
-          p.id === player.id
-            ? { ...p, ownedItems: [...ownedItems, 'sad_trombone'] }
-            : p
-        ),
-      })
+      try {
+        upd({
+          players: st.players.map(p =>
+            p.id === player.id
+              ? { ...p, ownedItems: [...ownedItems, 'sad_trombone'] }
+              : p
+          ),
+        })
+      } catch (err) {
+        console.error('[buyItem] Failed to update ownedItems:', err.message)
+      }
     }
 
-    setTimeout(() => setIsProcessingPurchase(false), 600)
+    // Increase lock to 1000ms to prevent double-taps from rapid purchasing
+    setTimeout(() => setIsProcessingPurchase(false), 1000)
   }
 
   // Update the player's equipped taunt and show success notification

@@ -1,22 +1,182 @@
 import { useState } from 'react'
-import { Info, Gem } from 'lucide-react'
-import { BADGES, BADGE_CATS, TIER } from '../constants/badges.js'
+import { Info, Gem, X } from 'lucide-react'
+import { BADGES, BADGE_CATS, TIER, getBadgeXP } from '../constants/badges.js'
 import { STREAK_BADGES, toCircleBadge } from '../constants/streakBadges.js'
 import { allTimeStreakPB } from '../utils/badgeHelpers.js'
+import { audioEngine } from '../services/audioEngine.js'
 import { C } from '../styles.js'
 import BadgeCircle from './shared/BadgeCircle.jsx'
 import TierKeyPopup from './overlays/TierKeyPopup.jsx'
 import { usePlayer } from '../context/PlayerContext.jsx'
+import { useAppStore } from '../store/useAppStore.js'
 
 export default function BadgeGrid({ newBadgeIds, onBadgeClick }) {
-  const { activePlayer: player, st } = usePlayer()
+  const { activePlayer: player, st, upd } = usePlayer()
   const sessions = st.sessions
   const [showTierKey, setShowTierKey] = useState(false)
+  const [claimingBadgeId, setClaimingBadgeId] = useState(null)
   const earned = Object.keys(player.earnedBadges || {})
+  const claimedBadges = player.claimedBadges || []
+
+  // Claim XP reward for unclaimed badge
+  function claimBadgeReward(badgeId) {
+    const badge = BADGES.find(b => b.id === badgeId)
+    if (!badge || claimedBadges.includes(badgeId)) return
+
+    const xpReward = getBadgeXP(badge)
+
+    // Play celebration audio
+    audioEngine.playMp3('/compliment-shine.mp3', 0.9)
+
+    // Update player profile: add XP and mark badge as claimed
+    upd({
+      players: st.players.map(p =>
+        p.id === player.id
+          ? {
+              ...p,
+              claimedBadges: [...claimedBadges, badgeId],
+            }
+          : p
+      ),
+    })
+
+    // Log XP reward to technique store
+    useAppStore.getState().logTechniqueShots(player.id, 0, xpReward)
+
+    setClaimingBadgeId(null)
+  }
+
+  // Modal for claiming badge reward
+  const claimingBadge = claimingBadgeId ? BADGES.find(b => b.id === claimingBadgeId) : null
+  const xpValue = claimingBadge ? getBadgeXP(claimingBadge) : 0
 
   return (
     <div style={{ padding: '14px 16px 80px' }}>
+      {/* CSS animation keyframes for wiggle */}
+      <style>{`
+        @keyframes badge-wiggle {
+          0%, 100% { transform: translateX(0) rotate(0deg); }
+          25% { transform: translateX(-3px) rotate(-2deg); }
+          75% { transform: translateX(3px) rotate(2deg); }
+        }
+        .badge-unclaimed {
+          animation: badge-wiggle 0.5s ease-in-out infinite;
+          filter: brightness(1.15);
+        }
+      `}</style>
+
       {showTierKey && <TierKeyPopup onClose={() => setShowTierKey(false)} />}
+
+      {/* Claim Reward Modal */}
+      {claimingBadge && (
+        <div
+          onClick={() => setClaimingBadgeId(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 500,
+            background: 'rgba(0,0,0,0.75)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '20px',
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'linear-gradient(135deg,#1a0050,#3f0066)',
+              border: '3px solid #a855f7',
+              borderRadius: 20,
+              padding: '30px 24px',
+              textAlign: 'center',
+              maxWidth: 300,
+              width: '100%',
+              boxShadow: '0 0 60px #a855f744, 0 20px 60px rgba(0,0,0,0.8)',
+              position: 'relative',
+            }}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setClaimingBadgeId(null)}
+              style={{
+                position: 'absolute', top: 12, right: 12,
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: '#a855f7',
+                padding: 0,
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            {/* Badge icon */}
+            <div style={{ fontSize: 60, marginBottom: 16 }}>{claimingBadge.icon}</div>
+
+            {/* Badge name */}
+            <div style={{
+              fontFamily: "'Bangers',sans-serif", fontSize: 22,
+              color: '#d8b4fe', letterSpacing: '0.08em',
+              marginBottom: 8,
+            }}>
+              {claimingBadge.name}
+            </div>
+
+            {/* Description */}
+            <div style={{
+              fontFamily: "'Barlow',sans-serif", fontSize: 12,
+              color: '#cbd5e1', marginBottom: 20,
+              lineHeight: 1.5,
+            }}>
+              {claimingBadge.desc}
+            </div>
+
+            {/* XP Reward pill */}
+            <div style={{
+              background: 'rgba(168, 85, 247, 0.15)',
+              border: '2px solid #a855f7',
+              borderRadius: 16,
+              padding: '12px 20px',
+              marginBottom: 20,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}>
+              <span style={{ fontSize: 24 }}>⚡</span>
+              <div>
+                <div style={{
+                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
+                  fontWeight: 700, color: '#a78bfa', letterSpacing: '0.08em',
+                }}>
+                  XP REWARD
+                </div>
+                <div style={{
+                  fontFamily: "'Bangers',sans-serif", fontSize: 20,
+                  color: '#e9d5ff', lineHeight: 1,
+                }}>
+                  +{xpValue}
+                </div>
+              </div>
+            </div>
+
+            {/* Claim button */}
+            <button
+              onClick={() => claimBadgeReward(claimingBadge.id)}
+              style={{
+                width: '100%',
+                background: 'linear-gradient(135deg,#7c3aed,#a855f7)',
+                border: '2px solid #c084fc',
+                borderRadius: 14,
+                padding: '12px 16px',
+                fontFamily: "'Bangers',sans-serif", fontSize: 18,
+                letterSpacing: '0.1em', color: '#fff',
+                cursor: 'pointer',
+                boxShadow: '0 4px 0 #5b21b6, 0 0 20px #a855f755',
+                textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                transition: 'transform 0.1s',
+              }}
+              onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
+              onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+            >
+              ✨ CLAIM REWARD
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Earned count + tier key */}
       <div style={{ background: 'var(--card-bg)', borderRadius: 12, padding: '14px 16px', border: 'var(--card-border)', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -140,14 +300,44 @@ export default function BadgeGrid({ newBadgeIds, onBadgeClick }) {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 20, justifyItems: 'center' }}>
                 {catBadges.map(b => {
                   const e = player.earnedBadges?.[b.id]
+                  const isUnclaimed = e && !claimedBadges.includes(b.id)
                   return (
-                    <BadgeCircle
-                      key={b.id} badge={b}
-                      earned={!!e} earnedDate={e?.ts}
-                      isNew={!!newBadgeIds[b.id]}
-                      size={84}
-                      onClick={onBadgeClick}
-                    />
+                    <div
+                      key={b.id}
+                      className={isUnclaimed ? 'badge-unclaimed' : ''}
+                      onClick={() => {
+                        if (isUnclaimed) {
+                          setClaimingBadgeId(b.id)
+                        } else {
+                          onBadgeClick?.(b, !!e)
+                        }
+                      }}
+                      style={{ cursor: isUnclaimed ? 'pointer' : 'default', position: 'relative' }}
+                    >
+                      <BadgeCircle
+                        badge={b}
+                        earned={!!e} earnedDate={e?.ts}
+                        isNew={!!newBadgeIds[b.id]}
+                        size={84}
+                        onClick={() => {
+                          if (!isUnclaimed) {
+                            onBadgeClick?.(b, !!e)
+                          }
+                        }}
+                      />
+                      {isUnclaimed && (
+                        <div style={{
+                          position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
+                          background: '#f59e0b', color: '#000',
+                          padding: '2px 8px', borderRadius: 12,
+                          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, fontWeight: 800,
+                          letterSpacing: '0.08em', whiteSpace: 'nowrap',
+                          zIndex: 10, boxShadow: '0 2px 8px rgba(245,158,11,0.4)',
+                        }}>
+                          UNCLAIMED
+                        </div>
+                      )}
+                    </div>
                   )
                 })}
               </div>
@@ -173,14 +363,44 @@ export default function BadgeGrid({ newBadgeIds, onBadgeClick }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, justifyItems: 'center' }}>
               {catBadges.map(b => {
                 const e = player.earnedBadges?.[b.id]
+                const isUnclaimed = e && !claimedBadges.includes(b.id)
                 return (
-                  <BadgeCircle
-                    key={b.id} badge={b}
-                    earned={!!e} earnedDate={e?.ts}
-                    isNew={!!newBadgeIds[b.id]}
-                    size={68}
-                    onClick={onBadgeClick}
-                  />
+                  <div
+                    key={b.id}
+                    className={isUnclaimed ? 'badge-unclaimed' : ''}
+                    onClick={() => {
+                      if (isUnclaimed) {
+                        setClaimingBadgeId(b.id)
+                      } else {
+                        onBadgeClick?.(b, !!e)
+                      }
+                    }}
+                    style={{ cursor: isUnclaimed ? 'pointer' : 'default', position: 'relative' }}
+                  >
+                    <BadgeCircle
+                      badge={b}
+                      earned={!!e} earnedDate={e?.ts}
+                      isNew={!!newBadgeIds[b.id]}
+                      size={68}
+                      onClick={() => {
+                        if (!isUnclaimed) {
+                          onBadgeClick?.(b, !!e)
+                        }
+                      }}
+                    />
+                    {isUnclaimed && (
+                      <div style={{
+                        position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
+                        background: '#a855f7', color: '#fff',
+                        padding: '2px 8px', borderRadius: 12,
+                        fontFamily: "'Barlow Condensed',sans-serif", fontSize: 8, fontWeight: 800,
+                        letterSpacing: '0.08em', whiteSpace: 'nowrap',
+                        zIndex: 10, boxShadow: '0 2px 8px rgba(168,85,247,0.4)',
+                      }}>
+                        UNCLAIMED
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
