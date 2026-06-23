@@ -1,5 +1,5 @@
 import { db } from '../firebase.js'
-import { doc, getDoc, getDocFromServer, setDoc, deleteDoc, collection, getDocs, query, where, runTransaction } from 'firebase/firestore'
+import { doc, getDoc, getDocFromServer, getDocsFromServer, setDoc, deleteDoc, collection, getDocs, query, where, runTransaction } from 'firebase/firestore'
 
 // Single fixed team — one doc for team-level data, subcollection for sessions.
 // Structure:
@@ -23,8 +23,8 @@ const syncedSessionIds = new Set()
 export async function loadFromFirestore() {
   try {
     const [teamSnap, sessionSnaps] = await Promise.all([
-      getDocFromServer(teamDoc()),   // always bypass cache — ensures fresh ELO/ranks on login
-      getDocs(sessionsCol()),
+      getDocFromServer(teamDoc()),      // always bypass cache — ensures fresh ELO/ranks on login
+      getDocsFromServer(sessionsCol()), // always bypass cache — ensures sessions have non-empty sets[] on login
     ])
 
     if (!teamSnap.exists()) return null

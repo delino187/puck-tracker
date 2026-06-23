@@ -37,9 +37,9 @@ export default function GoalHeatmap() {
   const weak = ZONES.reduce((w, z) =>
     stats.zoneStats[z.id]?.shots > 0 && (!w || stats.zoneStats[z.id].acc < stats.zoneStats[w.id].acc) ? z : w, null)
 
-  // Show a friendly placeholder instead of an empty white screen when no
-  // Target Practice sessions have been saved for this player yet.
-  if (pss.length === 0 && stats.totalShots === 0) {
+  // Show a friendly placeholder only when player has logged zero sessions ever.
+  // Sessions with empty sets still display with 0 accuracy as a data point.
+  if (pss.length === 0) {
     return (
       <div style={{ padding: '14px 16px 80px' }}>
         <div style={{
@@ -141,8 +141,8 @@ export default function GoalHeatmap() {
         </div>
       )}
 
-      {/* Shot history bar chart */}
-      {hist.length > 1 && (
+      {/* Shot history bar chart — render even single day so yesterday's accuracy shows */}
+      {hist.length >= 1 && (
         <div style={C.card}>
           <div style={C.label}>Shot History</div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 72, marginBottom: 4 }}>
