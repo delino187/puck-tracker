@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { AlertCircle, Plus, Lock } from 'lucide-react'
 
-import { loadSt, saveSt, DEFAULT_STATE } from './utils/storage.js'
+import { saveSt } from './utils/storage.js'
 import { saveToFirestore, deletePlayerData, forceSessionSync } from './utils/firestoreSync.js'
 import { audioEngine } from './services/audioEngine.js'
 import { sendRageBait, subscribeToRageBaits, dismissRageBait, sendCompliment, subscribeToCompliments, dismissNotification } from './services/rageBaitService.js'
@@ -52,7 +52,8 @@ import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
 import { getGameAction } from './services/puckGameService.js'
 import { markChallengesAsSeen, claimChallengeWinReward, fetchFreshTeamPlayers } from './services/peerChallengeService.js'
-import { subscribeToTeam, subscribeToChallenges, subscribeToPuckGames } from './services/realtimeSync.js'
+import { subscribeToChallenges, subscribeToPuckGames } from './services/realtimeSync.js'
+import { usePlayer, ACTIVE_PLAYER_KEY } from './context/PlayerContext.jsx'
 
 import { C, APP_BG } from './styles.js'
 
@@ -61,9 +62,11 @@ const VERSUS_WIN_DIAMONDS = 10
 const VERSUS_WIN_XP       = 20
 
 export default function App() {
-  const [st,          setSt]         = useState(null)
-  const [loading,     setLoading]    = useState(true)
-  const lastSaveRef                  = useRef(0)
+  // ── Player state from context (boot, Firestore sync, active player) ───────
+  const { st, setSt, upd, loading, activePlayer, coachAwardToast, setCoachAwardToast, lastSaveRef } = usePlayer()
+  const aPlayer = activePlayer
+
+  // ── UI-only state (lives here, not in the player provider) ────────────────
   const [tab,         setTab]        = useState('dashboard')
   const [sesGoal,     setSesGoal]    = useState(10)
   const [badgePreview,setBadgePreview] = useState(null)
@@ -106,7 +109,6 @@ export default function App() {
   const [complimentReceived, setComplimentReceived] = useState(null)
 
   const [undoSnapshot,    setUndoSnapshot]    = useState(null)
-  const [coachAwardToast, setCoachAwardToast] = useState(null)
   const [victoryReward,   setVictoryReward]   = useState(null)
   const [tieReward,       setTieReward]       = useState(null)
   const [defeatState,     setDefeatState]     = useState(null)
@@ -118,24 +120,8 @@ export default function App() {
   const weakConnTimerRef        = useRef(null)
   const rageBaitUnsubRef        = useRef(null)
   const complimentUnsubRef      = useRef(null)
-  const teamUnsubRef            = useRef(null)
-  // Set to true INSIDE the setSt() functional update when the snapshot changes st.
-  // Consumed (reset to false) by the [st] save-effect so that exactly the one st
-  // change caused by the snapshot is skipped — without any setTimeout race condition.
-  const stFromSnapshotRef       = useRef(false)
-  // Timestamp of the last received snapshot; prevents saveSt from firing within
-  // 2 s of a snapshot even if stFromSnapshotRef was already consumed (e.g. by a
-  // rapid second snapshot that didn't change st but reset the flag).
-  const lastSnapshotTimeRef     = useRef(0)
-  // Rate-limit counters: if more than 5 snapshots arrive within 1 s, short-circuit
-  // and log a warning before React's update depth limit is hit.
-  const snapshotCountRef        = useRef(0)
-  const snapshotWindowRef       = useRef(0)
   const challengesUnsubRef      = useRef(null)
   const puckGamesUnsubRef       = useRef(null)
-  const lastPlayersRef          = useRef(null)   // null = listener baseline not yet set
-  const activePlayerIdRef       = useRef(null)
-  const coachAwardToastTimerRef = useRef(null)
   const lastChallengeLiRef      = useRef(null)   // null = baseline not yet set
   // ── Versus win/defeat detection ───────────────────────────────────────────
   // seenVictoryIds: in-session Set preventing double-fire on the winner side.
@@ -152,256 +138,6 @@ export default function App() {
   const techniqueByPlayer = useAppStore(useShallow(s => s.techniqueByPlayer))
   const play         = useAudio()
   const { theme, toggleOutsideMode } = useTheme()
-
-  const ACTIVE_PLAYER_KEY = 'puck_activePlayer'
-
-  // ── Boot: Firestore → localStorage fallback ───────────────────────────────
-  useEffect(() => {
-    loadSt().then(saved => {
-      const base = saved || { ...DEFAULT_STATE }
-      // Auto-login: if a player ID was saved on last login, route straight to
-      // their dashboard without forcing them through the selection screen.
-      const savedId = localStorage.getItem(ACTIVE_PLAYER_KEY)
-      if (savedId && base.players?.find(p => p.id === savedId)) {
-        setSt({ ...base, view: 'player', activePlayerId: savedId, activeSessionId: null })
-      } else {
-        setSt({ ...base, view: 'home' })
-      }
-      setLoading(false)
-    })
-  }, []) // eslint-disable-line
-
-  // ── Persist: localStorage + Firestore on every state change ───────────────
-  useEffect(() => {
-    if (!st) return
-    // Boot-failure safeguard: if both Firestore and localStorage failed to load,
-    // DEFAULT_STATE has players:[] — writing that to Firestore would wipe everyone.
-    // Only skip if players is empty AND we have no activePlayerId (true blank state).
-    if (st.players.length === 0 && !st.activePlayerId) return
-
-    // ── Echo guard (precise, race-condition-free) ──────────────────────────
-    // stFromSnapshotRef is set INSIDE the setSt() functional update when the
-    // snapshot directly caused this st change. Consuming it here (flip to false)
-    // means exactly that one save is skipped; the NEXT st change (from a real
-    // user action) will always reach saveSt regardless of snapshot timing.
-    if (stFromSnapshotRef.current) {
-      stFromSnapshotRef.current = false
-      return
-    }
-
-    // ── Post-snapshot debounce ─────────────────────────────────────────────
-    // If a snapshot arrived less than 2 s ago, delay the Firestore write to
-    // prevent a rapid snapshot → saveSt → snapshot echo cycle even in cases
-    // where stFromSnapshotRef was already consumed by a prior effect run.
-    if (Date.now() - lastSnapshotTimeRef.current < 2000) return
-
-    saveSt(st)
-    lastSaveRef.current = Date.now()
-  }, [st])
-
-  // ── Real-time team document listener ─────────────────────────────────────
-  // Keeps player data (diamonds, ELO, coachMsg, etc.) in sync across devices.
-  // Loop guard: setSt returns `prev` unchanged when incoming players match
-  // local state, preventing re-render → saveSt → Firestore echo cycles.
-  useEffect(() => {
-    const unsub = subscribeToTeam(teamData => {
-      // ── Snapshot rate-limiter ──────────────────────────────────────────────
-      // If more than 5 snapshots arrive within any 1-second window, we are in a
-      // loop. Short-circuit immediately and log the offending key so it can be
-      // diagnosed without React throwing Error #185.
-      const _now = Date.now()
-      if (_now - snapshotWindowRef.current > 1000) {
-        snapshotCountRef.current = 0
-        snapshotWindowRef.current = _now
-      }
-      snapshotCountRef.current += 1
-      if (snapshotCountRef.current > 5) {
-        console.warn(
-          `[realtimeSync] Rate limit: ${snapshotCountRef.current} snapshots in 1 s — ` +
-          `skipping to prevent infinite loop. Check techniqueByPlayer or players write cycle.`
-        )
-        return
-      }
-
-      // Track snapshot arrival time for the post-snapshot save debounce in [st] effect.
-      lastSnapshotTimeRef.current = _now
-
-      const incoming = teamData.players || []
-
-      // ── Diagnostic: log what Firestore is delivering ──────────────────────
-      // Helps trace puck/XP/streak discrepancies without a full devtools session.
-      const activeId = activePlayerIdRef.current
-      if (activeId) {
-        const snap = incoming.find(p => p.id === activeId)
-        if (snap) {
-          console.log(
-            '[realtimeSync] team snapshot for active player:',
-            snap.name,
-            '| streakCount:', snap.streakCount ?? 'unset',
-            '| lastActivity:', snap.lastActivity
-              ? new Date(snap.lastActivity).toLocaleString()
-              : 'unset',
-            '| diamonds:', snap.diamonds ?? 0,
-            '| elo:', snap.elo ?? 'unset',
-          )
-        }
-      }
-
-      // Diamond-increase toast: compare against the previous snapshot baseline.
-      // Skip the very first fire (baseline = null) to avoid false toasts on login.
-      if (lastPlayersRef.current !== null) {
-        if (activeId) {
-          const prev = lastPlayersRef.current.find(p => p.id === activeId)
-          const next = incoming.find(p => p.id === activeId)
-          if (prev && next) {
-            const gained = (next.diamonds || 0) - (prev.diamonds || 0)
-            if (gained > 0) {
-              clearTimeout(coachAwardToastTimerRef.current)
-              setCoachAwardToast({ amount: gained, playerName: next.name })
-              coachAwardToastTimerRef.current = setTimeout(() => setCoachAwardToast(null), 5000)
-              audioEngine.playUtilitySuccess()
-            }
-          }
-        }
-      }
-      lastPlayersRef.current = incoming
-
-      setSt(prev => {
-        if (!prev) return prev
-        const prevPlayers = prev.players || []
-
-        // Normalize helper: treat null and undefined as equal for field comparison
-        // so Firestore null round-trips don't create spurious hasChanges = true.
-        const eq = (a, b) => (a ?? null) === (b ?? null)
-
-        // Only merge when something actually changed — avoids re-rendering on
-        // our own write echoing back from Firestore.
-        // streakCount / lastActivity MUST be included here: updateStreak() writes
-        // these fields directly to Firestore (bypassing local state).
-        const hasChanges =
-          incoming.length !== prevPlayers.length ||
-          incoming.some(ip => {
-            const lp = prevPlayers.find(p => p.id === ip.id)
-            if (!lp) return true
-            return (
-              !eq(ip.diamonds,       lp.diamonds)       ||
-              !eq(ip.elo,            lp.elo)            ||
-              !eq(ip.coachMsg,       lp.coachMsg)       ||
-              !eq(ip.eloLastUpdated, lp.eloLastUpdated) ||
-              !eq(ip.totalWins,      lp.totalWins)      ||
-              !eq(ip.hasEloShield,   lp.hasEloShield)   ||
-              !eq(ip.streakCount,    lp.streakCount)    ||
-              !eq(ip.lastActivity,   lp.lastActivity)
-            )
-          })
-
-        if (!hasChanges) return prev
-
-        // Mark that this specific st change was caused by a snapshot so the
-        // [st] save-effect can skip the Firestore echo write precisely.
-        stFromSnapshotRef.current = true
-
-        return {
-          ...prev,
-          players: incoming.map(ip => {
-            const lp = prevPlayers.find(p => p.id === ip.id)
-            if (!lp) return ip
-            return {
-              ...ip,
-              // Keep whichever diamond total is higher so a local claim mid-session
-              // is never clobbered by a slightly-stale snapshot from Firestore.
-              diamonds:    Math.max(ip.diamonds    || 0, lp.diamonds    || 0),
-              // Keep whichever streakCount is higher so a just-awarded streak from
-              // updateStreak() isn't lost if a concurrent local write races it.
-              streakCount: Math.max(ip.streakCount || 0, lp.streakCount || 0),
-            }
-          }),
-        }
-      })
-
-      // ── Sync techniqueByPlayer from server into Zustand ───────────────────
-      const serverTech = teamData.techniqueByPlayer
-      if (serverTech && Object.keys(serverTech).length > 0) {
-        const current    = useAppStore.getState().techniqueByPlayer || {}
-        const localTech  = current
-        let hasNewData   = false
-        const mergedTech = { ...localTech }
-
-        for (const [pid, srv] of Object.entries(serverTech)) {
-          const local = localTech[pid] || { totalPucks: 0, bonusXP: 0 }
-          const mergedTotalPucks = Math.max(local.totalPucks ?? 0, srv.totalPucks ?? 0)
-          const mergedBonusXP    = Math.max(local.bonusXP    ?? 0, srv.bonusXP    ?? 0)
-
-          // Merge dailyLogs — max count per date so weekly totals survive
-          // cross-device scenarios and fresh loads where local dailyLog is empty
-          const srvLog   = srv.dailyLog   || {}
-          const localLog = local.dailyLog || {}
-          const allDates = new Set([...Object.keys(srvLog), ...Object.keys(localLog)])
-          const mergedLog = {}
-          let logChanged = false
-          for (const date of allDates) {
-            const best = Math.max(srvLog[date] || 0, localLog[date] || 0)
-            mergedLog[date] = best
-            if ((localLog[date] || 0) !== best) logChanged = true
-          }
-
-          if (mergedTotalPucks !== (local.totalPucks ?? 0) || mergedBonusXP !== (local.bonusXP ?? 0) || logChanged) {
-            hasNewData = true
-            mergedTech[pid] = {
-              ...local,
-              dailyLog:   mergedLog,
-              totalPucks: mergedTotalPucks,
-              bonusXP:    mergedBonusXP,
-            }
-          }
-        }
-
-        if (hasNewData) {
-          useAppStore.setState({ techniqueByPlayer: mergedTech })
-        }
-      }
-    })
-
-    teamUnsubRef.current = unsub
-    return () => { unsub(); teamUnsubRef.current = null }
-  }, []) // eslint-disable-line
-
-  // ── Re-sync on app focus / tab visibility restore ─────────────────────────
-  useEffect(() => {
-    const lastSync = { ts: 0 }
-    function handleFocus() {
-      const now = Date.now()
-      if (now - lastSync.ts < 5000) return          // debounce repeated fires
-      if (now - lastSaveRef.current < 15000) return // we just wrote; Firestore may not have it yet
-      lastSync.ts = now
-      loadSt().then(fresh => {
-        if (!fresh) return
-        setSt(prev => ({
-          ...fresh,
-          // Preserve in-progress navigation — don't bounce a live session
-          view:            prev?.view            ?? fresh.view,
-          activePlayerId:  prev?.activePlayerId  ?? fresh.activePlayerId,
-          activeSessionId: prev?.activeSessionId ?? fresh.activeSessionId,
-          // Per-player: keep whichever diamond total is higher so a recent
-          // claim never gets clobbered by a stale cloud snapshot
-          players: (fresh.players || []).map(fp => {
-            const lp = prev?.players?.find(p => p.id === fp.id)
-            if (!lp) return fp
-            return { ...fp, diamonds: Math.max(fp.diamonds || 0, lp.diamonds || 0) }
-          }),
-        }))
-      })
-    }
-    function onVisibilityChange() {
-      if (document.visibilityState === 'visible') handleFocus()
-    }
-    document.addEventListener('visibilitychange', onVisibilityChange)
-    window.addEventListener('focus', handleFocus)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, []) // eslint-disable-line
 
   // ── Real-time peer challenges + PUCK games ───────────────────────────────
   // Subscriptions re-attach whenever the active player changes.  The cleanup
@@ -512,12 +248,9 @@ export default function App() {
   // repeatedly.  The retroactiveCheckDoneRef prevents re-firing on every puckGames
   // snapshot update after the first pass.
   //
-  // IMPORTANT: Do NOT close over `aPlayer` here.  This effect is registered BEFORE
-  // the `if (loading || !st) return` guard at line ~700, so on the first render
-  // (when st is null) `const aPlayer` is never reached — its binding stays in the
-  // TDZ.  Any access inside the callback would throw "Cannot access 'aPlayer' before
-  // initialization".  Instead, derive the player fresh from `st` inside the callback
-  // where we can verify st is defined.
+  // IMPORTANT: Do NOT close over `aPlayer` here.  This effect runs before the
+  // `if (loading || !st) return` guard, so on the first render (when st is null)
+  // `aPlayer` would be null.  Derive the player fresh from `st` inside the callback.
   const retroactiveHorseRef = useRef(null)
   useEffect(() => {
     if (!st?.activePlayerId || !st?.players) return  // st not yet loaded
@@ -790,10 +523,6 @@ export default function App() {
     setStreakBrokenData(null)
   }
 
-  const upd = patch => setSt(prev => ({ ...prev, ...patch }))
-  // Keep ref current so the team onSnapshot closure always reads the latest value
-  activePlayerIdRef.current = st?.activePlayerId ?? null
-
   // Mark a rookie quest complete, award diamonds, fire toast, check for graduate badge
   // Maps each rookie quest key to its milestone badge ID
   const ROOKIE_BADGE_MAP = {
@@ -933,8 +662,7 @@ export default function App() {
     )
   }
 
-  const aPlayer = st.players.find(p => p.id === st.activePlayerId)
-  const aSess   = st.sessions.find(s => s.id === st.activeSessionId)
+  const aSess = st.sessions.find(s => s.id === st.activeSessionId)
 
   // ── Badge queue helpers ───────────────────────────────────────────────────
   function stopEpicAudio() {
@@ -1411,7 +1139,6 @@ export default function App() {
 
   // ── Public player self-registration ─────────────────────────────────────────
   if (st.view === 'playerSignup') {
-    const [signupErr, setSignupErr] = [null, () => {}] // static — error shown inline
     return (
       <>
         <GlobalStyles />
@@ -1624,7 +1351,7 @@ export default function App() {
         {/* ── Diamond reward toast — fires when remote Firestore diamond delta is detected ── */}
         {coachAwardToast && (
           <div
-            onClick={() => { clearTimeout(coachAwardToastTimerRef.current); setCoachAwardToast(null) }}
+            onClick={() => { setCoachAwardToast(null) }}
             style={{
               position: 'fixed', top: 72, left: '50%', transform: 'translateX(-50%)',
               zIndex: 9000, cursor: 'pointer',
