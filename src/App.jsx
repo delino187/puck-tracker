@@ -135,12 +135,11 @@ export default function App() {
   const activePlayerIdRef       = useRef(null)
   const coachAwardToastTimerRef = useRef(null)
   const lastChallengeLiRef      = useRef(null)   // null = baseline not yet set
-  // ── Versus win detection refs ─────────────────────────────────────────────
-  // prevChallengesRef: previous snapshot used to diff for newly-completed wins.
-  //   null = first snapshot not yet received (skip to avoid false-positives on load)
-  // seenVictoryIds: Set of challenge IDs already queued for the victory modal
-  //   (prevents double-show when both handlePeerChallengeSubmit and the effect fire)
-  const prevChallengesRef = useRef(null)
+  // ── Versus win detection ──────────────────────────────────────────────────
+  // seenVictoryIds: in-session Set of challenge IDs already processed this session.
+  //   Prevents rapid snapshot re-fires from calling claimChallengeWinReward twice.
+  //   Reset on player switch.  The Firestore field winnerRewardsClaimed is the
+  //   persistent cross-session guard; seenVictoryIds is just a session-level lock.
   const seenVictoryIds    = useRef(new Set())
 
   // Reactive read of the technique/challenge XP pool.  Drives XP bar + level display.
@@ -561,76 +560,95 @@ export default function App() {
   // diffs consecutive snapshots, detects newly-completed wins, and queues the
   // VersusVictoryModal exactly once per challenge.
   useEffect(() => {
-    // Reset snapshot baseline and seen set when the active player switches
-    prevChallengesRef.current = null
-    seenVictoryIds.current    = new Set()
+    // Reset the in-session claim-lock set when the player switches accounts
+    seenVictoryIds.current = new Set()
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!st?.activePlayerId || !st?.players) return
     const activeId = st.activePlayerId
 
-    // First snapshot: record baseline only — don't show victory for old completions
-    if (prevChallengesRef.current === null) {
-      prevChallengesRef.current = peerChallenges
-      return
-    }
-
-    const prev = prevChallengesRef.current
-    prevChallengesRef.current = peerChallenges
-
+    // ── Exploit-proof win detection ───────────────────────────────────────────
+    // Previous approach relied on snapshot diffs (cached vs server) to detect
+    // "newly completed" challenges.  This failed when the cached snapshot was
+    // empty (first login / cleared cache / new device), making every login look
+    // like a fresh win.
+    //
+    // New approach: the Firestore field `winnerRewardsClaimed` is the ONLY
+    // truth.  We write it atomically BEFORE applying rewards or showing the UI.
+    // Order of operations:
+    //   1. Find a completed win where the flag is NOT yet set
+    //   2. Optimistically add to seenVictoryIds (prevents retry this session)
+    //   3. Call claimChallengeWinReward() — Firestore transaction atomically
+    //      sets winnerRewardsClaimed:true (returns false if already set)
+    //   4. Only if granted: apply rewards to local state, then show the modal
+    //
+    // This is exploit-proof because:
+    //   • The flag write happens before any UI is shown
+    //   • Subsequent logins see winnerRewardsClaimed:true and skip entirely
+    //   • Even if the modal is dismissed without "claiming", rewards are already
+    //     applied and the flag is already written
     for (const challenge of peerChallenges) {
-      if (challenge.status !== 'completed')          continue
-      if (challenge.winnerId !== activeId)            continue
-      if (seenVictoryIds.current.has(challenge.id))  continue
-      // Server-side idempotency guard: if rewards were already claimed on a
-      // previous session or device, never re-show the victory modal.
-      if (challenge.winnerRewardsClaimed)            continue
+      if (challenge.status !== 'completed')         continue
+      if (challenge.winnerId !== activeId)           continue
+      if (challenge.winnerRewardsClaimed)            continue  // Firestore flag: already done
+      if (seenVictoryIds.current.has(challenge.id)) continue  // in-session lock
 
-      // Only fire for transitions: the same challenge was NOT completed before
-      const prevVersion = prev.find(p => p.id === challenge.id)
-      if (prevVersion?.status === 'completed')       continue
-
+      // Optimistic lock — prevents rapid snapshot re-fires from double-claiming
       seenVictoryIds.current.add(challenge.id)
 
       const opponentId = challenge.challengerId === activeId
         ? challenge.receiverId
         : challenge.challengerId
 
-      setVictoryReward({
-        type:        'versus',
-        diamonds:    VERSUS_WIN_DIAMONDS,
-        xp:          VERSUS_WIN_XP,
-        opponentId,
-        challengeId: challenge.id,   // threaded so onClaim can write the flag
+      // Capture stable references before the async boundary
+      const cid       = challenge.id
+      const pid       = activeId
+      const pl        = st.players.find(p => p.id === activeId)
+      const today     = new Date().toDateString()
+
+      // Atomically write to Firestore FIRST — if this returns false, rewards
+      // were already claimed on another device or session; skip everything.
+      claimChallengeWinReward(cid).then(granted => {
+        if (!granted) return
+
+        // Apply rewards to local state immediately after the flag is written
+        setSt(prev => ({
+          ...prev,
+          players: prev.players.map(p =>
+            p.id !== pid ? p : { ...p, diamonds: (p.diamonds || 0) + VERSUS_WIN_DIAMONDS }
+          ),
+        }))
+        useAppStore.getState().logTechniqueShots(pid, 0, VERSUS_WIN_XP)
+
+        // Mark "Win 1 Versus Quick Match Today" quest complete
+        if (pl?.last_quest_spin === today) {
+          setSt(prev => {
+            const player = prev.players.find(p => p.id === prev.activePlayerId)
+            if (!player) return prev
+            const qi = (player.daily_quests || []).findIndex(
+              q => /win.*versus/i.test(q.text) && !q.completed && !q.claimed
+            )
+            if (qi < 0) return prev
+            return {
+              ...prev,
+              players: prev.players.map(p =>
+                p.id !== prev.activePlayerId ? p : {
+                  ...p,
+                  daily_quests: p.daily_quests.map((q, i) =>
+                    i === qi ? { ...q, currentProgress: 1, targetProgress: 1, completed: true } : q
+                  ),
+                }
+              ),
+            }
+          })
+        }
+
+        // Show the modal — purely visual at this point, rewards already applied
+        setVictoryReward({ type: 'versus', diamonds: VERSUS_WIN_DIAMONDS, xp: VERSUS_WIN_XP, opponentId, challengeId: cid })
       })
 
-      // Mark "Win 1 Versus Quick Match Today" quest complete for this player
-      const pl = st.players.find(p => p.id === activeId)
-      const today = new Date().toDateString()
-      if (pl?.last_quest_spin === today) {
-        setSt(prev => {
-          const pid    = prev.activePlayerId
-          const player = prev.players.find(p => p.id === pid)
-          if (!player) return prev
-          const qi = (player.daily_quests || []).findIndex(
-            q => /win.*versus/i.test(q.text) && !q.completed && !q.claimed
-          )
-          if (qi < 0) return prev
-          return {
-            ...prev,
-            players: prev.players.map(p =>
-              p.id !== pid ? p : {
-                ...p,
-                daily_quests: p.daily_quests.map((q, i) =>
-                  i === qi ? { ...q, currentProgress: 1, targetProgress: 1, completed: true } : q
-                ),
-              }
-            ),
-          }
-        })
-      }
-      break  // one victory modal at a time; next win shows after this one dismisses
+      break  // process one at a time; next win shows after this modal dismisses
     }
   }, [peerChallenges, st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -907,13 +925,11 @@ export default function App() {
         : (challenge.receiverVideo   ?? null)
 
       if (challenge.winnerId === activeId) {
-        // Skip if rewards were already claimed (shouldn't happen here since this
-        // fires right after the match completes, but guard for correctness)
-        if (challenge.winnerRewardsClaimed) return
-        // Mark as seen BEFORE setting victoryReward so the snapshot useEffect
-        // (which fires simultaneously) doesn't double-queue the same modal.
+        // The snapshot useEffect handles win detection, Firestore flag write,
+        // reward application, and modal show atomically.  Mark as seen here so
+        // the effect doesn't double-queue if the snapshot arrives before the
+        // peerChallenges state update for this submit.
         seenVictoryIds.current.add(challenge.id)
-        setVictoryReward({ type: 'versus', diamonds: VERSUS_WIN_DIAMONDS, xp: VERSUS_WIN_XP, opponentId, challengeId: challenge.id })
         // Mark "Win 1 Versus Quick Match Today" quest complete
         const today = new Date().toDateString()
         if (aPlayer?.last_quest_spin === today) {
@@ -1573,33 +1589,14 @@ export default function App() {
           />
         )}
 
-        {/* ── Versus victory reward — appears after RespondToChallenge closes ── */}
+        {/* ── Versus victory reward — purely visual; rewards already applied and
+               winnerRewardsClaimed already written before this modal appeared ── */}
         {victoryReward && !challengeScreen && (
           <VersusVictoryModal
             reward={victoryReward}
-            onClaim={async () => {
-              const pid         = st.activePlayerId
-              const challengeId = victoryReward.challengeId
-
-              // Atomically write winnerRewardsClaimed before granting anything.
-              // If another session already claimed, skip the award silently.
-              if (challengeId) {
-                const granted = await claimChallengeWinReward(challengeId)
-                if (!granted) {
-                  setVictoryReward(null)
-                  setTab('dashboard')
-                  return
-                }
-              }
-
-              upd({
-                players: st.players.map(p =>
-                  p.id === pid
-                    ? { ...p, diamonds: (p.diamonds || 0) + victoryReward.diamonds }
-                    : p
-                ),
-              })
-              useAppStore.getState().logTechniqueShots(pid, 0, victoryReward.xp)
+            onClaim={() => {
+              // Rewards were applied and Firestore flag was written before this
+              // modal was shown.  Claim just closes and navigates home.
               setVictoryReward(null)
               setTab('dashboard')
             }}
