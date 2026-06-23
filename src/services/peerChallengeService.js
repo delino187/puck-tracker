@@ -311,6 +311,31 @@ export async function claimChallengeWinReward(challengeId) {
   return granted
 }
 
+// ── Claim loser consolation rewards (idempotent) ──────────────────────────────
+// Mirrors claimChallengeWinReward exactly but for the losing side.
+// Without this, a loser could refresh the page within the 30-minute defeat
+// window and collect the 1 💎 / 2 XP consolation on every page load — the
+// in-memory seenDefeatIds Set resets on every login so it provides zero
+// cross-session protection.
+export async function claimChallengeLoserReward(challengeId) {
+  const ref = doc(COL(), challengeId)
+  let granted = false
+
+  try {
+    await runTransaction(db, async tx => {
+      const snap = await tx.get(ref)
+      if (!snap.exists()) return
+      if (snap.data().loserRewardsClaimed) return   // already claimed on another device/session
+      tx.update(ref, { loserRewardsClaimed: true })
+      granted = true
+    })
+  } catch (err) {
+    console.error('[claimChallengeLoserReward] transaction failed:', err.message)
+  }
+
+  return granted
+}
+
 // ── Fresh ELO sync ────────────────────────────────────────────────────────────
 // Point-in-time read of the team doc's players array.  Used by the win/defeat
 // detection effects to bypass the snapshot rate-limiter and ensure the challenger

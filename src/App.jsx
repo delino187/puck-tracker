@@ -51,7 +51,7 @@ import VersusDefeatModal   from './components/overlays/VersusDefeatModal.jsx'
 import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
 import { getGameAction } from './services/puckGameService.js'
-import { markChallengesAsSeen, claimChallengeWinReward, fetchFreshTeamPlayers } from './services/peerChallengeService.js'
+import { markChallengesAsSeen, claimChallengeWinReward, claimChallengeLoserReward, fetchFreshTeamPlayers } from './services/peerChallengeService.js'
 import { subscribeToChallenges, subscribeToPuckGames } from './services/realtimeSync.js'
 import { usePlayer, ACTIVE_PLAYER_KEY } from './context/PlayerContext.jsx'
 import { useUI } from './context/UIContext.jsx'
@@ -455,15 +455,7 @@ export default function App() {
         ? (challenge.challengerVideo ?? null)
         : (challenge.receiverVideo   ?? null)
 
-      // Pre-apply consolation rewards before showing the modal
       const pid = activeId
-      setSt(prev => ({
-        ...prev,
-        players: prev.players.map(p =>
-          p.id === pid ? { ...p, diamonds: (p.diamonds || 0) + 1 } : p
-        ),
-      }))
-      useAppStore.getState().logTechniqueShots(pid, 0, 2)
 
       // Force-sync ELO from server so the challenger's leaderboard reflects
       // their reduced rating immediately rather than waiting for a snapshot that
@@ -486,12 +478,28 @@ export default function App() {
         }))
       }).catch(() => {})
 
+      // Show the defeat modal immediately — always, regardless of reward claim status.
       setDefeatState({
         type: 'versus', diamonds: 1, xp: 2,
         opponentId, opponentName,
         myHits: myHits ?? 0, opponentHits: opponentHits ?? 0,
         opponentVideoUrl: winnerVideoUrl,
       })
+
+      // Consolation rewards: atomic Firestore transaction prevents re-claiming on
+      // every login within the 30-minute window.  The seenDefeatIds Set only blocks
+      // same-session double-fires; loserRewardsClaimed is the cross-session lock.
+      claimChallengeLoserReward(challenge.id).then(granted => {
+        if (!granted) return
+        setSt(prev => ({
+          ...prev,
+          players: prev.players.map(p =>
+            p.id === pid ? { ...p, diamonds: (p.diamonds || 0) + 1 } : p
+          ),
+        }))
+        useAppStore.getState().logTechniqueShots(pid, 0, 2)
+      })
+
       break  // show one defeat at a time
     }
   }, [peerChallenges, st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -800,9 +808,7 @@ export default function App() {
       } else {
         // Mark seen so the defeat detection useEffect doesn't double-fire for the receiver
         seenDefeatIds.current.add(challenge.id)
-        // Pre-apply consolation rewards before showing the modal (mirrors victory flow)
-        upd({ players: st.players.map(p => p.id === activeId ? { ...p, diamonds: (p.diamonds || 0) + 1 } : p) })
-        useAppStore.getState().logTechniqueShots(activeId, 0, 2)
+        // Show the modal immediately — reward application is async and gated by Firestore
         setDefeatState({
           type: 'versus', diamonds: 1, xp: 2,
           opponentId,
@@ -810,6 +816,14 @@ export default function App() {
           myHits:       challenge.challengerId === activeId ? challenge.challengerHits : (challenge.receiverHits ?? 0),
           opponentHits: challenge.challengerId === activeId ? (challenge.receiverHits ?? 0) : challenge.challengerHits,
           opponentVideoUrl: winnerVideoUrl,
+        })
+        // Consolation rewards: atomic Firestore transaction prevents re-claiming on
+        // login/refresh.  seenDefeatIds only blocks same-session double-fires;
+        // loserRewardsClaimed is the persistent cross-session lock.
+        claimChallengeLoserReward(challenge.id).then(granted => {
+          if (!granted) return
+          upd({ players: st.players.map(p => p.id === activeId ? { ...p, diamonds: (p.diamonds || 0) + 1 } : p) })
+          useAppStore.getState().logTechniqueShots(activeId, 0, 2)
         })
       }
     }
