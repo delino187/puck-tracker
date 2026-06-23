@@ -389,6 +389,24 @@ function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
                 const clampedXP = Math.max(-curBonusXP, xAdj)
                 logTechniqueShots(p.id, 0, clampedXP)
                 adjustments.xp = clampedXP
+
+                // CRITICAL: Also update the player profile's stored xp in Firestore
+                // so the correction persists on next login (doesn't revert).
+                // Calculate the new total XP = session XP + corrected bonusXP
+                const sessionXP = (calcXP(playerStats(p, st.sessions).totalShots, playerStats(p, st.sessions).totalHits))
+                const newBonusXP = Math.max(0, curBonusXP + clampedXP)
+                const newTotalXP = sessionXP + newBonusXP
+                upd({
+                  players: st.players.map(x =>
+                    x.id === p.id
+                      ? {
+                          ...x,
+                          xp: newTotalXP,
+                          lastAdminAdjustmentTimestamp: Date.now(),  // Flag so login doesn't re-apply old matches
+                        }
+                      : x
+                  ),
+                })
               }
               if (eAdj) {
                 const newElo = Math.max(0, (p.elo || 1000) + eAdj)

@@ -596,6 +596,18 @@ export default function App() {
       if (challenge.winnerRewardsClaimed)            continue  // Firestore flag: already done
       if (seenVictoryIds.current.has(challenge.id)) continue  // in-session lock
 
+      // ADMIN CORRECTION SAFETY: If the winner had their stats corrected by an
+      // admin (e.g. XP deducted for exploit), skip any matches completed BEFORE
+      // that correction.  This prevents the victory reward loop from re-applying
+      // rewards that an admin explicitly rolled back.
+      const winner = st.players.find(p => p.id === activeId)
+      if (winner?.lastAdminAdjustmentTimestamp && challenge.respondedAt) {
+        if (challenge.respondedAt < winner.lastAdminAdjustmentTimestamp) {
+          console.log(`[Victory Loop] Skipping challenge ${challenge.id} — completed before admin correction at ${new Date(winner.lastAdminAdjustmentTimestamp).toISOString()}`)
+          continue
+        }
+      }
+
       // Optimistic lock — prevents rapid snapshot re-fires from double-claiming
       seenVictoryIds.current.add(challenge.id)
 
