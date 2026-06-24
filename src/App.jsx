@@ -1472,7 +1472,7 @@ export default function App() {
                 markRookieQuest('spinDaily')
                 setSt(prev => {
                   const id = prev.activePlayerId
-                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests } : p) }
+                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests || [] } : p) }
                 })
               }}
               onClaimQuest={(questIndex) => setSt(prev => {
@@ -1494,7 +1494,7 @@ export default function App() {
                 markRookieQuest('spinWeekly')
                 setSt(prev => {
                   const id = prev.activePlayerId
-                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, weekly_quests: newQuests, last_weekly_quest_pick: getWeekStart().toDateString() } : p) }
+                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, weekly_quests: newQuests || [], last_weekly_quest_pick: getWeekStart().toDateString() } : p) }
                 })
               }}
               onClaimWeeklyQuest={(questIndex, reward) => setSt(prev => {

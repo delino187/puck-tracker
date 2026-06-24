@@ -425,16 +425,16 @@ export default function DailyQuests({
   onClaimWeeklyQuest, onWeeklySpinComplete, onInitWeeklyQuests,
 }) {
   const { activePlayer: player, st } = usePlayer()
-  const sessions = st.sessions
+  const sessions = st?.sessions || []
   const [spinning,      setSpinning]      = useState(false)
-  const [currentQuests, setCurrentQuests] = useState(
-    player.daily_quests?.length ? player.daily_quests : []
-  )
+  const [currentQuests, setCurrentQuests] = useState(() => {
+    return (player?.daily_quests?.length) ? player.daily_quests : []
+  })
   const [shuffleTexts, setShuffleTexts] = useState(['','',''])
   const [burst,        setBurst]        = useState(null)
 
   // ── Weekly quest state ────────────────────────────────────────────────────
-  const [weeklyQuests,       setWeeklyQuests]       = useState(player.weekly_quests || [])
+  const [weeklyQuests,       setWeeklyQuests]       = useState(() => player?.weekly_quests || [])
   const [weeklyShuffleTexts, setWeeklyShuffleTexts] = useState(['', '', ''])
   const [slotSpinning,       setSlotSpinning]       = useState(false)
   const [slotLeverPulled,    setSlotLeverPulled]    = useState(false)
@@ -551,11 +551,12 @@ export default function DailyQuests({
       lockAudio.volume = 0.6
       lockAudio.play().catch(() => {})
 
-      setWeeklyQuests(picked)
+      const safeQuests = picked || []
+      setWeeklyQuests(safeQuests)
       setWeeklyShuffleTexts(['', '', ''])
       setSlotSpinning(false)
       // Persist to Firestore via parent — sets last_weekly_quest_pick to today
-      onInitWeeklyQuests?.(picked)
+      onInitWeeklyQuests?.(safeQuests)
     }, 2500)
   }
 
@@ -616,11 +617,11 @@ export default function DailyQuests({
       lockAudio.volume = 0.6
       lockAudio.play().catch(err => console.log('lock audio blocked:', err))
 
-      const picked = pickQuests(sessions)  // pass sessions so baseline is captured now
-      setCurrentQuests(picked)
+      const picked = pickQuests(sessions) || []  // pass sessions so baseline is captured now
+      setCurrentQuests(picked.length ? picked : [])
       setShuffleTexts(['', '', ''])
       setSpinning(false)
-      onSpinComplete?.(picked)
+      onSpinComplete?.(picked.length ? picked : [])
     }, 2000)
   }
 
@@ -650,9 +651,9 @@ export default function DailyQuests({
   const isNewDayWithStaleQuests = spinAvailable && currentQuests.length > 0
   const displayQuests = isNewDayWithStaleQuests
     ? newDayPlaceholders
-    : currentQuests.length
+    : (currentQuests || []).length
       ? currentQuests
-      : placeholders
+      : placeholders || []
 
   return (
     <div style={{ padding: '16px 16px 80px', position: 'relative' }}>
