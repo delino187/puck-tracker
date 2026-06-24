@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Volume2, CheckCircle } from 'lucide-react'
 import { audioEngine } from '../services/audioEngine.js'
 import PageHelpButton from './shared/PageHelpButton.jsx'
@@ -199,6 +199,9 @@ function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwn
 export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) {
   const { activePlayer: player, st, upd } = usePlayer()
   const { setRookieToast, rookieToastTimer } = useUI()
+  // Must be called before any conditional return — Rules of Hooks requires every
+  // hook to fire on every render in the same order, unconditionally.
+  const techBonusXP = useAppStore(s => s.techniqueByPlayer[player?.id]?.bonusXP ?? 0)
 
   // Safety guard: if player is missing, show loading state
   if (!player || !st) {
@@ -208,8 +211,6 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
       </div>
     )
   }
-
-  const techBonusXP = useAppStore(s => s.techniqueByPlayer[player?.id]?.bonusXP ?? 0)
   const stats = playerStats(player, st.sessions, techBonusXP)
   const totalDiamonds       = player.diamonds            || 0
   const hasEloShield        = player.hasEloShield        || false
@@ -231,6 +232,7 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
 
   const [showLowBalance,       setShowLowBalance]       = useState(false)
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false)
+  const previewAudioRef = useRef(null)
 
   // Plays the purchase chime then fires the purchase handler.
   // Locks for 1000 ms to prevent accidental double-billing.
@@ -791,7 +793,13 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
                       <button
                         onClick={() => {
                           try {
-                            new Audio(item.audioPath).play().catch(() => {})
+                            if (previewAudioRef.current) {
+                              previewAudioRef.current.pause()
+                              previewAudioRef.current.currentTime = 0
+                            }
+                            const a = new Audio(item.audioPath)
+                            previewAudioRef.current = a
+                            a.play().catch(() => {})
                           } catch {}
                         }}
                         title="Preview sound"
@@ -897,9 +905,9 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
                 </div>
               </div>
 
-              {equippedTaunt === 'standard' && (
+              {equippedTaunt === 'standard' && ownedItems.length > 0 && (
                 <button
-                  onClick={() => equipTaunt('sad_trombone')}
+                  onClick={() => equipTaunt(ownedItems[0])}
                   style={{
                     background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
                     border: '1px solid #1e40af',

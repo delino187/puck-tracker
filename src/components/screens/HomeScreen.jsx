@@ -168,6 +168,8 @@ export default function HomeScreen({ st, upd }) {
           }}
           onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
           onMouseUp={e => { e.currentTarget.style.transform = 'scale(1.05)' }}
+          onTouchStart={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
+          onTouchEnd={e => { e.currentTarget.style.transform = 'scale(1)' }}
         >
           New Player? Create a Profile 🏒
         </button>

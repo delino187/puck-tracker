@@ -23,7 +23,7 @@ import PageHelpButton    from './shared/PageHelpButton.jsx'
 
 export default function ShootTracker({
   session, sesGoal, setSesGoal,
-  onLogSet, onLogAll, onEndSession, onStart,
+  onLogSet, onLogAll, onEndSession, onStart, onCancelSession,
   flashZone, flashType, puckAnim,
   puckGames = [], onSubmitGame, onPuckGameUpdate,
   onConcedeGame, onPuckEloUpdate,
@@ -288,7 +288,7 @@ export default function ShootTracker({
           onClick={() => {
             if (window.confirm('Exit without saving? Your shots will be lost.')) {
               setZoneInputs({})
-              onStart?.()
+              onCancelSession?.()   // removes session from history; does NOT call startSession
               setSubMode(null)
             }
           }}

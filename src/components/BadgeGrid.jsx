@@ -15,35 +15,41 @@ export default function BadgeGrid({ newBadgeIds, onBadgeClick }) {
   const sessions = st.sessions
   const [showTierKey, setShowTierKey] = useState(false)
   const [claimingBadgeId, setClaimingBadgeId] = useState(null)
+  const [isClaiming, setIsClaiming] = useState(false)
   const earned = Object.keys(player.earnedBadges || {})
   const claimedBadges = player.claimedBadges || []
 
-  // Claim XP reward for unclaimed badge
+  // Claim XP reward for unclaimed badge.
+  // Uses a lock flag to prevent double-tap awarding XP twice before the
+  // first upd() re-render propagates the updated claimedBadges array.
   function claimBadgeReward(badgeId) {
+    if (isClaiming) return
     const badge = BADGES.find(b => b.id === badgeId)
     if (!badge || claimedBadges.includes(badgeId)) return
 
+    setIsClaiming(true)
     const xpReward = getBadgeXP(badge)
 
     // Play celebration audio
     audioEngine.playMp3('/compliment-shine.mp3', 0.9)
 
-    // Update player profile: add XP and mark badge as claimed
+    // Read fresh claimedBadges from the current player in st.players to avoid
+    // stale-closure races when two badges are claimed in quick succession.
     upd({
-      players: st.players.map(p =>
-        p.id === player.id
-          ? {
-              ...p,
-              claimedBadges: [...claimedBadges, badgeId],
-            }
-          : p
-      ),
+      players: st.players.map(p => {
+        if (p.id !== player.id) return p
+        const fresh = p.claimedBadges || []
+        if (fresh.includes(badgeId)) return p
+        return { ...p, claimedBadges: [...fresh, badgeId] }
+      }),
     })
 
     // Log XP reward to technique store
     useAppStore.getState().logTechniqueShots(player.id, 0, xpReward)
 
     setClaimingBadgeId(null)
+    // Release lock after one render cycle
+    setTimeout(() => setIsClaiming(false), 400)
   }
 
   // Modal for claiming badge reward
@@ -61,6 +67,7 @@ export default function BadgeGrid({ newBadgeIds, onBadgeClick }) {
         }
         .badge-unclaimed {
           animation: badge-wiggle 0.5s ease-in-out infinite;
+          will-change: transform;
           filter: brightness(1.15);
         }
       `}</style>

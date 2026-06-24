@@ -339,6 +339,7 @@ export default function Dashboard({ onStartSession, newBadgeIds, onBadgeClick, o
             navigator.share({
               title: 'Puck Tracker Invite',
               text: inviteMsg,
+              url: 'https://pucktrackerapp.com/signup',
             }).catch(err => console.log('[invite] Share cancelled or failed:', err))
           } else {
             const smsBody = encodeURIComponent(inviteMsg)
