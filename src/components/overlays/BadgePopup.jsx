@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { X, Lock } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { TIER } from '../../constants/badges.js'
@@ -6,6 +6,7 @@ import Particles from '../shared/Particles.jsx'
 
 export default function BadgePopup({ badge, earned, earnedDate, onClose }) {
   const tc      = TIER[badge.tier]
+  const [imgLoadFailed, setImgLoadFailed] = useState(false)
 
   useEffect(() => {
     if (!earned) return
@@ -61,17 +62,20 @@ export default function BadgePopup({ badge, earned, earnedDate, onClose }) {
                 : 'none',
               position: 'relative', opacity: earned ? 1 : 0.55,
             }}>
-              {badge.img ? (
+              {badge.img && !imgLoadFailed ? (
                 /* ── Photo asset ──────────────────────────────────────────── */
                 <img
                   src={badge.img}
                   alt={badge.name}
-                  className="rounded-full object-cover"
                   style={{
-                    width: '100%', height: '100%',
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    objectPosition: 'center',
                     transform: 'scale(1.08)',
                     filter: earned ? 'none' : 'grayscale(100%)',
                   }}
+                  onError={() => setImgLoadFailed(true)}
                 />
               ) : (
                 /* ── Lucide icon ──────────────────────────────────────────── */
