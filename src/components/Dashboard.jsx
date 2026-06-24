@@ -67,12 +67,19 @@ export default function Dashboard({ onStartSession, newBadgeIds, onBadgeClick, o
   const sessionTodayShots = sessions
     .filter(s => s.playerId === player.id && new Date(s.date).toDateString() === todayStr)
     .reduce((a, s) => a + s.sets.length * 10, 0)
-  const todayShots        = sessionTodayShots + (techniqueDailyLog[todayStr] || 0)
+  // Handle both legacy (number) and new (object with .total) dailyLog formats
+  const todayTechEntry = techniqueDailyLog[todayStr]
+  const todayTechShots = typeof todayTechEntry === 'object' ? (todayTechEntry?.total || 0) : (todayTechEntry || 0)
+  const todayShots = sessionTodayShots + todayTechShots
 
   // This week's shots unified across all modes
+  // Safe extraction: if entry is object, use .total; if number, use directly
   const weekTechniquePucks = Object.entries(techniqueDailyLog)
     .filter(([date]) => new Date(date) >= ws)
-    .reduce((sum, [, count]) => sum + count, 0)
+    .reduce((sum, [, entry]) => {
+      const shotsToAdd = typeof entry === 'object' ? (entry?.total || 0) : (entry || 0)
+      return sum + shotsToAdd
+    }, 0)
   const weekShotsAll = (stats.weekShots ?? 0) + weekTechniquePucks
 
   const isIosSafari = typeof window !== 'undefined'

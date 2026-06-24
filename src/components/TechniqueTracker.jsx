@@ -235,6 +235,8 @@ export default function TechniqueTracker({ player, onBack, onGoalReached }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <button
                 onClick={() => {
+                  // Clean reset: clear modal state AND tap history
+                  tapHistoryRef.current = []
                   setSpamModalOpen(false)
                   setPendingSpamShots(null)
                   audioEngine.play('error')
