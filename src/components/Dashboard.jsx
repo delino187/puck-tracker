@@ -340,17 +340,20 @@ export default function Dashboard({ onStartSession, newBadgeIds, onBadgeClick, o
       {/* ── Invite Friends button ────────────────────────────────────────── */}
       <button
         onClick={() => {
-          const inviteMsg = "Wanna shoot some pucks with me? 🏒 I'm challenging you to a match on Puck Tracker. Let's see who can fire more pucks this week and take over the leaderboard. Grab your stick: https://pucktrackerapp.com/signup"
+          const inviteUrl = `${window.location.origin}`
+          const inviteMsg = `Hey! Come train with me on Puck Tracker so we can square off in P-U-C-K games and match our training streaks. Set up your profile here: ${inviteUrl}`
 
           if (navigator.share) {
             navigator.share({
-              title: 'Puck Tracker Invite',
+              title: 'Join Me on Puck Tracker',
               text: inviteMsg,
-              url: 'https://pucktrackerapp.com/signup',
+              url: inviteUrl,
             }).catch(err => console.log('[invite] Share cancelled or failed:', err))
           } else {
+            // Fallback: SMS on unsupported browsers
             const smsBody = encodeURIComponent(inviteMsg)
-            const smsLink = `sms:?body=${smsBody}`
+            // iOS uses &body, Android uses ?body — use & for compatibility
+            const smsLink = `sms:&body=${smsBody}`
             window.location.href = smsLink
           }
         }}
