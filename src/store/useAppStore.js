@@ -120,16 +120,54 @@ export const useAppStore = create(
       // weekly/daily totals and streaks can aggregate across all modes.
       // xpOverride: pass an explicit XP amount for flat-rate competitive modes
       // (PUCK rounds, Versus games) instead of the default 1-XP-per-puck rate.
-      logTechniqueShots: (playerId, pucksShot, xpOverride = null) => {
+      // techniqueType: optional string (e.g. 'Backhand', 'Wrist') to track technique breakdown.
+      // If not provided, shots are unclassified (logs as 'Unclassified').
+      //
+      // Schema: dailyLog[date] can be:
+      //   - number (legacy format, backward compat)
+      //   - { total: N, breakdown: { Backhand: X, Wrist: Y, Unclassified: Z } }
+      logTechniqueShots: (playerId, pucksShot, xpOverride = null, techniqueType = null) => {
         const prev    = get().techniqueByPlayer[playerId] ?? { totalPucks: 0, bonusXP: 0, dailyLog: {} }
         const xpGain  = xpOverride !== null ? xpOverride : pucksShot
         const prevLog = prev.dailyLog || {}
+        const today   = new Date().toDateString()
+
         // Only update dailyLog when actual pucks were shot — writing today:0 when
         // pucksShot===0 (e.g. badge XP awards) pollutes the log with zero-entries
         // that cause JSON.stringify key-order mismatches against Firestore echoes.
         const nextLog = pucksShot > 0
-          ? { ...prevLog, [new Date().toDateString()]: (prevLog[new Date().toDateString()] || 0) + pucksShot }
+          ? {
+              ...prevLog,
+              [today]: (() => {
+                const todayEntry = prevLog[today]
+                // Handle legacy format (number) — convert to new format
+                if (typeof todayEntry === 'number') {
+                  return {
+                    total: todayEntry + pucksShot,
+                    breakdown: { 'Unclassified': (todayEntry || 0) + pucksShot }
+                  }
+                }
+                // New format — merge technique breakdown
+                if (todayEntry && typeof todayEntry === 'object') {
+                  const tech = techniqueType || 'Unclassified'
+                  return {
+                    total: (todayEntry.total || 0) + pucksShot,
+                    breakdown: {
+                      ...todayEntry.breakdown,
+                      [tech]: ((todayEntry.breakdown?.[tech] || 0) + pucksShot)
+                    }
+                  }
+                }
+                // First time today — create entry
+                const tech = techniqueType || 'Unclassified'
+                return {
+                  total: pucksShot,
+                  breakdown: { [tech]: pucksShot }
+                }
+              })()
+            }
           : prevLog
+
         set(state => ({
           techniqueByPlayer: {
             ...state.techniqueByPlayer,

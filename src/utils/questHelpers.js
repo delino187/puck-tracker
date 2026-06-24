@@ -26,11 +26,11 @@ export function parseQuestSuffix(text) {
 }
 
 /**
- * Computes live current progress for a quest from today's session array.
+ * Computes live current progress for a quest from today's session array + game history.
  * Returns { current: number, target: number, suffix: string }
  *
- * This is a pure function — call it any time, it always reflects the latest
- * sessions state without any stored intermediate values.
+ * This is a pure function — call it any time, it always reflects the latest state
+ * without any stored intermediate values.
  *
  * Shot-count quests count ALL training activity:
  *   - Target Practice sets (s.sets, each set = 10 shots)
@@ -43,8 +43,11 @@ export function parseQuestSuffix(text) {
  *   computed as (totalToday - baseline) so the quest always starts at 0/N even if
  *   the player already had shots logged before spinning.
  *
+ * puckGames, peerChallenges: optional arrays for evaluating social quests.
+ *   Gracefully default to [] if not provided, so the function never crashes.
+ *
  */
-export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 0) {
+export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 0, puckGames = [], peerChallenges = []) {
   const today     = new Date().toDateString()
   const todaySessions = sessions.filter(s => new Date(s.date).toDateString() === today)
   const todaySets     = todaySessions.flatMap(s => s.sets)
@@ -90,7 +93,65 @@ export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 
     return { current: Math.min(totalHits, 8), target: 8, suffix: '' }
   }
 
-  // Social / binary quests — can't auto-track without peerChallenges/puckGames
+  // Social quests — check peerChallenges and puckGames
+  const games = puckGames || []
+  const challenges = peerChallenges || []
+
+  // "Play 1 P-U-C-K Game Today"
+  if (/Play 1 P-U-C-K Game/i.test(text)) {
+    const todayGames = games.filter(g => new Date(g.createdAt || g.ts || 0).toDateString() === today)
+    return { current: todayGames.length > 0 ? 1 : 0, target: 1, suffix: '' }
+  }
+
+  // "Beat a Friend at P-U-C-K Today"
+  if (/Beat a Friend at P-U-C-K/i.test(text)) {
+    const todayWins = games.filter(g => {
+      const gameDate = new Date(g.createdAt || g.ts || 0).toDateString()
+      return gameDate === today && (g.status === 'p1_wins' || g.status === 'p2_wins')
+    }).length
+    return { current: todayWins > 0 ? 1 : 0, target: 1, suffix: '' }
+  }
+
+  // "Win a P-U-C-K Game Using at Least One Backhand Shot"
+  if (/Win a P-U-C-K Game Using.*Backhand/i.test(text)) {
+    const todayBackhandWins = games.filter(g => {
+      const gameDate = new Date(g.createdAt || g.ts || 0).toDateString()
+      if (gameDate !== today) return false
+      if (g.status !== 'p1_wins' && g.status !== 'p2_wins') return false
+      const techniques = g.status === 'p1_wins' ? (g.p1Techniques || []) : (g.p2Techniques || [])
+      return techniques.includes('Backhand')
+    }).length
+    return { current: todayBackhandWins > 0 ? 1 : 0, target: 1, suffix: '' }
+  }
+
+  // "Issue a Versus Challenge Today"
+  if (/Issue.*Challenge|Send.*Challenge/i.test(text)) {
+    const todayChallenges = challenges.filter(c => {
+      const challengeDate = new Date(c.createdAt || c.ts || 0).toDateString()
+      return challengeDate === today && c.status === 'pending'
+    })
+    return { current: todayChallenges.length > 0 ? 1 : 0, target: 1, suffix: '' }
+  }
+
+  // "Win 1 Versus Quick Match Today"
+  if (/Win.*Versus|Play.*Versus/i.test(text)) {
+    const todayVersusWins = challenges.filter(c => {
+      const challengeDate = new Date(c.createdAt || c.ts || 0).toDateString()
+      return challengeDate === today && c.status === 'completed'
+    })
+    return { current: todayVersusWins.length > 0 ? 1 : 0, target: 1, suffix: '' }
+  }
+
+  // "Accept an Incoming Challenge"
+  if (/Accept.*Challenge/i.test(text)) {
+    const todayAccepts = challenges.filter(c => {
+      const challengeDate = new Date(c.createdAt || c.ts || 0).toDateString()
+      return challengeDate === today && c.status === 'completed'
+    })
+    return { current: todayAccepts.length > 0 ? 1 : 0, target: 1, suffix: '' }
+  }
+
+  // Fallback for completely unknown quests
   return { current: 0, target: 1, suffix: '' }
 }
 
@@ -109,16 +170,18 @@ export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 
  *
  * Returns null when there is nothing to update.
  */
-export function applyQuestProgress(player, sessions, techniqueByPlayer = {}) {
+export function applyQuestProgress(player, sessions, techniqueByPlayer = {}, puckGames = [], peerChallenges = []) {
   const today  = new Date().toDateString()
   const quests = player.daily_quests || []
 
   if (player.last_quest_spin !== today || !quests.length) return null
 
   // Include technique-only pucks logged today so shot-count quests track all activity
+  // Handle both legacy (number) and new (object with breakdown) formats
   const techEntry = techniqueByPlayer[player.id] || {}
   const dailyLog  = techEntry.dailyLog || {}
-  const todayTechPucks = dailyLog[today] ?? 0
+  const todayEntry = dailyLog[today]
+  const todayTechPucks = typeof todayEntry === 'number' ? todayEntry : (todayEntry?.total ?? 0)
 
   const updatedQuests = quests.map(q => {
     if (q.claimed) return q   // fully settled — never touch again
@@ -126,7 +189,8 @@ export function applyQuestProgress(player, sessions, techniqueByPlayer = {}) {
     // Pass the stored baseline (shots at spin time) so progress is always
     // relative to when the wheel was pulled, never the absolute daily total.
     // Also include technique pucks so all shot activity counts.
-    const prog    = computeQuestProgress(q.text, sessions, todayTechPucks, q.baseline ?? 0)
+    // Include game arrays so social quests can evaluate against P-U-C-K and Versus matches.
+    const prog    = computeQuestProgress(q.text, sessions, todayTechPucks, q.baseline ?? 0, puckGames, peerChallenges)
     const target  = q.targetProgress ?? prog.target
     const current = prog.current
     const nowDone = current >= target

@@ -62,7 +62,7 @@ function pickWeeklyQuests() {
   return shuffled.slice(0, 3).map(q => ({ ...q, currentProgress: 0, completed: false, claimed: false }))
 }
 
-function computeWeeklyQuestProgress(text, sessions, playerId) {
+function computeWeeklyQuestProgress(text, sessions, playerId, puckGames = [], peerChallenges = []) {
   const ws           = getWeekStart()
   const weekSessions = sessions.filter(s => s.playerId === playerId && new Date(s.date) >= ws)
   const weekSets     = weekSessions.flatMap(s => s.sets)
@@ -73,9 +73,23 @@ function computeWeeklyQuestProgress(text, sessions, playerId) {
     const target = parseInt(text.match(/\d+/)[0])
     return { current: Math.min(weekShots, target), target }
   }
+  // "Log N Backhand Shots in Technique Only Mode this Week"
+  // Counts backhand shots from technique practice by reading the breakdown in dailyLog.
+  // Defensive fallback: if breakdown is missing or undefined, returns 0 (won't crash).
   if (/Log (\d+) Backhand Shots/i.test(text)) {
     const target = parseInt(text.match(/\d+/)[0])
-    return { current: Math.min(weekShots, target), target }
+    const techEntry = useAppStore(s => s.techniqueByPlayer?.[playerId])
+    const dailyLog = techEntry?.dailyLog || {}
+
+    let backhandShots = 0
+    Object.values(dailyLog).forEach(dayEntry => {
+      // Handle both legacy (number) and new (object) formats
+      if (typeof dayEntry === 'object' && dayEntry?.breakdown?.['Backhand']) {
+        backhandShots += dayEntry.breakdown['Backhand']
+      }
+    })
+
+    return { current: Math.min(backhandShots, target), target }
   }
   const accAcross = text.match(/Hit (\d+)% Accuracy across (\d+)[^0-9]*Sessions/i)
   if (accAcross) {
@@ -99,6 +113,7 @@ function computeWeeklyQuestProgress(text, sessions, playerId) {
     const best = Math.max(0, ...Object.values(byDay))
     return { current: Math.min(best, target), target }
   }
+  // Fallback — unknown quest pattern
   return { current: 0, target: 1 }
 }
 
@@ -175,12 +190,14 @@ function questTab(text) {
 // always use the same computation.  Passes the stored baseline so live
 // progress display is relative to spin time, not absolute today totals.
 // Also includes technique-only pucks logged today so shot-count quests track all activity.
-function getQuestProgress(quest, sessions, playerId) {
+function getQuestProgress(quest, sessions, playerId, puckGames = [], peerChallenges = []) {
   const techEntry = useAppStore(s => s.techniqueByPlayer?.[playerId])
   const dailyLog  = techEntry?.dailyLog || {}
   const today     = new Date().toDateString()
-  const todayTechPucks = dailyLog[today] ?? 0
-  return computeQuestProgress(quest.text, sessions, todayTechPucks, quest.baseline ?? 0)
+  // Handle both legacy (number) and new (object with breakdown) formats
+  const todayEntry = dailyLog[today]
+  const todayTechPucks = typeof todayEntry === 'number' ? todayEntry : (todayEntry?.total ?? 0)
+  return computeQuestProgress(quest.text, sessions, todayTechPucks, quest.baseline ?? 0, puckGames, peerChallenges)
 }
 
 // ── Quest row ─────────────────────────────────────────────────────────────────
@@ -423,6 +440,7 @@ function StadiumLever({ disabled, onSpin, isSpinning }) {
 export default function DailyQuests({
   onNavigate, onDiamondEarn, onSpinComplete, onClaimQuest,
   onClaimWeeklyQuest, onWeeklySpinComplete, onInitWeeklyQuests,
+  peerChallenges = [], puckGames = [],
 }) {
   const { activePlayer: player, st } = usePlayer()
   const sessions = st?.sessions || []
@@ -493,7 +511,7 @@ export default function DailyQuests({
     // Mirror QuestRow's isDone logic: completed flag OR live progress meeting target.
     // Without this, clicking "TAP TO CLAIM!" on a progress-complete but not yet
     // flagged quest silently no-ops because quest.completed is still false.
-    const prog   = quest.reward !== '?' ? computeQuestProgress(quest.text, sessions, 0, quest.baseline ?? 0) : null
+    const prog   = quest.reward !== '?' ? computeQuestProgress(quest.text, sessions, 0, quest.baseline ?? 0, puckGames, peerChallenges) : null
     const isDone = quest.completed || (prog ? prog.current >= prog.target : false)
     if (!isDone) return
 
@@ -573,7 +591,7 @@ export default function DailyQuests({
   const displayWeeklyQuests = isWeeklyLocked
     ? weeklyQuests.map(q => {
         if (q.claimed) return q
-        const prog = computeWeeklyQuestProgress(q.text, sessions, player.id)
+        const prog = computeWeeklyQuestProgress(q.text, sessions, player.id, puckGames, peerChallenges)
         return { ...q, currentProgress: prog.current, targetProgress: prog.target, completed: prog.current >= prog.target }
       })
     : []
@@ -760,7 +778,7 @@ export default function DailyQuests({
                 <QuestRow
                   key={i}
                   quest={quest}
-                  progress={quest.reward !== '?' ? getQuestProgress(quest, sessions, player.id) : null}
+                  progress={quest.reward !== '?' ? getQuestProgress(quest, sessions, player.id, puckGames, peerChallenges) : null}
                   isSpinning={spinning}
                   shuffleText={shuffleTexts[i] || SHUFFLE_POOL[0]}
                   onNavigate={onNavigate}

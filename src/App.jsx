@@ -644,7 +644,7 @@ export default function App() {
 
     // ── Quest progress — mark completed, no auto-reward (tap-to-claim) ────
     const techniqueByPlayer = useAppStore.getState().techniqueByPlayer || {}
-    const questResult = aPlayer ? applyQuestProgress(aPlayer, st.sessions, techniqueByPlayer) : null
+    const questResult = aPlayer ? applyQuestProgress(aPlayer, st.sessions, techniqueByPlayer, puckGames, peerChallenges) : null
     const newlyDone = questResult
       ? questResult.updatedQuests.filter((q, i) =>
           q.completed && !(aPlayer.daily_quests?.[i]?.completed)
@@ -1482,6 +1482,8 @@ export default function App() {
           {tab === 'quests' && (
             <DailyQuests
               onNavigate={setTab}
+              peerChallenges={peerChallenges}
+              puckGames={puckGames}
               onDiamondEarn={(amount) => setSt(prev => {
                 const id = prev.activePlayerId
                 return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, diamonds: (p.diamonds || 0) + amount } : p) }

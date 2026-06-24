@@ -9,10 +9,20 @@ import { audioEngine } from '../services/audioEngine.js'
 
 const QUICK_ADDS    = [10, 25, 50]
 const SESSION_LIMIT = 100
+// Core shooting techniques with display labels and emojis
+const TECHNIQUES    = [
+  { key: 'Wrist Shot', label: 'Wrist Shot 🏒' },
+  { key: 'Backhand', label: 'Backhand 🎯' },
+  { key: 'Snap Shot', label: 'Snap Shot ⚡' },
+  { key: 'Slap Shot', label: 'Slap Shot 💥' },
+  { key: 'One-Timer', label: 'One-Timer 🚀' },
+  { key: 'Toe Drag', label: 'Toe Drag 🔄' },
+]
 
 export default function TechniqueTracker({ player, onBack, onGoalReached }) {
   const [showModal,    setShowModal]    = useState(() => !localStorage.getItem(TECHNIQUE_MODAL_KEY))
   const [sessionPucks, setSessionPucks] = useState(0)
+  const [selectedTechnique, setSelectedTechnique] = useState('Wrist Shot')
 
   function dismissModal() {
     localStorage.setItem(TECHNIQUE_MODAL_KEY, '1')
@@ -43,7 +53,7 @@ export default function TechniqueTracker({ player, onBack, onGoalReached }) {
       colors: ['#34d399', '#10b981', '#6ee7b7', '#a7f3d0', '#ffffff'],
     })
 
-    logTechniqueShots(player.id, n)
+    logTechniqueShots(player.id, n, null, selectedTechnique)
     setSessionPucks(prev => {
       const next = prev + n
       if (prev < 10 && next >= 10) onGoalReached?.('techniqueOnly10')
@@ -171,6 +181,14 @@ export default function TechniqueTracker({ player, onBack, onGoalReached }) {
         <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, color: 'var(--text-muted)', letterSpacing: '0.1em', marginTop: 4 }}>
           SHOTS LOGGED
         </div>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          marginTop: 12, background: 'rgba(16, 185, 129, 0.1)', borderRadius: 10, padding: '8px 14px',
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#10b981', letterSpacing: '0.08em',
+          border: '1px solid #10b98144',
+        }}>
+          📸 {TECHNIQUES.find(t => t.key === selectedTechnique)?.label || selectedTechnique}
+        </div>
         {sessionPucks > 0 && (
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -202,6 +220,60 @@ export default function TechniqueTracker({ player, onBack, onGoalReached }) {
             🏒 This app uses the honor system. Shoot some more pucks and then log them after!
           </div>
         )}
+      </div>
+
+      {/* ── Technique selector ──────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800, color: '#10b981', letterSpacing: '0.18em', marginBottom: 12, textTransform: 'uppercase' }}>
+          ⚙️ SELECT TECHNIQUE
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+          {TECHNIQUES.map(technique => {
+            const isSelected = selectedTechnique === technique.key
+            return (
+              <button
+                key={technique.key}
+                onClick={() => setSelectedTechnique(technique.key)}
+                style={{
+                  background: isSelected
+                    ? 'linear-gradient(135deg,#0a3f2a,#10b981)'
+                    : 'var(--card-bg)',
+                  border: isSelected
+                    ? '2px solid #10b981'
+                    : '1px solid #10b98144',
+                  borderRadius: 12,
+                  padding: '14px 12px',
+                  fontFamily: "'Barlow Condensed',sans-serif",
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: isSelected ? '#34d399' : '#94a3b8',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                  boxShadow: isSelected
+                    ? '0 0 20px #10b98166, inset 0 0 12px #10b98133'
+                    : 'none',
+                  textShadow: isSelected ? '0 0 8px rgba(16,185,129,0.4)' : 'none',
+                  transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                  letterSpacing: '0.05em',
+                }}
+                onMouseEnter={e => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = 'rgba(16,185,129,0.08)'
+                    e.currentTarget.style.borderColor = '#10b981'
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!isSelected) {
+                    e.currentTarget.style.background = 'var(--card-bg)'
+                    e.currentTarget.style.borderColor = '#10b98144'
+                  }
+                }}
+              >
+                {technique.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* ── Rapid-add buttons ─────────────────────────────────────────────────── */}
