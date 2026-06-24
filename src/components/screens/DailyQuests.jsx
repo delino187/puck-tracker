@@ -15,6 +15,12 @@ const QUEST_POOL = {
     { text: 'Log 30 Shots in Technique Only Mode',    tier: 'common',    reward: 10,  icon: '🎯' },
     { text: 'Log 75 Total Shots Today',   tier: 'rare',      reward: 25,  icon: '🏒' },
   ],
+  technique: [
+    { text: 'Log 25 Wrist Shots in Technique Mode Today',    tier: 'common', reward: 10,  icon: '🏒' },
+    { text: 'Log 15 Backhand Shots in Technique Mode Today',  tier: 'rare',   reward: 25,  icon: '🎯' },
+    { text: 'Log 20 Snap Shots in Technique Mode Today',      tier: 'common', reward: 10,  icon: '⚡' },
+    { text: 'Log 10 Slap Shots in Technique Mode Today',      tier: 'epic',   reward: 50,  icon: '💥' },
+  ],
   quality: [
     { text: 'Hit 40% Accuracy in a Target Practice Session', tier: 'common', reward: 10, icon: '📊' },
     { text: 'Hit 50% Accuracy in a Target Practice Session', tier: 'rare',   reward: 25, icon: '📈' },
@@ -62,7 +68,7 @@ function pickWeeklyQuests() {
   return shuffled.slice(0, 3).map(q => ({ ...q, currentProgress: 0, completed: false, claimed: false }))
 }
 
-function computeWeeklyQuestProgress(text, sessions, playerId, puckGames = [], peerChallenges = []) {
+function computeWeeklyQuestProgress(text, sessions, playerId, puckGames = [], peerChallenges = [], techniqueByPlayer = null) {
   const ws           = getWeekStart()
   const weekSessions = sessions.filter(s => s.playerId === playerId && new Date(s.date) >= ws)
   const weekSets     = weekSessions.flatMap(s => s.sets)
@@ -156,8 +162,10 @@ function pickQuests(sessions = []) {
     // Only shot-count quests need a baseline; binary/social quests start at 0 naturally
     baseline: /Log (\d+)/i.test(q.text) ? spinTimeShots : 0,
   })
+  // 50% chance to pick a technique quest instead of volume quest
+  const volumeOrTechnique = Math.random() > 0.5 ? QUEST_POOL.technique : QUEST_POOL.volume
   return [
-    stamp(pick(QUEST_POOL.volume)),
+    stamp(pick(volumeOrTechnique)),
     stamp(pick(QUEST_POOL.quality)),
     stamp(pick(QUEST_POOL.social)),
   ]
@@ -191,13 +199,14 @@ function questTab(text) {
 // progress display is relative to spin time, not absolute today totals.
 // Also includes technique-only pucks logged today so shot-count quests track all activity.
 function getQuestProgress(quest, sessions, playerId, puckGames = [], peerChallenges = []) {
-  const techEntry = useAppStore(s => s.techniqueByPlayer?.[playerId])
+  const techniqueByPlayer = useAppStore(s => s.techniqueByPlayer || {})
+  const techEntry = techniqueByPlayer[playerId]
   const dailyLog  = techEntry?.dailyLog || {}
   const today     = new Date().toDateString()
   // Handle both legacy (number) and new (object with breakdown) formats
   const todayEntry = dailyLog[today]
   const todayTechPucks = typeof todayEntry === 'number' ? todayEntry : (todayEntry?.total ?? 0)
-  return computeQuestProgress(quest.text, sessions, todayTechPucks, quest.baseline ?? 0, puckGames, peerChallenges)
+  return computeQuestProgress(quest.text, sessions, todayTechPucks, quest.baseline ?? 0, puckGames, peerChallenges, techniqueByPlayer, playerId)
 }
 
 // ── Quest row ─────────────────────────────────────────────────────────────────
@@ -588,10 +597,11 @@ export default function DailyQuests({
   const slotCanPull    = !isWeeklyLocked && !slotSpinning
 
   // Only display stored quests if they're from this week
+  const techniqueByPlayer = useAppStore(s => s.techniqueByPlayer || {})
   const displayWeeklyQuests = isWeeklyLocked
     ? weeklyQuests.map(q => {
         if (q.claimed) return q
-        const prog = computeWeeklyQuestProgress(q.text, sessions, player.id, puckGames, peerChallenges)
+        const prog = computeWeeklyQuestProgress(q.text, sessions, player.id, puckGames, peerChallenges, techniqueByPlayer)
         return { ...q, currentProgress: prog.current, targetProgress: prog.target, completed: prog.current >= prog.target }
       })
     : []

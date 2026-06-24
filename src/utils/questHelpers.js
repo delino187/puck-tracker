@@ -47,7 +47,7 @@ export function parseQuestSuffix(text) {
  *   Gracefully default to [] if not provided, so the function never crashes.
  *
  */
-export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 0, puckGames = [], peerChallenges = []) {
+export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 0, puckGames = [], peerChallenges = [], techniqueByPlayer = null, playerId = null) {
   const today     = new Date().toDateString()
   const todaySessions = sessions.filter(s => new Date(s.date).toDateString() === today)
   const todaySets     = todaySessions.flatMap(s => s.sets)
@@ -56,6 +56,25 @@ export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 
   // Technique Only / other sources: sessions may store a pucks field directly
   const techniqueShots = todaySessions.reduce((sum, s) => sum + (s.pucks ?? 0), 0)
   const todayShots = targetPracticeShots + techniqueShots + extraShots
+
+  // "Log N [Technique] Shots in Technique Mode Today" — technique-specific quests
+  // Reads from breakdown: dailyLog[today].breakdown[techniqueName]
+  const techniqueMatch = text.match(/Log (\d+) (\w+(?:\s\w+)*) Shots in Technique Mode/i)
+  if (techniqueMatch && playerId && techniqueByPlayer) {
+    const target = parseInt(techniqueMatch[1])
+    const techniqueName = techniqueMatch[2]
+    const techEntry = techniqueByPlayer[playerId]
+    const dailyLog = techEntry?.dailyLog || {}
+    const todayEntry = dailyLog[today]
+
+    // Handle both legacy (number) and new (object with breakdown) formats
+    let current = 0
+    if (typeof todayEntry === 'object' && todayEntry?.breakdown?.[techniqueName]) {
+      current = todayEntry.breakdown[techniqueName]
+    }
+
+    return { current: Math.min(current, target), target, suffix: '' }
+  }
 
   // "Log N Total/Wrist/Backhand Shots …" (any phrasing with a shot count)
   if (/Log (\d+)/i.test(text)) {
@@ -190,7 +209,8 @@ export function applyQuestProgress(player, sessions, techniqueByPlayer = {}, puc
     // relative to when the wheel was pulled, never the absolute daily total.
     // Also include technique pucks so all shot activity counts.
     // Include game arrays so social quests can evaluate against P-U-C-K and Versus matches.
-    const prog    = computeQuestProgress(q.text, sessions, todayTechPucks, q.baseline ?? 0, puckGames, peerChallenges)
+    // Include techniqueByPlayer so technique-specific quests can read breakdowns.
+    const prog    = computeQuestProgress(q.text, sessions, todayTechPucks, q.baseline ?? 0, puckGames, peerChallenges, techniqueByPlayer, player.id)
     const target  = q.targetProgress ?? prog.target
     const current = prog.current
     const nowDone = current >= target
