@@ -330,6 +330,54 @@ export default function Dashboard({ onStartSession, newBadgeIds, onBadgeClick, o
 
       </div>{/* end md:grid-cols-2 */}
 
+      {/* ── Invite Friends button ────────────────────────────────────────── */}
+      <button
+        onClick={() => {
+          const inviteMsg = "Wanna shoot some pucks with me? 🏒 I'm challenging you to a match on Puck Tracker. Let's see who can fire more pucks this week and take over the leaderboard. Grab your stick: https://pucktrackerapp.com/signup"
+
+          if (navigator.share) {
+            navigator.share({
+              title: 'Puck Tracker Invite',
+              text: inviteMsg,
+            }).catch(err => console.log('[invite] Share cancelled or failed:', err))
+          } else {
+            const smsBody = encodeURIComponent(inviteMsg)
+            const smsLink = `sms:?body=${smsBody}`
+            window.location.href = smsLink
+          }
+        }}
+        style={{
+          width: '100%',
+          padding: '14px 16px',
+          marginBottom: 16,
+          background: 'linear-gradient(135deg,#1a4d6d,#0f2a48)',
+          border: '1.5px solid #0ea5e944',
+          borderRadius: 12,
+          cursor: 'pointer',
+          fontFamily: "'Bangers',sans-serif",
+          fontSize: 16,
+          fontWeight: 700,
+          color: '#06b6d4',
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          textShadow: '0 0 10px #06b6d466',
+          transition: 'all 0.2s',
+          boxShadow: '0 0 16px #0ea5e933',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.transform = 'translateY(-2px)'
+          e.currentTarget.style.boxShadow = '0 0 24px #0ea5e955, 0 4px 12px rgba(0,0,0,0.3)'
+          e.currentTarget.style.borderColor = '#0ea5e966'
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.transform = 'translateY(0)'
+          e.currentTarget.style.boxShadow = '0 0 16px #0ea5e933'
+          e.currentTarget.style.borderColor = '#0ea5e944'
+        }}
+      >
+        📲 Invite a Training Partner
+      </button>
+
       {/* ── Top 3-stat strip ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-2 mb-3">
         <StatCard label="Career"    value={careerTotal}                                              color="#60a5fa" />

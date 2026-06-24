@@ -141,15 +141,33 @@ export default function HomeScreen({ st, upd }) {
           onClick={() => upd({ view: 'playerSignup' })}
           style={{
             background: 'transparent',
-            border: 'none',
+            border: '1px solid #60a5fa66',
             cursor: 'pointer',
             width: '100%',
-            padding: '10px 0 0',
-            fontFamily: "'Barlow Condensed',sans-serif",
-            fontSize: 14, fontWeight: 700,
-            color: '#060b41',
-            letterSpacing: '0.08em',
+            padding: '12px 14px',
+            marginTop: 6,
+            fontFamily: "'Bangers',sans-serif",
+            fontSize: 16, fontWeight: 700,
+            color: '#60a5fa',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            textShadow: '0 0 12px #60a5fa77, 0 0 24px #3b82f644',
+            transition: 'all 0.2s',
+            borderRadius: 10,
+            boxShadow: '0 0 16px #60a5fa33, inset 0 0 12px #60a5fa11',
           }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'scale(1.05)'
+            e.currentTarget.style.boxShadow = '0 0 24px #60a5fa55, inset 0 0 16px #60a5fa22'
+            e.currentTarget.style.textShadow = '0 0 16px #60a5fa99, 0 0 32px #3b82f666'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'scale(1)'
+            e.currentTarget.style.boxShadow = '0 0 16px #60a5fa33, inset 0 0 12px #60a5fa11'
+            e.currentTarget.style.textShadow = '0 0 12px #60a5fa77, 0 0 24px #3b82f644'
+          }}
+          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
+          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1.05)' }}
         >
           New Player? Create a Profile 🏒
         </button>
