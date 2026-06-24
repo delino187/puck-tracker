@@ -42,6 +42,7 @@ export function parseQuestSuffix(text) {
  * baseline: shots already logged at the moment the wheel was spun.  Progress is
  *   computed as (totalToday - baseline) so the quest always starts at 0/N even if
  *   the player already had shots logged before spinning.
+ *
  */
 export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 0) {
   const today     = new Date().toDateString()

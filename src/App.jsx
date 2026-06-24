@@ -1425,9 +1425,10 @@ export default function App() {
                     const today = new Date().toDateString()
                     if (aPlayer.last_quest_spin === today) {
                       const qi = (aPlayer.daily_quests || []).findIndex(
-                        q => /backhand/i.test(q.text) && !q.completed && !q.claimed
+                        q => q.text === 'Win a P-U-C-K Game Using at Least One Backhand Shot' && !q.completed && !q.claimed
                       )
                       if (qi >= 0) {
+                        const quest = aPlayer.daily_quests[qi]
                         setSt(prev => ({
                           ...prev,
                           players: prev.players.map(p =>
@@ -1439,6 +1440,18 @@ export default function App() {
                             }
                           ),
                         }))
+                        // Fire celebration for quest completion (same as session-end quests)
+                        setTimeout(() => {
+                          setEpicCeleb({
+                            type: 'quest',
+                            quest: {
+                              questText: quest.text,
+                              newProgress: 1,
+                              targetProgress: 1
+                            }
+                          })
+                          audioEngine.playBadgeUnlock()
+                        }, 300)
                       }
                     }
                   }
