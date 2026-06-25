@@ -129,6 +129,19 @@ export default function App() {
   const play         = useAudio()
   const { theme, toggleOutsideMode } = useTheme()
 
+  // ── Global button click sound ─────────────────────────────────────────────
+  // A single delegated listener covers every button and role="button" element
+  // in the app without touching individual components.  Routes through
+  // audioEngine so the existing mute toggle suppresses it automatically.
+  useEffect(() => {
+    const handleClick = e => {
+      if (!e.target.closest('button, [role="button"], .arcade-card-clickable')) return
+      audioEngine.playButtonClick()
+    }
+    window.addEventListener('click', handleClick)
+    return () => window.removeEventListener('click', handleClick)
+  }, [])
+
   // ── Real-time peer challenges + PUCK games ───────────────────────────────
   // Subscriptions re-attach whenever the active player changes.  The cleanup
   // function returned from useEffect tears down both listeners on unmount or

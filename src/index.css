@@ -45,9 +45,20 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-button        { transition: transform 0.1s ease-out, opacity 0.1s ease-out; }
-button:hover  { opacity: 0.88; }
-button:active { transform: scale(0.96); }
+button,
+[role="button"],
+.arcade-card-clickable {
+  transition: transform 0.08s ease-out, opacity 0.1s ease-out, filter 0.08s ease-out;
+}
+button:hover,
+[role="button"]:hover  { opacity: 0.88; }
+button:active,
+[role="button"]:active,
+.arcade-card-clickable:active {
+  transform: scale(0.95);
+  filter: brightness(0.88);
+  transition: transform 0.05s ease, filter 0.05s ease;
+}
 input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6 !important; }
 ::placeholder { color: #64748b; }
 select { -webkit-appearance: none; }

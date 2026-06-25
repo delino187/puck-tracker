@@ -23,6 +23,10 @@ class AudioEngine {
     // Prevents the melodical-flute notification from firing back-to-back
     // when multiple onboarding notifications clear in rapid succession.
     this._utilityCooldownUntil = 0
+    // ── Global button click sound — single pre-loaded element ────────────
+    // Lazy-initialised on first call. Rewinding via currentTime=0 instead
+    // of creating new Audio() per click avoids GC pressure and stacking lag.
+    this._clickEl = null
   }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -317,6 +321,20 @@ class AudioEngine {
     this.init()
     // Quick ascending arpeggio: snappy and attention-grabbing
     ;[523, 659, 784, 1047].forEach((f, i) => this._note(f, i * 0.08, 0.20, 'sine', 0.18))
+  }
+
+  /** Snappy micro-click — global button feedback.
+   *  Pre-loads once, then rewinds on every call so rapid taps never stack. */
+  playButtonClick() {
+    if (this.isMuted) return
+    if (!this._clickEl) {
+      this._clickEl = new Audio('/button.mp3')
+      this._clickEl.volume = 0.4
+    }
+    // Rewinding to 0 before play() means rapid taps restart the clip rather
+    // than queuing multiple overlapping instances.
+    this._clickEl.currentTime = 0
+    this._clickEl.play().catch(() => {})
   }
 
   // ── Universal dispatcher (maps legacy type strings) ────────────────────────
