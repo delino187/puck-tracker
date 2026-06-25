@@ -191,17 +191,12 @@ function questTab(text) {
   return null
 }
 
-// Thin wrapper — delegates to the shared helper so display and reward logic
-// always use the same computation.  Passes the stored baseline so live
-// progress display is relative to spin time, not absolute today totals.
-// Also includes technique-only pucks logged today so shot-count quests track all activity.
-function getQuestProgress(quest, sessions, playerId, puckGames = [], peerChallenges = []) {
-  const techniqueByPlayer = useAppStore(s => s.techniqueByPlayer || {})
-  const techEntry = techniqueByPlayer[playerId]
-  const dailyLog  = techEntry?.dailyLog || {}
-  const today     = new Date().toDateString()
-  // Handle both legacy (number) and new (object with breakdown) formats
-  const todayEntry = dailyLog[today]
+// Pure helper — no hooks.  techniqueByPlayer is read once at the top level
+// of DailyQuests and passed in so this function is safe to call from .map().
+function getQuestProgress(quest, sessions, playerId, puckGames, peerChallenges, techniqueByPlayer) {
+  const dailyLog       = techniqueByPlayer?.[playerId]?.dailyLog || {}
+  const today          = new Date().toDateString()
+  const todayEntry     = dailyLog[today]
   const todayTechPucks = typeof todayEntry === 'number' ? todayEntry : (todayEntry?.total ?? 0)
   return computeQuestProgress(quest.text, sessions, todayTechPucks, quest.baseline ?? 0, puckGames, peerChallenges, techniqueByPlayer, playerId)
 }
@@ -517,7 +512,7 @@ export default function DailyQuests({
     // Mirror QuestRow's isDone logic: completed flag OR live progress meeting target.
     // Without this, clicking "TAP TO CLAIM!" on a progress-complete but not yet
     // flagged quest silently no-ops because quest.completed is still false.
-    const prog   = quest.reward !== '?' ? computeQuestProgress(quest.text, sessions, 0, quest.baseline ?? 0, puckGames, peerChallenges) : null
+    const prog   = quest.reward !== '?' ? computeQuestProgress(quest.text, sessions, 0, quest.baseline ?? 0, puckGames, peerChallenges, techniqueByPlayer, player.id) : null
     const isDone = quest.completed || (prog ? prog.current >= prog.target : false)
     if (!isDone) return
 
@@ -785,7 +780,7 @@ export default function DailyQuests({
                 <QuestRow
                   key={i}
                   quest={quest}
-                  progress={quest.reward !== '?' ? getQuestProgress(quest, sessions, player.id, puckGames, peerChallenges) : null}
+                  progress={quest.reward !== '?' ? getQuestProgress(quest, sessions, player.id, puckGames, peerChallenges, techniqueByPlayer) : null}
                   isSpinning={spinning}
                   shuffleText={shuffleTexts[i] || SHUFFLE_POOL[0]}
                   onNavigate={onNavigate}
