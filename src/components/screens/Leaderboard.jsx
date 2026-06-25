@@ -70,14 +70,228 @@ function getMetric(p, stats, sortBy) {
   }
 }
 
+// ── Player Card Modal ─────────────────────────────────────────────────────────
+function PlayerCardModal({ selected, challenges, activePlayerId, onClose }) {
+  const { p, stats, rank, position } = selected
+  const isMe  = p.id === activePlayerId
+  const wins  = challenges.filter(c => c.status === 'completed' && c.winnerId === p.id).length
+  const losses = challenges.filter(c =>
+    c.status === 'completed' && !c.isTie &&
+    c.winnerId && c.winnerId !== p.id &&
+    (c.challengerId === p.id || c.receiverId === p.id)
+  ).length
+  const ties = challenges.filter(c =>
+    c.status === 'completed' && c.isTie &&
+    (c.challengerId === p.id || c.receiverId === p.id)
+  ).length
+
+  // Best win video for "Top Play" button
+  const topPlay = (() => {
+    const winMatches = challenges
+      .filter(c => c.status === 'completed' && c.winnerId === p.id)
+      .sort((a, b) => (b.respondedAt || 0) - (a.respondedAt || 0))
+    const best = winMatches[0]
+    if (!best) return null
+    return best.winnerId === best.receiverId ? best.receiverVideo : best.challengerVideo
+  })()
+
+  const accent = isMe ? '#06b6d4' : rank.color
+
+  const stats2 = [
+    { label: 'ELO',    value: (p.elo ?? 1000).toString(),                    color: '#f59e0b' },
+    { label: 'XP',     value: Math.round(stats.xp).toLocaleString(),          color: '#a855f7' },
+    { label: 'SHOTS',  value: stats.totalShots.toLocaleString(),              color: '#3b82f6' },
+    { label: 'ACC',    value: stats.totalShots > 0 ? `${Math.round(stats.acc)}%` : '—', color: '#06b6d4' },
+    { label: 'STREAK', value: (stats.streak || 0) > 0 ? `${stats.streak} 🔥` : '—', color: '#ef4444' },
+    { label: 'LEVEL',  value: stats.level?.name ?? '—',                       color: '#22c55e' },
+  ]
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 800,
+        background: 'rgba(0,0,0,0.88)',
+        backdropFilter: 'blur(10px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '0 16px',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 380,
+          background: 'linear-gradient(160deg,#080d18,#0d1628)',
+          border: `2px solid ${accent}55`,
+          borderRadius: 24,
+          padding: '28px 22px 22px',
+          boxShadow: `0 0 60px ${accent}22, 0 24px 48px rgba(0,0,0,0.7)`,
+          position: 'relative',
+          animation: 'badgePop 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
+        }}
+      >
+        {/* Close */}
+        <button
+          onClick={onClose}
+          style={{ position: 'absolute', top: 14, right: 14, background: 'transparent', border: 'none', cursor: 'pointer', color: '#475569', display: 'flex' }}
+        >
+          <X size={18} />
+        </button>
+
+        {/* Position badge */}
+        <div style={{
+          position: 'absolute', top: 14, left: 14,
+          fontFamily: "'Bangers',sans-serif", fontSize: 22,
+          letterSpacing: '0.06em',
+          color: position === 0 ? '#f59e0b' : position === 1 ? '#94a3b8' : position === 2 ? '#b45309' : '#475569',
+        }}>
+          {MEDALS[position] ?? `#${position + 1}`}
+        </div>
+
+        {/* Avatar */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 14 }}>
+          <div style={{
+            padding: 4,
+            borderRadius: '50%',
+            background: `linear-gradient(135deg, ${accent}88, ${accent}22)`,
+            boxShadow: `0 0 32px ${accent}44`,
+          }}>
+            <Avatar
+              player={p}
+              size={88}
+              className={getStreakAuraClass(p.streakCount || 0)}
+              style={{ border: `3px solid ${accent}` }}
+            />
+          </div>
+        </div>
+
+        {/* Name */}
+        <div style={{
+          fontFamily: "'Bangers',sans-serif",
+          fontSize: 32, letterSpacing: '0.08em', lineHeight: 1,
+          color: accent,
+          textShadow: `0 0 30px ${accent}66`,
+          textAlign: 'center', marginBottom: 4,
+        }}>
+          {p.name}{p.jerseyNum ? ` #${p.jerseyNum}` : ''}{isMe ? ' 👈' : ''}
+        </div>
+
+        {/* Rank + username */}
+        <div style={{
+          textAlign: 'center', marginBottom: 20,
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 800,
+          color: rank.color, letterSpacing: '0.14em',
+        }}>
+          {rank.label.toUpperCase()}
+          {p.username && (
+            <span style={{ color: '#475569', fontWeight: 400, marginLeft: 6 }}>
+              @{p.username}
+            </span>
+          )}
+        </div>
+
+        {/* Stat grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+          {stats2.map(s => (
+            <div key={s.label} style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid #1e3a5f',
+              borderRadius: 12, padding: '10px 6px',
+              textAlign: 'center',
+            }}>
+              <div style={{
+                fontFamily: "'Bangers',sans-serif",
+                fontSize: 20, letterSpacing: '0.04em',
+                color: s.color, lineHeight: 1,
+              }}>
+                {s.value}
+              </div>
+              <div style={{
+                fontFamily: "'Barlow Condensed',sans-serif",
+                fontSize: 9, fontWeight: 800,
+                color: '#475569', letterSpacing: '0.12em', marginTop: 3,
+              }}>
+                {s.label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Win / Loss / Tie record */}
+        <div style={{
+          display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 18,
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid #1e3a5f',
+          borderRadius: 12, padding: '10px 12px',
+        }}>
+          {[
+            { label: 'WINS',   value: wins,   color: '#22c55e' },
+            { label: 'LOSSES', value: losses,  color: '#ef4444' },
+            { label: 'TIES',   value: ties,    color: '#94a3b8' },
+          ].map((r, i) => (
+            <div key={r.label} style={{ flex: 1, textAlign: 'center' }}>
+              {i > 0 && <div style={{ position: 'absolute' }} />}
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 24, color: r.color, lineHeight: 1 }}>
+                {r.value}
+              </div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800, color: '#475569', letterSpacing: '0.12em', marginTop: 2 }}>
+                {r.label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          {topPlay && (
+            <button
+              onClick={() => { onClose(); setTimeout(() => window.dispatchEvent(new CustomEvent('leaderboard-topplay', { detail: { name: p.name, url: topPlay } })), 50) }}
+              style={{
+                flex: 1, padding: '11px 8px',
+                background: 'linear-gradient(135deg,#451a03,#92400e)',
+                border: '1.5px solid #f59e0b66',
+                borderRadius: 12,
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 800,
+                color: '#fbbf24', cursor: 'pointer', letterSpacing: '0.06em',
+              }}
+            >
+              🎬 Top Play
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1, padding: '11px 8px',
+              background: 'transparent',
+              border: '1.5px solid #1e3a5f',
+              borderRadius: 12,
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 800,
+              color: '#475569', cursor: 'pointer', letterSpacing: '0.06em',
+            }}
+          >
+            ✕ Close
+          </button>
+        </div>
+
+        <div style={{
+          fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10,
+          color: '#334155', textAlign: 'center', marginTop: 14, letterSpacing: '0.08em',
+        }}>
+          Tap outside to close
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Leaderboard() {
   const { activePlayer: player, st } = usePlayer()
   const players  = st.players
   const sessions = st.sessions
-  const [challenges,  setChallenges]  = useState([])
-  const [topVideo,    setTopVideo]    = useState(null)
-  const [loadingVid,  setLoadingVid]  = useState(false)
-  const [sortBy,      setSortBy]      = useState('elo')
+  const [challenges,     setChallenges]     = useState([])
+  const [topVideo,       setTopVideo]       = useState(null)
+  const [sortBy,         setSortBy]         = useState('elo')
+  const [selectedPlayer, setSelectedPlayer] = useState(null)  // { p, stats, rank, position }
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -86,6 +300,13 @@ export default function Leaderboard() {
       () => {},
     )
     return unsub
+  }, [])
+
+  // Listen for the top-play event dispatched from inside PlayerCardModal
+  useEffect(() => {
+    const handler = e => setTopVideo(e.detail)
+    window.addEventListener('leaderboard-topplay', handler)
+    return () => window.removeEventListener('leaderboard-topplay', handler)
   }, [])
 
   // Precompute stats for every player once per render
@@ -105,20 +326,6 @@ export default function Leaderboard() {
       }
     })
     .slice(0, 10)
-
-  function openTopVideo(p) {
-    if (loadingVid) return
-    setLoadingVid(true)
-    const wins = challenges
-      .filter(c => c.status === 'completed' && c.winnerId === p.id)
-      .sort((a, b) => (b.respondedAt || 0) - (a.respondedAt || 0))
-    const best = wins[0]
-    if (best) {
-      const url = best.winnerId === best.receiverId ? best.receiverVideo : best.challengerVideo
-      if (url) { setTopVideo({ name: p.name, url }); setLoadingVid(false); return }
-    }
-    setLoadingVid(false)
-  }
 
   const activeFilter = FILTERS.find(f => f.id === sortBy)
 
@@ -211,13 +418,18 @@ export default function Leaderboard() {
               {MEDALS[i] ?? <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 16, color: '#475569' }}>#{i + 1}</span>}
             </div>
 
-            {/* Avatar */}
-            <Avatar player={p} size={34} className={getStreakAuraClass(p.streakCount || p.streak || 0)} />
+            {/* Avatar — clickable */}
+            <button
+              onClick={() => setSelectedPlayer({ p, stats, rank, position: i })}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', flexShrink: 0, display: 'flex' }}
+            >
+              <Avatar player={p} size={34} className={getStreakAuraClass(p.streakCount || p.streak || 0)} />
+            </button>
 
             {/* Name + rank tier */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <button
-                onClick={() => openTopVideo(p)}
+                onClick={() => setSelectedPlayer({ p, stats, rank, position: i })}
                 style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', width: '100%' }}
               >
                 <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.04em', color: isMe ? '#06b6d4' : 'var(--text-1)', lineHeight: 1 }}>
@@ -294,6 +506,16 @@ export default function Leaderboard() {
             />
           </div>
         </div>
+      )}
+
+      {/* ── Player card modal ───────────────────────────────────────────────── */}
+      {selectedPlayer && (
+        <PlayerCardModal
+          selected={selectedPlayer}
+          challenges={challenges}
+          activePlayerId={player.id}
+          onClose={() => setSelectedPlayer(null)}
+        />
       )}
     </div>
   )
