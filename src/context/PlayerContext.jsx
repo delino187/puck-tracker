@@ -241,9 +241,14 @@ export function PlayerProvider({ children }) {
           const mergedLog = {}
           let logChanged = false
           for (const date of allDates) {
-            const best = Math.max(srvLog[date] || 0, localLog[date] || 0)
-            mergedLog[date] = best
-            if ((localLog[date] || 0) !== best) logChanged = true
+            const sEntry  = srvLog[date]
+            const lEntry  = localLog[date]
+            const sTotal  = typeof sEntry === 'object' ? (sEntry?.total || 0) : (sEntry || 0)
+            const lTotal  = typeof lEntry === 'object' ? (lEntry?.total || 0) : (lEntry || 0)
+            // Prefer the object-format entry (carries breakdown data); fall back to number
+            const best    = sTotal >= lTotal ? sEntry : lEntry
+            mergedLog[date] = best ?? 0
+            if (lTotal !== Math.max(sTotal, lTotal)) logChanged = true
           }
 
           if (mergedTotalPucks !== (local.totalPucks ?? 0) || mergedBonusXP !== (local.bonusXP ?? 0) || logChanged) {
@@ -262,7 +267,11 @@ export function PlayerProvider({ children }) {
     })
 
     teamUnsubRef.current = unsub
-    return () => { unsub(); teamUnsubRef.current = null }
+    return () => {
+      unsub()
+      teamUnsubRef.current = null
+      clearTimeout(coachAwardToastTimerRef.current)
+    }
   }, []) // eslint-disable-line
 
   // ── Re-sync on app focus / tab visibility restore ─────────────────────────

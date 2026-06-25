@@ -74,16 +74,23 @@ export async function loadSt() {
         const bestTotalPucks = Math.max(cloudEntry.totalPucks || 0, local.totalPucks || 0)
         const bestBonusXP    = Math.max(cloudEntry.bonusXP    || 0, local.bonusXP    || 0)
 
-        // Merge dailyLogs — max count per date so neither device over-counts
+        // Merge dailyLogs — max total per date so neither device over-counts.
+        // Entries can be a plain number (legacy) or { total, breakdown } object
+        // (new format). Always extract the numeric total before comparing.
         const cloudLog = cloudEntry.dailyLog || {}
-        const localLog = local.dailyLog || {}
+        const localLog = local.dailyLog     || {}
         const allDates = new Set([...Object.keys(cloudLog), ...Object.keys(localLog)])
         const mergedLog = {}
         let logChanged = false
         for (const date of allDates) {
-          const best = Math.max(cloudLog[date] || 0, localLog[date] || 0)
-          mergedLog[date] = best
-          if ((localLog[date] || 0) !== best) logChanged = true
+          const cEntry = cloudLog[date]
+          const lEntry = localLog[date]
+          const cTotal = typeof cEntry === 'object' ? (cEntry?.total || 0) : (cEntry || 0)
+          const lTotal = typeof lEntry === 'object' ? (lEntry?.total || 0) : (lEntry || 0)
+          // Prefer the object-format entry when present (carries breakdown data)
+          const best = cTotal >= lTotal ? cEntry : lEntry
+          mergedLog[date] = best ?? 0
+          if (lTotal !== Math.max(cTotal, lTotal)) logChanged = true
         }
 
         if (bestTotalPucks !== (local.totalPucks || 0) || bestBonusXP !== (local.bonusXP || 0) || logChanged) {

@@ -9,7 +9,7 @@
  */
 
 import { db } from '../firebase.js'
-import { doc, updateDoc, increment, runTransaction } from 'firebase/firestore'
+import { doc, runTransaction } from 'firebase/firestore'
 
 const TEAM_ID = 'team_main'
 
@@ -47,40 +47,48 @@ export function calculateSessionQuestIncrement(questText, newSets) {
 export async function updateQuestProgressAtomic(playerId, questIndex, questText, targetProgress, sessionIncrement) {
   if (sessionIncrement <= 0) return null
 
-  const playerRef = doc(db, 'teams', TEAM_ID, 'players', playerId)
+  // Players are stored as an array inside the team document, not as individual
+  // subcollection docs. Reading teams/team_main/players/{id} would always return
+  // !exists() and silently drop every update.
+  const teamRef = doc(db, 'teams', TEAM_ID)
   let result = { completed: false, newProgress: 0, targetProgress }
 
   try {
     await runTransaction(db, async tx => {
-      const playerDoc = await tx.get(playerRef)
-      if (!playerDoc.exists()) return
+      const teamDoc = await tx.get(teamRef)
+      if (!teamDoc.exists()) return
 
-      const dailyQuests = playerDoc.data().daily_quests || []
+      const players = teamDoc.data().players || []
+      const player  = players.find(p => p.id === playerId)
+      if (!player) return
+
+      const dailyQuests = player.daily_quests || []
       const quest = dailyQuests[questIndex]
       if (!quest) return
 
       const currentProgress = quest.currentProgress || 0
-      const newProgress = currentProgress + sessionIncrement
-      const isCompleted = newProgress >= targetProgress
+      const newProgress     = currentProgress + sessionIncrement
+      const isCompleted     = newProgress >= targetProgress
 
-      // Create updated quest with cumulative progress
-      const updatedQuest = {
+      const updatedQuest  = {
         ...quest,
         currentProgress: newProgress,
         targetProgress,
         completed: isCompleted || quest.completed,
       }
 
-      // Update the entire daily_quests array with the updated quest
       const updatedQuests = [...dailyQuests]
       updatedQuests[questIndex] = updatedQuest
 
-      tx.update(playerRef, {
-        daily_quests: updatedQuests,
+      // Write only the active player's entry to avoid clobbering concurrent updates
+      tx.update(teamRef, {
+        players: players.map(p =>
+          p.id === playerId ? { ...p, daily_quests: updatedQuests } : p
+        ),
       })
 
       result = {
-        completed: isCompleted && !quest.completed,  // newly completed
+        completed:      isCompleted && !quest.completed,
         newProgress,
         targetProgress,
         questText,
@@ -104,16 +112,17 @@ export async function updateMultipleQuestsFromSession(playerId, quests, newSets,
     const quest = quests[i]
     if (quest.claimed || !quest.text) continue
 
-    const increment = calculateSessionQuestIncrement(quest.text, newSets)
+    // Use a distinct name to avoid shadowing the (now-unused) Firestore increment import
+    const sessionProgress = calculateSessionQuestIncrement(quest.text, newSets)
 
     // Only update if there's progress to track
-    if (increment > 0) {
+    if (sessionProgress > 0) {
       const result = await updateQuestProgressAtomic(
         playerId,
         i,
         quest.text,
         quest.targetProgress || 8,
-        increment
+        sessionProgress
       )
 
       if (result?.completed) {

@@ -33,11 +33,15 @@ function subscribeToType(playerId, type, onReceive) {
     where('type',       '==', type),
     where('status',     '==', 'unread'),
   )
-  return onSnapshot(q, snap => {
-    if (snap.empty) return
-    const d = snap.docs[0]
-    onReceive({ id: d.id, ...d.data() })
-  })
+  return onSnapshot(
+    q,
+    snap => {
+      if (snap.empty) return
+      const d = snap.docs[0]
+      onReceive({ id: d.id, ...d.data() })
+    },
+    err => console.warn(`[rageBaitService] ${type} listener error:`, err.message)
+  )
 }
 
 export async function dismissNotification(docId) {

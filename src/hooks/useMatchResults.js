@@ -82,8 +82,6 @@ export function useMatchResults(peerChallenges) {
 
       const cid   = challenge.id
       const pid   = activeId
-      const pl    = st.players.find(p => p.id === activeId)
-      const today = new Date().toDateString()
 
       // Step 1: Atomic Firestore write flips winnerRewardsClaimed BEFORE any reward
       claimChallengeWinReward(cid).then(async granted => {
@@ -98,28 +96,29 @@ export function useMatchResults(peerChallenges) {
         }))
         useAppStore.getState().logTechniqueShots(pid, 0, VERSUS_WIN_XP)
 
-        // Mark "Win 1 Versus Quick Match Today" quest complete
-        if (pl?.last_quest_spin === today) {
-          setSt(prev => {
-            const player = prev.players.find(p => p.id === prev.activePlayerId)
-            if (!player) return prev
-            const qi = (player.daily_quests || []).findIndex(
-              q => /win.*versus/i.test(q.text) && !q.completed && !q.claimed
-            )
-            if (qi < 0) return prev
-            return {
-              ...prev,
-              players: prev.players.map(p =>
-                p.id !== prev.activePlayerId ? p : {
-                  ...p,
-                  daily_quests: p.daily_quests.map((q, i) =>
-                    i === qi ? { ...q, currentProgress: 1, targetProgress: 1, completed: true } : q
-                  ),
-                }
-              ),
-            }
-          })
-        }
+        // Mark "Win 1 Versus Quick Match Today" quest complete.
+        // Read last_quest_spin from prev (live state) inside the functional updater
+        // so we never act on the stale `pl` snapshot from when the effect first ran.
+        const today = new Date().toDateString()
+        setSt(prev => {
+          const player = prev.players.find(p => p.id === prev.activePlayerId)
+          if (!player || player.last_quest_spin !== today) return prev
+          const qi = (player.daily_quests || []).findIndex(
+            q => /win.*versus/i.test(q.text) && !q.completed && !q.claimed
+          )
+          if (qi < 0) return prev
+          return {
+            ...prev,
+            players: prev.players.map(p =>
+              p.id !== prev.activePlayerId ? p : {
+                ...p,
+                daily_quests: p.daily_quests.map((q, i) =>
+                  i === qi ? { ...q, currentProgress: 1, targetProgress: 1, completed: true } : q
+                ),
+              }
+            ),
+          }
+        })
 
         // Force-sync ELO from server — bypasses the snapshot rate-limiter that can
         // silently drop team-doc snapshots when multiple writes burst in after Match 1.
