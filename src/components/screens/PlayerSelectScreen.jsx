@@ -7,26 +7,72 @@ import Scaffold from '../shared/Scaffold.jsx'
 import LevelBadge from '../shared/LevelBadge.jsx'
 import Avatar from '../shared/Avatar.jsx'
 import { useAppStore } from '../../store/useAppStore.js'
+import { signInPlayer, friendlyAuthError } from '../../utils/authHelpers.js'
 
 export default function PlayerSelectScreen({ players, sessions, onSelect, onBack }) {
-  // Read Zustand's technique bonus XP so the level badge reflects ALL activity
-  // (Target Practice + Technique Only + PUCK game rounds + Versus challenges),
-  // not just the shots stored in sessions.  Without this the login screen shows
-  // a lower rank than the player's actual in-app level.
   const techniqueByPlayer = useAppStore(s => s.techniqueByPlayer)
   const [selectedPlayer, setSelectedPlayer] = useState(null)
-  const [pw,   setPw]   = useState('')
-  const [err,  setErr]  = useState(false)
-  const [show, setShow] = useState(false)
+  const [pw,      setPw]      = useState('')
+  const [err,     setErr]     = useState('')   // error message string ('' = none)
+  const [show,    setShow]    = useState(false)
+  const [loading, setLoading] = useState(false)
 
   if (selectedPlayer) {
     const selectedBonusXP = techniqueByPlayer[selectedPlayer.id]?.bonusXP || 0
     const { li: selectedLi } = playerStats(selectedPlayer, sessions, selectedBonusXP)
+
+    async function handleLogin() {
+      if (!pw) { setErr('Enter your password.'); return }
+      setLoading(true)
+      setErr('')
+
+      // New-style username account: authenticate via Firebase Auth first.
+      // Falls back to local comparison on network failure so the game is
+      // never completely locked out by a transient Firebase error.
+      if (selectedPlayer.username) {
+        try {
+          await signInPlayer(selectedPlayer.username, pw)
+          onSelect(selectedPlayer.id)
+          return
+        } catch (fbErr) {
+          // Translate Firebase error codes to friendly messages
+          const msg = friendlyAuthError(fbErr)
+          // If Firebase says wrong password, don't fall through to local check
+          if (fbErr?.code === 'auth/wrong-password' || fbErr?.code === 'auth/invalid-credential') {
+            setErr(msg)
+            setLoading(false)
+            return
+          }
+          // Any other Firebase error (network, etc.) → fall through to local check
+          console.warn('[PlayerSelect] Firebase Auth failed, falling back to local check:', fbErr.message)
+        }
+      }
+
+      // Legacy / coach-added accounts: local password comparison
+      if (pw === selectedPlayer.password) {
+        onSelect(selectedPlayer.id)
+      } else {
+        setErr('Wrong password.')
+      }
+      setLoading(false)
+    }
+
     return (
-      <Scaffold onBack={() => { setSelectedPlayer(null); setPw(''); setErr(false) }} title="">
+      <Scaffold onBack={() => { setSelectedPlayer(null); setPw(''); setErr(''); setLoading(false) }} title="">
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 28, fontWeight: 900, color: 'var(--text-1)' }}>{selectedPlayer.name}</div>
-          {selectedPlayer.jerseyNum && <div style={{ color: '#60a5fa', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16 }}>#{selectedPlayer.jerseyNum}</div>}
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 28, fontWeight: 900, color: 'var(--text-1)' }}>
+            {selectedPlayer.name || selectedPlayer.username}
+          </div>
+          {selectedPlayer.username && (
+            <div style={{ color: '#475569', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, marginBottom: 2 }}>
+              @{selectedPlayer.username}
+            </div>
+          )}
+          {selectedPlayer.jerseyNum && (
+            <div style={{ color: '#60a5fa', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 16 }}>
+              #{selectedPlayer.jerseyNum}
+            </div>
+          )}
           <LevelBadge li={selectedLi} />
         </div>
 
@@ -37,7 +83,8 @@ export default function PlayerSelectScreen({ players, sessions, onSelect, onBack
               <input
                 type={show ? 'text' : 'password'}
                 value={pw}
-                onChange={e => { setPw(e.target.value); setErr(false) }}
+                onChange={e => { setPw(e.target.value); setErr('') }}
+                onKeyDown={e => { if (e.key === 'Enter') handleLogin() }}
                 placeholder="Password"
                 style={{ ...C.inp, marginBottom: 0, paddingRight: 40 }}
               />
@@ -47,11 +94,15 @@ export default function PlayerSelectScreen({ players, sessions, onSelect, onBack
             </div>
             {err && (
               <div style={{ color: '#ef4444', fontSize: 12, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <AlertCircle size={12} /> Wrong password
+                <AlertCircle size={12} /> {err}
               </div>
             )}
-            <button style={C.btnP} onClick={() => { if (pw === selectedPlayer.password) onSelect(selectedPlayer.id); else setErr(true) }}>
-              <Lock size={15} /> Enter
+            <button
+              style={{ ...C.btnP, opacity: loading ? 0.55 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+              disabled={loading}
+              onClick={handleLogin}
+            >
+              <Lock size={15} /> {loading ? 'Checking…' : 'Enter'}
             </button>
           </div>
         ) : (

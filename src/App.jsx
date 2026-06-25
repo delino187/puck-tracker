@@ -30,6 +30,10 @@ import TeamLeaderboards from './components/TeamLeaderboards.jsx'
 import Leaderboard      from './components/screens/Leaderboard.jsx'
 import { updateStreak }      from './utils/streakService.js'
 import { applyQuestProgress } from './utils/questHelpers.js'
+import {
+  normaliseUsername, isUsernameAvailable, registerWithUsername,
+  parseContactField, validateContactField, friendlyAuthError,
+} from './utils/authHelpers.js'
 import GoalHeatmap      from './components/GoalHeatmap.jsx'
 import BadgeGrid        from './components/BadgeGrid.jsx'
 import RanksTab         from './components/RanksTab.jsx'
@@ -101,10 +105,14 @@ export default function App() {
   const [puckAnim,    setPuckAnim]   = useState(null)
   const [pinInput,    setPinInput]   = useState('')
   const [pinErr,      setPinErr]     = useState(false)
-  const [npName,      setNpName]     = useState('')
+  const [npName,      setNpName]     = useState('')  // display name (any chars)
   const [npNum,       setNpNum]      = useState('')
   const [npPw,        setNpPw]       = useState('')
-  const [npEmail,     setNpEmail]    = useState('')
+  const [npPwConfirm, setNpPwConfirm] = useState('')
+  const [npContact,   setNpContact]  = useState('')  // optional email or phone
+  const [npUsername,  setNpUsername] = useState('')  // new: username field
+  const [npSignupErr, setNpSignupErr] = useState('')
+  const [npSignupBusy, setNpSignupBusy] = useState(false)
   const [peerChallenges, setPeerChallenges] = useState([])
   const [puckGames,      setPuckGames]      = useState([])
   const [isSaving,       setIsSaving]       = useState(false)
@@ -971,29 +979,121 @@ export default function App() {
 
   // ── Public player self-registration ─────────────────────────────────────────
   if (st.view === 'playerSignup') {
+    function clearSignupForm() {
+      setNpUsername(''); setNpName(''); setNpNum(''); setNpPw(''); setNpPwConfirm('')
+      setNpContact(''); setNpSignupErr(''); setNpSignupBusy(false)
+    }
+
+    async function handleSignup() {
+      setNpSignupErr('')
+      const username = normaliseUsername(npUsername)
+      const name     = npName.trim() || username   // display name falls back to username
+
+      // ── Basic field validation ───────────────────────────────────────────
+      if (!username) { setNpSignupErr('Please choose a username.'); return }
+      if (username.length < 3) { setNpSignupErr('Username must be at least 3 characters.'); return }
+      if (!npPw) { setNpSignupErr('Please set a password.'); return }
+      if (npPw.length < 6) { setNpSignupErr('Password must be at least 6 characters.'); return }
+      if (npPw !== npPwConfirm) { setNpSignupErr('Passwords don\'t match.'); return }
+
+      const contactErr = validateContactField(npContact)
+      if (contactErr) { setNpSignupErr(contactErr); return }
+
+      setNpSignupBusy(true)
+
+      // ── Username uniqueness check ────────────────────────────────────────
+      const available = await isUsernameAvailable(username)
+      if (!available) {
+        setNpSignupErr('That username is taken — try a different one.')
+        setNpSignupBusy(false)
+        return
+      }
+
+      // ── Parse optional contact field ─────────────────────────────────────
+      const { email: contactEmail, phone: contactPhone } = parseContactField(npContact)
+
+      // ── Firebase Auth (best-effort — game still works without it) ────────
+      let firebaseUid = null
+      try {
+        const fbUser = await registerWithUsername(username, npPw)
+        firebaseUid = fbUser.uid
+      } catch (err) {
+        // If the username is already taken in Firebase Auth, surface that.
+        // Any other Auth error is non-fatal — the local record is still created.
+        if (err?.code === 'auth/email-already-in-use') {
+          setNpSignupErr('That username is already registered. Try a different one.')
+          setNpSignupBusy(false)
+          return
+        }
+        console.warn('[Signup] Firebase Auth registration failed (non-fatal):', err.message)
+      }
+
+      // ── Create local player record ────────────────────────────────────────
+      const p = {
+        id:                 firebaseUid || newId(),
+        username:           username,
+        name:               name,
+        displayName:        name,
+        email:              contactEmail,   // null if not provided or is a phone
+        phone:              contactPhone,   // null if not provided or is an email
+        jerseyNum:          npNum.trim(),
+        password:           npPw,           // kept for PlayerSelectScreen local comparison
+        role:               'player',
+        earnedBadges:       {},
+        diamonds:           0,
+        streak_freezes:     0,
+        last_quest_spin:    null,
+        daily_quests:       [],
+        photoURL:           null,
+        totalWins:          0,
+        streakCount:        0,
+        lastActivity:       null,
+        elo:                1000,
+        eloLastDelta:       0,
+        eloLastUpdated:     null,
+        hasEloShield:       false,
+        hasSeenOnboarding:  false,
+        rookieQuests:       { ...DEFAULT_ROOKIE_QUESTS },
+        createdAt:          Date.now(),
+      }
+
+      localStorage.setItem(ACTIVE_PLAYER_KEY, p.id)
+      upd({ players: [...st.players, p], activePlayerId: p.id, activeSessionId: null, view: 'player' })
+      clearSignupForm()
+    }
+
     return (
       <>
         <GlobalStyles />
-        <Scaffold onBack={() => { setNpName(''); setNpNum(''); setNpPw(''); setNpEmail(''); upd({ view: 'home' }) }} title="Create Your Profile">
+        <Scaffold
+          onBack={() => { clearSignupForm(); upd({ view: 'home' }) }}
+          title="Create Your Profile"
+        >
           <div style={C.card}>
-            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#60a5fa', letterSpacing: '0.1em', textAlign: 'center', marginBottom: 16 }}>
-              🏒 JOIN YOUR TEAM — ALPHA SIGN-UP
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#60a5fa', letterSpacing: '0.1em', textAlign: 'center', marginBottom: 18 }}>
+              🏒 JOIN YOUR TEAM — SIGN UP
             </div>
 
-            <label style={C.label}>Your Name *</label>
+            <label style={C.label}>Username *</label>
+            <input
+              value={npUsername}
+              onChange={e => { setNpUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')); setNpSignupErr('') }}
+              placeholder="e.g. connor97"
+              autoCapitalize="none"
+              autoCorrect="off"
+              style={C.inp}
+            />
+            {npUsername.length > 0 && (
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#475569', marginTop: -8, marginBottom: 8, letterSpacing: '0.04em' }}>
+                Your handle: <span style={{ color: '#60a5fa' }}>@{normaliseUsername(npUsername)}</span>
+              </div>
+            )}
+
+            <label style={C.label}>Display Name (optional)</label>
             <input
               value={npName}
               onChange={e => setNpName(e.target.value)}
-              placeholder="e.g. Connor"
-              style={C.inp}
-            />
-
-            <label style={C.label}>Email Address *</label>
-            <input
-              type="email"
-              value={npEmail}
-              onChange={e => setNpEmail(e.target.value)}
-              placeholder="e.g. connor@team.com"
+              placeholder="e.g. Connor  (defaults to username if blank)"
               style={C.inp}
             />
 
@@ -1009,50 +1109,46 @@ export default function App() {
             <input
               type="password"
               value={npPw}
-              onChange={e => setNpPw(e.target.value)}
-              placeholder="Choose a password you'll remember"
+              onChange={e => { setNpPw(e.target.value); setNpSignupErr('') }}
+              placeholder="At least 6 characters"
               style={C.inp}
             />
 
+            <label style={C.label}>Confirm Password *</label>
+            <input
+              type="password"
+              value={npPwConfirm}
+              onChange={e => { setNpPwConfirm(e.target.value); setNpSignupErr('') }}
+              placeholder="Repeat your password"
+              style={{ ...C.inp, borderColor: npPwConfirm && npPw !== npPwConfirm ? '#ef4444' : undefined }}
+            />
+
+            <label style={C.label}>Email or Phone Number <span style={{ color: '#475569', fontWeight: 400 }}>(optional)</span></label>
+            <input
+              value={npContact}
+              onChange={e => { setNpContact(e.target.value); setNpSignupErr('') }}
+              placeholder="For password recovery if you get logged out"
+              autoCapitalize="none"
+              autoCorrect="off"
+              style={C.inp}
+            />
+
+            {npSignupErr && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#ef4444', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>
+                <AlertCircle size={13} /> {npSignupErr}
+              </div>
+            )}
+
             <button
-              style={C.btnP}
-              onClick={() => {
-                if (!npName.trim() || !npEmail.trim() || !npPw.trim()) return
-                if (!npEmail.includes('@')) return
-                const p = {
-                  id:                 newId(),
-                  name:               npName.trim(),
-                  email:              npEmail.trim().toLowerCase(),
-                  jerseyNum:          npNum.trim(),
-                  password:           npPw.trim(),
-                  role:               'player',
-                  earnedBadges:       {},
-                  diamonds:           0,
-                  streak_freezes:     0,
-                  last_quest_spin:    null,
-                  daily_quests:       [],
-                  photoURL:           null,
-                  totalWins:          0,
-                  streakCount:        0,
-                  lastActivity:       null,
-                  elo:                1000,
-                  eloLastDelta:       0,
-                  eloLastUpdated:     null,
-                  hasEloShield:       false,
-                  hasSeenOnboarding:  false,
-                  rookieQuests:       { ...DEFAULT_ROOKIE_QUESTS },
-                  createdAt:          Date.now(),
-                }
-                localStorage.setItem(ACTIVE_PLAYER_KEY, p.id)
-                upd({ players: [...st.players, p], activePlayerId: p.id, activeSessionId: null, view: 'player' })
-                setNpName(''); setNpNum(''); setNpPw(''); setNpEmail('')
-              }}
+              style={{ ...C.btnP, opacity: npSignupBusy ? 0.55 : 1, cursor: npSignupBusy ? 'not-allowed' : 'pointer' }}
+              disabled={npSignupBusy}
+              onClick={handleSignup}
             >
-              <Plus size={16} /> Create My Profile
+              <Plus size={16} /> {npSignupBusy ? 'Creating…' : 'Create My Profile'}
             </button>
 
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#475569', textAlign: 'center', marginTop: 10, letterSpacing: '0.06em' }}>
-              Your coach will see your profile in the roster. Fields marked * are required.
+              No email required. Username + password is all you need.
             </div>
           </div>
         </Scaffold>
