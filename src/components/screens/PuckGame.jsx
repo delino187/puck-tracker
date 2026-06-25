@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { ChevronLeft, Video, Upload, AlertCircle, Zap, Flag } from 'lucide-react'
+import Avatar from '../shared/Avatar.jsx'
 import { ZONES } from '../../constants/zones.js'
 import { C } from '../../styles.js'
 import { useAppStore } from '../../store/useAppStore.js'
@@ -28,25 +29,132 @@ function uploadErrMsg(err) {
 const TRICK_STYLES = ['Forehand', 'Backhand', 'One-Timer', 'Slap Shot', 'Snap Shot', 'Wrist Shot', 'Toe Drag', 'Inside Foot', 'Outside Foot']
 const MAX_SECS     = 30   // up to 30 seconds allowed
 
-// ── Letter display ─────────────────────────────────────────────────────────────
-function LetterRow({ letters, label, isYou }) {
+// ── Neon letter strip — individual P-U-C-K letters with per-player glow ────────
+const PUCK_WORD = ['P','U','C','K']
+
+function NeonLetterStrip({ earned, isYou, size = 36 }) {
+  const activeColor = isYou ? '#22c55e' : '#ef4444'
+  const activeShadow = isYou
+    ? `0 0 6px #22c55e, 0 0 18px #22c55e99, 0 0 36px #22c55e55`
+    : `0 0 6px #ef4444, 0 0 18px #ef444499, 0 0 36px #ef444455`
   return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: isYou ? '#22c55e' : '#94a3b8', letterSpacing: '0.12em', marginBottom: 4, textTransform: 'uppercase' }}>
-        {label}
-      </div>
-      <div style={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-        {['P','U','C','K'].map((l, i) => (
+    <div style={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
+      {PUCK_WORD.map((l, i) => {
+        const lit = i < earned
+        return (
           <span key={l} style={{
             fontFamily: "'Bangers',sans-serif",
-            fontSize: 32,
-            letterSpacing: '0.02em',
-            color: i < letters.length ? '#ef4444' : '#1a2540',
-            textShadow: i < letters.length ? '0 0 18px #ef444499' : 'none',
-            transition: 'color 0.3s',
+            fontSize: size,
+            letterSpacing: '0.04em',
+            lineHeight: 1,
+            color:      lit ? activeColor : '#1e2d45',
+            textShadow: lit ? activeShadow : 'none',
+            transition: 'color 0.4s ease, text-shadow 0.4s ease',
           }}>{l}</span>
-        ))}
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Full arcade matchup scorecard ────────────────────────────────────────────
+function MatchupScorecard({ game, player, players, compact = false }) {
+  const mePlayer  = players?.find(p => p.id === player?.id) ?? player
+  const oppId     = game.p1Id === player.id ? game.p2Id    : game.p1Id
+  const oppName   = game.p1Id === player.id ? game.p2Name  : game.p1Name
+  const oppPlayer = players?.find(p => p.id === oppId)
+
+  const myLetters   = (game.p1Id === player.id ? game.p1Letters : game.p2Letters)  ?? []
+  const oppLetters  = (game.p1Id === player.id ? game.p2Letters : game.p1Letters)  ?? []
+
+  const avatarSize  = compact ? 52 : 72
+  const nameSize    = compact ? 15 : 20
+  const letterSize  = compact ? 26 : 36
+
+  function PlayerCard({ pData, name, isYou, earned }) {
+    const accentColor = isYou ? '#22c55e' : '#ef4444'
+    const bg          = isYou
+      ? 'linear-gradient(160deg,#061a0f,#0d2818)'
+      : 'linear-gradient(160deg,#1a0609,#280d10)'
+
+    return (
+      <div style={{
+        flex: 1,
+        background: bg,
+        border: `1.5px solid ${accentColor}44`,
+        borderRadius: 14,
+        padding: compact ? '12px 8px 10px' : '16px 10px 14px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6,
+        boxShadow: `0 0 20px ${accentColor}18`,
+      }}>
+        <Avatar
+          player={pData}
+          size={avatarSize}
+          style={{
+            border: `2.5px solid ${accentColor}88`,
+            boxShadow: `0 0 14px ${accentColor}44`,
+          }}
+        />
+        <div style={{
+          fontFamily: "'Bangers',sans-serif",
+          fontSize: nameSize,
+          letterSpacing: '0.08em',
+          color: accentColor,
+          textShadow: `0 0 10px ${accentColor}66`,
+          lineHeight: 1,
+          textAlign: 'center',
+          maxWidth: '100%',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}>
+          {name}
+        </div>
+        <NeonLetterStrip earned={earned} isYou={isYou} size={letterSize} />
       </div>
+    )
+  }
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg,#080c18,#0c1226)',
+      border: '1.5px solid #1e3a5f',
+      borderRadius: 18,
+      padding: compact ? '12px 10px 10px' : '16px 12px 14px',
+      marginBottom: compact ? 10 : 18,
+    }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
+        <PlayerCard pData={mePlayer}  name="YOU"   isYou={true}  earned={myLetters.length}  />
+
+        {/* VS divider */}
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          justifyContent: 'center', gap: 4, flexShrink: 0, paddingTop: 4,
+        }}>
+          <div style={{
+            fontFamily: "'Bangers',sans-serif",
+            fontSize: compact ? 18 : 22,
+            letterSpacing: '0.1em',
+            color: '#334155',
+            lineHeight: 1,
+          }}>VS</div>
+        </div>
+
+        <PlayerCard pData={oppPlayer} name={oppName.toUpperCase()} isYou={false} earned={oppLetters.length} />
+      </div>
+
+      {!compact && (
+        <div style={{
+          fontFamily: "'Barlow Condensed',sans-serif",
+          fontSize: 10, fontWeight: 700,
+          color: '#ef4444',
+          letterSpacing: '0.14em',
+          textAlign: 'center',
+          marginTop: 12,
+        }}>
+          FIRST TO SPELL P-U-C-K LOSES
+        </div>
+      )}
     </div>
   )
 }
@@ -442,9 +550,8 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
             <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, color: '#f1f5f9', letterSpacing: '0.04em', marginBottom: 32 }}>
               {iWon ? 'YOU WIN!' : `DEFEATED BY ${fName.toUpperCase()}`}
             </div>
-            <div style={{ display: 'flex', gap: 28, marginBottom: 40 }}>
-              <LetterRow letters={myL}    label="You"    isYou />
-              <LetterRow letters={theirL} label={fName}  isYou={false} />
+            <div style={{ width: '100%', maxWidth: 340, marginBottom: 32 }}>
+              <MatchupScorecard game={g} player={player} players={players} />
             </div>
             <button onClick={() => setShowOverlay(true)} style={{ ...C.btnP, background: 'linear-gradient(135deg,#7f1d1d,#ef4444)', fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em', boxShadow: '0 0 20px #ef444440', marginBottom: 10 }}>
               🏆 VIEW RESULTS
@@ -472,26 +579,8 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
           <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, color: '#ef4444', letterSpacing: '0.06em' }}>P-U-C-K vs {fName.toUpperCase()}</div>
         </div>
 
-        {/* Score card */}
-        <div style={{ background: '#0a0d1a', border: '2px solid #ef444433', borderRadius: 16, padding: '18px', marginBottom: 18, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', alignItems: 'center' }}>
-            <LetterRow letters={myL}    label="You"    isYou />
-            <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 28, color: '#334155' }}>VS</div>
-            <LetterRow letters={theirL} label={fName}  isYou={false} />
-          </div>
-          <div style={{
-            fontFamily: "'Barlow Condensed',sans-serif",
-            fontSize: 10,
-            fontWeight: 700,
-            color: '#ef4444',
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            textAlign: 'center',
-            marginTop: 4,
-          }}>
-            First to spell P-U-C-K loses!
-          </div>
-        </div>
+        {/* Score card — arcade matchup */}
+        <MatchupScorecard game={g} player={player} players={players} />
 
         {/* SET SHOT */}
         {action === 'set' && (
@@ -759,11 +848,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 12 }}>
-              <LetterRow letters={myL}    label="You"    isYou />
-              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 20, color: '#1e293b', alignSelf: 'center' }}>VS</div>
-              <LetterRow letters={theirL} label={fName}  isYou={false} />
-            </div>
+            <MatchupScorecard game={g} player={player} players={players} compact />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: urgent ? '#22c55e' : '#475569', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <Zap size={11} color={urgent ? '#22c55e' : '#475569'} />
