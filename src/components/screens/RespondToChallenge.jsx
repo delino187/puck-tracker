@@ -7,6 +7,7 @@ import { uploadChallengeVideo, respondToChallenge, WARN_FILE_BYTES } from '../..
 import { disputeChallenge } from '../../services/disputeService.js'
 import { updateStreak } from '../../utils/streakService.js'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
+import VideoReportModal from '../overlays/VideoReportModal.jsx'
 import { playScoreSound } from '../../utils/arcadeSounds.js'
 import Avatar from '../shared/Avatar.jsx'
 import DiamondClaimButton from '../shared/DiamondClaimButton.jsx'
@@ -389,8 +390,9 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
   const [showTips,         setShowTips]         = useState(false)
   const [eloData,          setEloData]          = useState(null)
   const [resolvedChallenge, setResolvedChallenge] = useState(null)
-  const [tapPulse,   setTapPulse]   = useState(null)  // score button being animated
+  const [tapPulse,    setTapPulse]    = useState(null)
   const [bothPlaying, setBothPlaying] = useState(false)
+  const [reportTarget, setReportTarget] = useState(null)  // { videoUrl, context } | null
   const fileInputRef  = useRef(null)
   const challVideoRef = useRef(null)
   const myVideoRef    = useRef(null)
@@ -549,6 +551,12 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
               YOUR PROOF VIDEO
             </div>
             <video src={challenge.challengerVideo} controls playsInline style={{ width: '100%', borderRadius: 10, maxHeight: 220 }} />
+            <button
+              onClick={() => setReportTarget({ videoUrl: challenge.challengerVideo, context: `Versus – ${challenge.challengerName} vs ${challenge.receiverName}` })}
+              style={{ marginTop: 8, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: '#ef444488', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700 }}
+            >
+              <Flag size={11} /> Report Inappropriate Video
+            </button>
           </div>
         )}
 
@@ -574,6 +582,13 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
   return (
     <div style={{ padding: '20px 16px 80px' }}>
       {showTips && <RecordingTipsModal onClose={() => setShowTips(false)} />}
+      {reportTarget && (
+        <VideoReportModal
+          videoUrl={reportTarget.videoUrl}
+          videoContext={reportTarget.context}
+          onClose={() => setReportTarget(null)}
+        />
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
         <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}>
@@ -656,6 +671,12 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
             <div style={C.card}>
               <label style={C.label}>Their Proof</label>
               <video src={challenge.challengerVideo} controls playsInline style={{ width: '100%', borderRadius: 8, maxHeight: 200 }} />
+              <button
+                onClick={() => setReportTarget({ videoUrl: challenge.challengerVideo, context: `Versus – ${challenge.challengerName} vs ${challenge.receiverName}` })}
+                style={{ marginTop: 8, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: '#ef444488', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700 }}
+              >
+                <Flag size={11} /> Report Inappropriate Video
+              </button>
             </div>
           )}
 

@@ -8,6 +8,7 @@ import {
 import CoachLeaderboard    from './CoachLeaderboard.jsx'
 import CoachFeedback       from './CoachFeedback.jsx'
 import CoachDisputeReview  from './CoachDisputeReview.jsx'
+import CoachVideoReports   from './CoachVideoReports.jsx'
 import { getWeekStart, playerStats, calcXP, getLevel } from '../utils/stats.js'
 import { getPSessions } from '../utils/badgeHelpers.js'
 import { useTheme } from '../hooks/useTheme.js'
@@ -575,6 +576,7 @@ export default function CoachPortal({ st, upd, onPuckCreditAdded, onPlayerLevelU
     { id: 'leaderboard', label: 'Leaders',  Icon: Trophy        },
     { id: 'feedback',    label: 'Feedback', Icon: MessageSquare },
     { id: 'disputes',    label: 'Disputes', Icon: Flag          },
+    { id: 'videos',      label: 'Videos',   Icon: AlertCircle   },
   ]
 
   return (
@@ -633,6 +635,7 @@ export default function CoachPortal({ st, upd, onPuckCreditAdded, onPlayerLevelU
           {cTab === 'leaderboard' && <CoachLeaderboard   st={st} />}
           {cTab === 'feedback'    && <CoachFeedback />}
           {cTab === 'disputes'    && <CoachDisputeReview />}
+          {cTab === 'videos'      && <CoachVideoReports />}
         </div>
       </div>
     </div>

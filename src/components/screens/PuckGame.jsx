@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { ChevronLeft, Video, Upload, AlertCircle, Zap } from 'lucide-react'
+import { ChevronLeft, Video, Upload, AlertCircle, Zap, Flag } from 'lucide-react'
 import { ZONES } from '../../constants/zones.js'
 import { C } from '../../styles.js'
 import { useAppStore } from '../../store/useAppStore.js'
@@ -12,6 +12,7 @@ import {
 } from '../../services/puckGameService.js'
 import { disputePuckGame } from '../../services/disputeService.js'
 import PuckGameOverlay from '../overlays/PuckGameOverlay.jsx'
+import VideoReportModal from '../overlays/VideoReportModal.jsx'
 import CopyButton, { buildInviteText } from '../shared/CopyButton.jsx'
 import { updateStreak } from '../../utils/streakService.js'
 import { audioEngine } from '../../services/audioEngine.js'
@@ -110,8 +111,9 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error,         setError]        = useState('')
   const [rematchLoading,  setRematchLoading]  = useState(false)
-  const [concedeTarget,   setConcedeTarget]   = useState(null)  // game to concede (pending confirm)
+  const [concedeTarget,   setConcedeTarget]   = useState(null)
   const [concedeToast,    setConcedeToast]    = useState(false)
+  const [reportTarget,    setReportTarget]    = useState(null)  // { videoUrl, context } | null
   const concedeToastTimer                      = useRef(null)
 
   const logTechniqueShots = useAppStore(s => s.logTechniqueShots)
@@ -458,6 +460,13 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
     // ACTIVE GAME — ACTION VIEW
     return (
       <div style={{ padding: '16px 16px 80px' }}>
+        {reportTarget && (
+          <VideoReportModal
+            videoUrl={reportTarget.videoUrl}
+            videoContext={reportTarget.context}
+            onClose={() => setReportTarget(null)}
+          />
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
           <button onClick={() => { setView('list'); setSelectedGame(null); resetVideo() }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}><ChevronLeft size={22} /></button>
           <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 22, color: '#ef4444', letterSpacing: '0.06em' }}>P-U-C-K vs {fName.toUpperCase()}</div>
@@ -569,6 +578,14 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
                 <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: '#f97316', letterSpacing: '0.04em' }}>{ZONES.find(z => z.id === round.zone)?.label?.toUpperCase()}</div>
                 <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, color: '#fbbf24', letterSpacing: '0.04em' }}>{round.trickStyle?.toUpperCase()}</div>
               </div>
+              {round.setterVideo && (
+                <button
+                  onClick={() => setReportTarget({ videoUrl: round.setterVideo, context: `P-U-C-K Game – ${game.p1Name} vs ${game.p2Name}` })}
+                  style={{ marginTop: 8, background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, color: '#ef444488', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700 }}
+                >
+                  <Flag size={11} /> Report Inappropriate Video
+                </button>
+              )}
             </div>
 
             {action === 'expired' ? (
