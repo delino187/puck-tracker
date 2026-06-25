@@ -42,7 +42,8 @@ import Scaffold      from './components/shared/Scaffold.jsx'
 import BadgePopup           from './components/overlays/BadgePopup.jsx'
 import OnboardingModal     from './components/overlays/OnboardingModal.jsx'
 import EpicCelebration     from './components/overlays/EpicCelebration.jsx'
-import CelebOverlay        from './components/overlays/CelebOverlay.jsx'
+import CelebOverlay              from './components/overlays/CelebOverlay.jsx'
+import ChallengeAnsweredBanner   from './components/overlays/ChallengeAnsweredBanner.jsx'
 import CoachMsgPopup       from './components/overlays/CoachMsgPopup.jsx'
 import StreakBrokenModal   from './components/overlays/StreakBrokenModal.jsx'
 import FeedbackModal       from './components/overlays/FeedbackModal.jsx'
@@ -86,6 +87,7 @@ export default function App() {
     rageBaitReceived, setRageBaitReceived,
     complimentSender, setComplimentSender,
     complimentReceived, setComplimentReceived,
+    challengeAnsweredBanner, setChallengeAnsweredBanner,
   } = useUI()
 
   // ── Session / animation state (tightly coupled to game logic) ────────────
@@ -1249,6 +1251,15 @@ export default function App() {
               await dismissNotification(complimentReceived.id)
               setComplimentReceived(null)
             }}
+          />
+        )}
+
+        {/* ── Challenge-answered arcade banner ─────────────────────── */}
+        {challengeAnsweredBanner && (
+          <ChallengeAnsweredBanner
+            data={challengeAnsweredBanner}
+            onDismiss={() => setChallengeAnsweredBanner(null)}
+            onView={() => { setChallengeAnsweredBanner(null); setTab('challenges') }}
           />
         )}
 

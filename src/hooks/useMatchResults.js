@@ -7,6 +7,7 @@ import {
   claimChallengeLoserReward,
   fetchFreshTeamPlayers,
 } from '../services/peerChallengeService.js'
+import { showNativeNotification } from '../utils/notificationEngine.js'
 
 const VERSUS_WIN_DIAMONDS = 10
 const VERSUS_WIN_XP       = 20
@@ -40,16 +41,53 @@ function tauntPathFor(player) {
  */
 export function useMatchResults(peerChallenges) {
   const { st, setSt } = usePlayer()
-  const { setVictoryReward, setDefeatState } = useUI()
+  const { setVictoryReward, setDefeatState, setChallengeAnsweredBanner } = useUI()
 
-  const seenVictoryIds = useRef(new Set())
-  const seenDefeatIds  = useRef(new Set())
+  const seenVictoryIds        = useRef(new Set())
+  const seenDefeatIds         = useRef(new Set())
+  const seenAnsweredBannerIds = useRef(new Set())
 
-  // Reset in-session claim-lock sets when the active player switches accounts
+  // Reset in-session sets when the active player switches accounts
   useEffect(() => {
-    seenVictoryIds.current = new Set()
-    seenDefeatIds.current  = new Set()
+    seenVictoryIds.current        = new Set()
+    seenDefeatIds.current         = new Set()
+    seenAnsweredBannerIds.current = new Set()
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Challenge-answered banner + native notification ───────────────────────
+  // Fires when the CHALLENGER's sent challenge is answered by the receiver.
+  // The victory/defeat modals handle the full result — this banner is a
+  // lightweight "heads up" that works across all app tabs, firing the moment
+  // the realtime snapshot delivers the completion.
+  useEffect(() => {
+    if (!st?.activePlayerId) return
+    const activeId = st.activePlayerId
+
+    for (const challenge of peerChallenges) {
+      if (challenge.status !== 'completed')             continue
+      if (challenge.challengerId !== activeId)          continue  // only fires for the challenger
+      if (seenAnsweredBannerIds.current.has(challenge.id)) continue
+
+      seenAnsweredBannerIds.current.add(challenge.id)
+
+      const opponentName = challenge.receiverName ?? 'your opponent'
+      const won    = challenge.winnerId === activeId
+      const isDraw = challenge.isTie ?? false
+
+      // Layer 1: in-app glowing banner (UIContext state)
+      setChallengeAnsweredBanner({ opponentName, challengeId: challenge.id, won, isDraw })
+
+      // Layer 2: native browser/PWA notification (silent no-op if not granted)
+      const resultText = isDraw
+        ? "It's a tie! Check the results."
+        : won
+          ? `You WON against ${opponentName}! Collect your diamonds.`
+          : `${opponentName} beat you this time. Check the tape!`
+      showNativeNotification('⚡ Challenge Answered!', resultText)
+
+      break  // one banner at a time; next fires after dismissal
+    }
+  }, [peerChallenges, st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Victory detection (challenger perspective) ────────────────────────────
   // The receiver submits via handlePeerChallengeSubmit; the challenger only learns

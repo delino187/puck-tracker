@@ -44,6 +44,12 @@ export function UIProvider({ children }) {
   const [complimentSender,   setComplimentSender]   = useState(false)
   const [complimentReceived, setComplimentReceived] = useState(null)
 
+  // ── Challenge-answered in-app banner ──────────────────────────────────────
+  // Set to { opponentName, challengeId, won, isDraw } when a sent challenge
+  // is answered by the opponent while this player is inside the app.
+  // null = hidden.
+  const [challengeAnsweredBanner, setChallengeAnsweredBanner] = useState(null)
+
   // ── Navigation helpers ────────────────────────────────────────────────────
   function navigateToTab(tabId) {
     setTab(tabId)
@@ -90,6 +96,8 @@ export function UIProvider({ children }) {
       rageBaitReceived, setRageBaitReceived,
       complimentSender, setComplimentSender,
       complimentReceived, setComplimentReceived,
+      // Challenge-answered banner
+      challengeAnsweredBanner, setChallengeAnsweredBanner,
     }}>
       {children}
     </UIContext.Provider>

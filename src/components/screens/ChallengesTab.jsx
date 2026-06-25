@@ -1,18 +1,38 @@
 import { Plus, Clock, Trophy, Info, Swords } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PeerChallengeCard from '../shared/PeerChallengeCard.jsx'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
 import { usePlayer } from '../../context/PlayerContext.jsx'
+import { requestPermissionIfNeeded, getPermissionState } from '../../utils/notificationEngine.js'
 
 export default function ChallengesTab({
   peerChallenges = [],
   onCreateChallenge,
   onAcceptChallenge,
 }) {
-  const { activePlayer: player, st } = usePlayer()
+  const { activePlayer: player, st, setSt } = usePlayer()
   const players = st.players
   const sessions = st.sessions
   const [showTips, setShowTips] = useState(false)
+
+  // Ask for notification permission the first time the Versus screen is opened.
+  // If granted, store isPushEnabled=true on the player record so a future
+  // backend (Cloud Functions) can use it to send real push messages.
+  useEffect(() => {
+    if (!player?.id) return
+    if (player.isPushEnabled) return            // already stored — skip
+    if (getPermissionState() === 'denied') return  // user explicitly blocked — never re-ask
+
+    requestPermissionIfNeeded().then(granted => {
+      if (!granted) return
+      setSt(prev => ({
+        ...prev,
+        players: prev.players.map(p =>
+          p.id === prev.activePlayerId ? { ...p, isPushEnabled: true } : p
+        ),
+      }))
+    })
+  }, [player?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const incoming  = peerChallenges.filter(c => c.receiverId   === player.id && c.status === 'pending')
   const outgoing  = peerChallenges.filter(c => c.challengerId === player.id && c.status === 'pending')
