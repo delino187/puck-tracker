@@ -55,40 +55,36 @@ export async function requestPermissionIfNeeded() {
 /**
  * Shows a native browser/PWA notification if permission is currently granted.
  * Falls back silently if not.  Safe to call at any time.
+ *
+ * @param {string} tag  - Notification tag. Same tag replaces any prior notification
+ *                        of that type rather than stacking duplicates.
+ *                        Use 'versus-challenge' for match results, 'puck-turn' for turns.
  */
-export function showNativeNotification(title, body, icon = '/android-chrome-192x192.png') {
+export function showNativeNotification(title, body, icon = '/android-chrome-192x192.png', tag = 'puck-game') {
   if (typeof window === 'undefined')            return
   if (!('Notification' in window))              return
   if (Notification.permission !== 'granted')    return
 
   try {
-    // Use the Service Worker registration for PWA mode (shows even when page
-    // is backgrounded on mobile).  Falls back to the Notification constructor.
     if (navigator.serviceWorker?.controller) {
       navigator.serviceWorker.ready.then(reg => {
         reg.showNotification(title, {
-          body,
-          icon,
-          badge:   '/android-chrome-192x192.png',
-          tag:     'versus-challenge',    // replaces any existing notification with this tag
+          body, icon, tag,
+          badge:    '/android-chrome-192x192.png',
           renotify: true,
         }).catch(() => {})
-      }).catch(() => {
-        // SW not ready — fire inline
-        _fireInlineNotification(title, body, icon)
-      })
+      }).catch(() => _fireInlineNotification(title, body, icon, tag))
     } else {
-      _fireInlineNotification(title, body, icon)
+      _fireInlineNotification(title, body, icon, tag)
     }
   } catch {
     // Notification constructor can throw on some iOS versions — fail silently
   }
 }
 
-function _fireInlineNotification(title, body, icon) {
+function _fireInlineNotification(title, body, icon, tag) {
   try {
-    const n = new Notification(title, { body, icon, tag: 'versus-challenge', renotify: true })
-    // Auto-close after 8 s so it doesn't clutter the notification center
+    const n = new Notification(title, { body, icon, tag, renotify: true })
     setTimeout(() => { try { n.close() } catch {} }, 8000)
   } catch {}
 }

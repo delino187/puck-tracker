@@ -15,6 +15,7 @@ import { ROOKIE_QUESTS, DEFAULT_ROOKIE_QUESTS } from './constants/rookieQuests.j
 import { useAudio }                      from './hooks/useAudio.js'
 import { useTheme }                      from './hooks/useTheme.js'
 import { useMatchResults, tauntPathFor } from './hooks/useMatchResults.js'
+import { usePuckTurnAlerts }             from './hooks/usePuckTurnAlerts.js'
 
 import HomeScreen         from './components/screens/HomeScreen.jsx'
 import PlayerSelectScreen from './components/screens/PlayerSelectScreen.jsx'
@@ -44,6 +45,7 @@ import OnboardingModal     from './components/overlays/OnboardingModal.jsx'
 import EpicCelebration     from './components/overlays/EpicCelebration.jsx'
 import CelebOverlay              from './components/overlays/CelebOverlay.jsx'
 import ChallengeAnsweredBanner   from './components/overlays/ChallengeAnsweredBanner.jsx'
+import PuckTurnBanner            from './components/overlays/PuckTurnBanner.jsx'
 import CoachMsgPopup       from './components/overlays/CoachMsgPopup.jsx'
 import StreakBrokenModal   from './components/overlays/StreakBrokenModal.jsx'
 import FeedbackModal       from './components/overlays/FeedbackModal.jsx'
@@ -88,6 +90,7 @@ export default function App() {
     complimentSender, setComplimentSender,
     complimentReceived, setComplimentReceived,
     challengeAnsweredBanner, setChallengeAnsweredBanner,
+    puckTurnBanner, setPuckTurnBanner,
   } = useUI()
 
   // ── Session / animation state (tightly coupled to game logic) ────────────
@@ -123,6 +126,7 @@ export default function App() {
   // Refs are returned so handlePeerChallengeSubmit can mark challenges seen before
   // the peerChallenges state update triggers the hook's effects.
   const { seenVictoryIds, seenDefeatIds } = useMatchResults(peerChallenges)
+  usePuckTurnAlerts(puckGames)
 
   // Reactive read of the technique/challenge XP pool.  Drives XP bar + level display.
   // useShallow prevents re-renders when a new techniqueByPlayer object is written
@@ -1260,6 +1264,19 @@ export default function App() {
             data={challengeAnsweredBanner}
             onDismiss={() => setChallengeAnsweredBanner(null)}
             onView={() => { setChallengeAnsweredBanner(null); setTab('challenges') }}
+          />
+        )}
+
+        {/* ── P-U-C-K turn banner ───────────────────────────────────── */}
+        {puckTurnBanner && !challengeAnsweredBanner && (
+          <PuckTurnBanner
+            data={puckTurnBanner}
+            onDismiss={() => setPuckTurnBanner(null)}
+            onView={() => {
+              setPuckTurnBanner(null)
+              setDeepLinkPuckGameId(puckTurnBanner.gameId)
+              setTab('session')
+            }}
           />
         )}
 

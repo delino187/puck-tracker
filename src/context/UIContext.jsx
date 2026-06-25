@@ -50,6 +50,11 @@ export function UIProvider({ children }) {
   // null = hidden.
   const [challengeAnsweredBanner, setChallengeAnsweredBanner] = useState(null)
 
+  // ── P-U-C-K turn banner ───────────────────────────────────────────────────
+  // Set to { gameId, opponentName, action } when it becomes the active player's
+  // turn to shoot in a P-U-C-K game.  action is 'set' or 'match'.
+  const [puckTurnBanner, setPuckTurnBanner] = useState(null)
+
   // ── Navigation helpers ────────────────────────────────────────────────────
   function navigateToTab(tabId) {
     setTab(tabId)
@@ -98,6 +103,8 @@ export function UIProvider({ children }) {
       complimentReceived, setComplimentReceived,
       // Challenge-answered banner
       challengeAnsweredBanner, setChallengeAnsweredBanner,
+      // P-U-C-K turn banner
+      puckTurnBanner, setPuckTurnBanner,
     }}>
       {children}
     </UIContext.Provider>

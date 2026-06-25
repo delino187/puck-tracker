@@ -83,7 +83,7 @@ export function useMatchResults(peerChallenges) {
         : won
           ? `You WON against ${opponentName}! Collect your diamonds.`
           : `${opponentName} beat you this time. Check the tape!`
-      showNativeNotification('⚡ Challenge Answered!', resultText)
+      showNativeNotification('⚡ Challenge Answered!', resultText, '/android-chrome-192x192.png', 'versus-challenge')
 
       break  // one banner at a time; next fires after dismissal
     }
