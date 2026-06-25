@@ -136,7 +136,7 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], s
           {/* Game mode subtext */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
             <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: '#475569', letterSpacing: '0.08em' }}>
-              Hockey Horse · {zoneName}
+              Shooting Challenge · {zoneName}
             </span>
             <MatchTypeBadge matchType={challenge.matchType} />
           </div>
