@@ -484,6 +484,92 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
     )
   }
 
+  // ── Challenger spectator view — read-only, no input controls ──────────────
+  // This guard is the primary access-control gate. The challenger must never see
+  // the response form regardless of how this screen was opened.
+  const isReceiver = player.id === challenge.receiverId
+  if (!isReceiver) {
+    const opponentName = challenge.receiverName ?? 'your opponent'
+    const zoneName2    = ZONES.find(z => z.id === challenge.zone)?.label ?? challenge.zone
+    return (
+      <div style={{ padding: '20px 16px 80px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 28 }}>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}>
+            <ChevronLeft size={22} />
+          </button>
+          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 24, letterSpacing: '0.06em', color: '#60a5fa' }}>
+            CHALLENGE SENT
+          </div>
+        </div>
+
+        {/* Waiting card */}
+        <div style={{
+          background: 'linear-gradient(135deg,#0d1526,#0f1e3a)',
+          border: '2px solid #3b82f655',
+          borderRadius: 20, padding: '32px 24px',
+          textAlign: 'center', marginBottom: 20,
+          boxShadow: '0 0 40px #3b82f618',
+        }}>
+          <div style={{ fontSize: 52, marginBottom: 16, lineHeight: 1 }}>⏳</div>
+          <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 28, letterSpacing: '0.08em', color: '#60a5fa', marginBottom: 8 }}>
+            AWAITING RESPONSE
+          </div>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 15, fontWeight: 600, color: '#94a3b8', lineHeight: 1.6 }}>
+            Challenge sent to <span style={{ color: '#f1f5f9', fontWeight: 800 }}>{opponentName}</span>.
+            <br />Waiting for them to lay down their score.
+          </div>
+        </div>
+
+        {/* Challenge details — read only */}
+        <div style={{ background: 'var(--card-bg)', border: 'var(--card-border)', borderRadius: 16, padding: '18px 20px', marginBottom: 16 }}>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: '0.18em', marginBottom: 14 }}>
+            CHALLENGE DETAILS
+          </div>
+          {[
+            { label: 'Zone',   value: zoneName2 },
+            { label: 'Shots',  value: `${shotCount} shots` },
+            { label: 'Your Score', value: `${challenge.challengerHits}/${shotCount}` },
+            { label: 'Match Type', value: challenge.matchType === 'unranked' ? '🤝 Casual' : '🏆 Ranked' },
+          ].map(({ label, value }) => (
+            <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 10, marginBottom: 10, borderBottom: '1px solid #1e293b' }}>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: '0.06em' }}>
+                {label}
+              </span>
+              <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 800, color: '#e2e8f0' }}>
+                {value}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Proof video — read only */}
+        {challenge.challengerVideo && (
+          <div style={{ background: 'var(--card-bg)', border: 'var(--card-border)', borderRadius: 16, padding: '16px 18px', marginBottom: 16 }}>
+            <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#475569', letterSpacing: '0.18em', marginBottom: 10 }}>
+              YOUR PROOF VIDEO
+            </div>
+            <video src={challenge.challengerVideo} controls playsInline style={{ width: '100%', borderRadius: 10, maxHeight: 220 }} />
+          </div>
+        )}
+
+        <button
+          onClick={onBack}
+          style={{
+            width: '100%', padding: '14px',
+            background: 'linear-gradient(135deg,#1d3a6e,#1e40af)',
+            border: '1.5px solid #3b82f6',
+            borderRadius: 14,
+            fontFamily: "'Bangers',sans-serif", fontSize: 20, letterSpacing: '0.08em',
+            color: '#fff', cursor: 'pointer',
+            boxShadow: '0 0 20px #3b82f640',
+          }}
+        >
+          ← BACK TO VERSUS
+        </button>
+      </div>
+    )
+  }
+
   // ── Response screen ────────────────────────────────────────────────────────
   return (
     <div style={{ padding: '20px 16px 80px' }}>
