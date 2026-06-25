@@ -28,7 +28,11 @@ export function subscribeToChallenges(playerId, onData) {
   return onSnapshot(
     collection(db, 'teams', TEAM_ID, 'peerChallenges'),
     snap => {
-      const cutoff = Date.now() - 24 * 60 * 60 * 1000
+      // 7-day cutoff: ranked challenges expire in 5 days and need up to 2 extra
+      // days to be visible so the lazy expiration resolver can process them before
+      // they vanish from the feed.  Unranked challenges expire in 48 h; 7 days is
+      // still a reasonable retention window for "recent results".
+      const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
       onData(
         snap.docs
           .map(d => ({ id: d.id, ...d.data() }))

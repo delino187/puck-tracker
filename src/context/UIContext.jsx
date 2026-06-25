@@ -44,6 +44,11 @@ export function UIProvider({ children }) {
   const [complimentSender,   setComplimentSender]   = useState(false)
   const [complimentReceived, setComplimentReceived] = useState(null)
 
+  // ── Ranked expiration forfeit-win banner ─────────────────────────────────
+  // Set to { opponentName, challengeId, eloGained } when a sent ranked challenge
+  // is auto-resolved because the opponent failed to respond in 5 days.
+  const [expiredVictoryBanner, setExpiredVictoryBanner] = useState(null)
+
   // ── Challenge-answered in-app banner ──────────────────────────────────────
   // Set to { opponentName, challengeId, won, isDraw } when a sent challenge
   // is answered by the opponent while this player is inside the app.
@@ -101,6 +106,8 @@ export function UIProvider({ children }) {
       rageBaitReceived, setRageBaitReceived,
       complimentSender, setComplimentSender,
       complimentReceived, setComplimentReceived,
+      // Ranked expiration forfeit-win banner
+      expiredVictoryBanner, setExpiredVictoryBanner,
       // Challenge-answered banner
       challengeAnsweredBanner, setChallengeAnsweredBanner,
       // P-U-C-K turn banner

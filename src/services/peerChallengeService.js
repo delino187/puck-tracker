@@ -10,9 +10,10 @@ import {
 import { calculateNewRatings } from '../utils/elo.js'
 import { upload } from '@vercel/blob/client'
 
-const TEAM_ID        = 'team_main'
-const COL            = () => collection(db, 'teams', TEAM_ID, 'peerChallenges')
-const EXPIRY_MS      = 48 * 60 * 60 * 1000
+const TEAM_ID           = 'team_main'
+const COL               = () => collection(db, 'teams', TEAM_ID, 'peerChallenges')
+const EXPIRY_MS         = 48 * 60 * 60 * 1000           // 48 h — unranked
+const RANKED_EXPIRY_MS  = 5  * 24 * 60 * 60 * 1000      // 5 days — ranked
 const MAX_FILE_BYTES  = 150 * 1024 * 1024   // 150 MB — Vercel Blob client upload; no server body limit
 export const WARN_FILE_BYTES = 25 * 1024 * 1024  // show amber warning above this threshold
 
@@ -74,7 +75,7 @@ export async function createChallenge({
     receiverVideo:    null,
     winnerId:         null,
     createdAt:        now,
-    expiresAt:        now + EXPIRY_MS,
+    expiresAt:        now + (matchType === 'ranked' ? RANKED_EXPIRY_MS : EXPIRY_MS),
     respondedAt:      null,
     seenByOpponent:   false,     // cleared to true when receiver opens the Versus tab
   }
@@ -351,6 +352,116 @@ export async function fetchFreshTeamPlayers() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Ranked challenge expiration auto-resolution ───────────────────────────────
+// Called lazily on-the-fly when the player loads their match list.
+// Only processes ranked challenges that are still pending past their expiresAt.
+// Challenger wins by forfeit; receiver loses. ELO adjusts accordingly.
+// Idempotent: expirationResolutionProcessed flag prevents double-processing.
+export async function resolveExpiredChallenge(challenge) {
+  if (challenge.matchType !== 'ranked')            return null
+  if (challenge.status    !== 'pending')            return null
+  if (Date.now() <= challenge.expiresAt)           return null
+  if (challenge.expirationResolutionProcessed)     return null
+
+  const teamRef      = doc(db, 'teams', TEAM_ID)
+  const challengeRef = doc(db, 'teams', TEAM_ID, 'peerChallenges', challenge.id)
+  let eloResult = null
+
+  try {
+    await runTransaction(db, async tx => {
+      const [teamSnap, challengeSnap] = await Promise.all([
+        tx.get(teamRef),
+        tx.get(challengeRef),
+      ])
+      if (!teamSnap.exists() || !challengeSnap.exists()) return
+
+      // Idempotency guard inside the transaction (handles concurrent device opens)
+      const cData = challengeSnap.data()
+      if (cData.status !== 'pending')              return
+      if (cData.expirationResolutionProcessed)     return
+
+      const players    = teamSnap.data().players || []
+      const challenger = players.find(p => p.id === challenge.challengerId)
+      const receiver   = players.find(p => p.id === challenge.receiverId)
+      if (!challenger || !receiver) return
+
+      const ratingC = challenger.elo ?? 1000
+      const ratingR = receiver.elo   ?? 1000
+
+      // Forfeit: challenger wins (outcome=1), no streak bonus
+      const { deltaA, deltaB } = calculateNewRatings(ratingC, ratingR, 1, 0)
+
+      // Shield absorbs the loss for the receiver only; winner is unaffected
+      const receiverHadShield = receiver.hasEloShield || false
+      const finalDeltaA = deltaA
+      const finalDeltaB = receiverHadShield ? 0 : deltaB
+
+      const now = Date.now()
+      eloResult = {
+        challengerDelta:    finalDeltaA,
+        receiverDelta:      finalDeltaB,
+        receiverShieldSaved: receiverHadShield,
+        forfeit:            true,
+      }
+
+      tx.update(teamRef, {
+        players: players.map(p => {
+          if (p.id === challenge.challengerId) return {
+            ...p,
+            elo:            ratingC + finalDeltaA,
+            eloLastDelta:   finalDeltaA,
+            eloLastUpdated: now,
+            totalWins:      (p.totalWins || 0) + 1,
+            hasEloShield:   false,
+          }
+          if (p.id === challenge.receiverId) return {
+            ...p,
+            elo:            ratingR + finalDeltaB,
+            eloLastDelta:   finalDeltaB,
+            eloLastUpdated: now,
+            hasEloShield:   false,
+          }
+          return p
+        }),
+      })
+
+      // Mark challenge completed — existing victory/defeat effects in useMatchResults
+      // will fire on the next snapshot and handle winnerRewardsClaimed + local state.
+      tx.update(challengeRef, {
+        status:                        'completed',
+        winnerId:                      challenge.challengerId,
+        isTie:                         false,
+        respondedAt:                   now,
+        expirationVictory:             true,   // flag for contextual UI
+        expirationResolutionProcessed: true,   // idempotency lock
+        eloProcessed:                  true,
+        challengerEloDelta:            finalDeltaA,
+        receiverEloDelta:              finalDeltaB,
+        eloTimestamp:                  now,
+      })
+    })
+  } catch (err) {
+    console.error('[resolveExpiredChallenge] transaction failed:', err.message)
+    return null
+  }
+
+  return eloResult
+}
+
+// ── Countdown helpers ─────────────────────────────────────────────────────────
+
+/** Human-readable countdown for ranked 5-day window: "3 days, 14h" or "8h remaining" */
+export function formatRankedCountdown(expiresAt) {
+  const ms = Math.max(0, expiresAt - Date.now())
+  if (ms === 0) return 'EXPIRED'
+  const totalHours = Math.floor(ms / 3_600_000)
+  const days       = Math.floor(totalHours / 24)
+  const hours      = totalHours % 24
+  if (days > 0) return `${days}d ${hours}h remaining`
+  const mins = Math.floor((ms % 3_600_000) / 60_000)
+  return hours > 0 ? `${hours}h ${mins}m remaining` : `${mins}m remaining`
+}
+
 export function formatCountdown(expiresAt) {
   const ms   = Math.max(0, expiresAt - Date.now())
   if (ms === 0) return 'EXPIRED'

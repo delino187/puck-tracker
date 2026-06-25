@@ -5,6 +5,7 @@ import Avatar from './Avatar.jsx'
 import HistoricalMatchupModal from '../overlays/HistoricalMatchupModal.jsx'
 import PlayerProfileCardModal from '../overlays/PlayerProfileCardModal.jsx'
 import CopyButton, { buildInviteText } from './CopyButton.jsx'
+import { formatRankedCountdown } from '../../services/peerChallengeService.js'
 
 function MatchTypeBadge({ matchType }) {
   const ranked = matchType !== 'unranked'
@@ -165,6 +166,39 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], s
                 : isChallenger ? 'WAITING FOR OPPONENT…' : 'YOUR TURN!'}
             </span>
           </div>
+
+          {/* Ranked expiration countdown — sender view only */}
+          {isChallenger && !expired && challenge.matchType === 'ranked' && challenge.expiresAt && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              marginTop: 6,
+              background: (() => {
+                const ms = challenge.expiresAt - Date.now()
+                return ms < 12 * 3_600_000
+                  ? 'rgba(239,68,68,0.1)'
+                  : ms < 48 * 3_600_000
+                    ? 'rgba(251,191,36,0.1)'
+                    : 'rgba(59,130,246,0.08)'
+              })(),
+              border: `1px solid ${(() => {
+                const ms = challenge.expiresAt - Date.now()
+                return ms < 12 * 3_600_000 ? '#ef444455' : ms < 48 * 3_600_000 ? '#fbbf2455' : '#3b82f633'
+              })()}`,
+              borderRadius: 8, padding: '3px 8px',
+            }}>
+              <span style={{ fontSize: 9 }}>⏳</span>
+              <span style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800,
+                letterSpacing: '0.08em',
+                color: (() => {
+                  const ms = challenge.expiresAt - Date.now()
+                  return ms < 12 * 3_600_000 ? '#f87171' : ms < 48 * 3_600_000 ? '#fbbf24' : '#60a5fa'
+                })(),
+              }}>
+                {formatRankedCountdown(challenge.expiresAt)}
+              </span>
+            </div>
+          )}
 
           {/* Nudge copy link — only on outgoing pending cards */}
           {isChallenger && !expired && (

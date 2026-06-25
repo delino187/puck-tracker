@@ -6,6 +6,7 @@ import {
   claimChallengeWinReward,
   claimChallengeLoserReward,
   fetchFreshTeamPlayers,
+  resolveExpiredChallenge,
 } from '../services/peerChallengeService.js'
 import { showNativeNotification } from '../utils/notificationEngine.js'
 
@@ -41,18 +42,60 @@ function tauntPathFor(player) {
  */
 export function useMatchResults(peerChallenges) {
   const { st, setSt } = usePlayer()
-  const { setVictoryReward, setDefeatState, setChallengeAnsweredBanner } = useUI()
+  const {
+    setVictoryReward, setDefeatState,
+    setChallengeAnsweredBanner, setExpiredVictoryBanner,
+  } = useUI()
 
   const seenVictoryIds        = useRef(new Set())
   const seenDefeatIds         = useRef(new Set())
   const seenAnsweredBannerIds = useRef(new Set())
+  const seenExpiredIds        = useRef(new Set())
 
   // Reset in-session sets when the active player switches accounts
   useEffect(() => {
     seenVictoryIds.current        = new Set()
     seenDefeatIds.current         = new Set()
     seenAnsweredBannerIds.current = new Set()
+    seenExpiredIds.current        = new Set()
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Ranked expiration lazy resolver ──────────────────────────────────────
+  // Fires on every peerChallenges snapshot.  If a ranked challenge has passed
+  // its 5-day window with no response, it atomically resolves it as a forfeit
+  // win for the challenger.  The completed challenge then flows through the
+  // normal victory/defeat detection effects below.
+  useEffect(() => {
+    if (!st?.activePlayerId) return
+    const activeId = st.activePlayerId
+    const now      = Date.now()
+
+    for (const challenge of peerChallenges) {
+      if (challenge.matchType !== 'ranked')              continue
+      if (challenge.status    !== 'pending')             continue
+      if (now <= challenge.expiresAt)                   continue
+      if (challenge.expirationResolutionProcessed)      continue
+      if (seenExpiredIds.current.has(challenge.id))     continue
+      if (challenge.challengerId !== activeId && challenge.receiverId !== activeId) continue
+
+      seenExpiredIds.current.add(challenge.id)
+
+      resolveExpiredChallenge(challenge).then(result => {
+        if (!result) return  // already resolved by another device, or error
+        // Challenger: show the expiry-specific banner (diamonds/XP come from
+        // the victory effect below when the completed snapshot arrives).
+        if (challenge.challengerId === activeId) {
+          setExpiredVictoryBanner({
+            opponentName: challenge.receiverName ?? 'your opponent',
+            challengeId:  challenge.id,
+            eloGained:    result.challengerDelta ?? 0,
+          })
+        }
+      })
+
+      break  // one resolution per render cycle
+    }
+  }, [peerChallenges, st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Challenge-answered banner + native notification ───────────────────────
   // Fires when the CHALLENGER's sent challenge is answered by the receiver.
@@ -178,8 +221,12 @@ export function useMatchResults(peerChallenges) {
           }))
         }
 
-        // Step 3: Show the modal — purely visual; rewards and flag already committed
-        setVictoryReward({ type: 'versus', diamonds: VERSUS_WIN_DIAMONDS, xp: VERSUS_WIN_XP, opponentId, challengeId: cid })
+        // Step 3: Show result UI.
+        // Expiration wins already show the expiredVictoryBanner (set in the resolver
+        // effect above), so skip the regular victory modal to avoid doubling up.
+        if (!challenge.expirationVictory) {
+          setVictoryReward({ type: 'versus', diamonds: VERSUS_WIN_DIAMONDS, xp: VERSUS_WIN_XP, opponentId, challengeId: cid })
+        }
       })
 
       break  // process one win at a time; next win shows after this modal dismisses

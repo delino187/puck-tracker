@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { AlertCircle, Plus, Lock } from 'lucide-react'
+import { AlertCircle, Plus, Lock, X } from 'lucide-react'
 
 import { saveSt } from './utils/storage.js'
 import { saveToFirestore, deletePlayerData, forceSessionSync } from './utils/firestoreSync.js'
@@ -93,6 +93,7 @@ export default function App() {
     rageBaitReceived, setRageBaitReceived,
     complimentSender, setComplimentSender,
     complimentReceived, setComplimentReceived,
+    expiredVictoryBanner, setExpiredVictoryBanner,
     challengeAnsweredBanner, setChallengeAnsweredBanner,
     puckTurnBanner, setPuckTurnBanner,
   } = useUI()
@@ -1352,6 +1353,44 @@ export default function App() {
               setComplimentReceived(null)
             }}
           />
+        )}
+
+        {/* ── Ranked expiration forfeit-win banner ─────────────────── */}
+        {expiredVictoryBanner && !challengeAnsweredBanner && (
+          <div
+            onClick={() => { setExpiredVictoryBanner(null); setTab('challenges') }}
+            style={{
+              position: 'fixed', top: 72, left: '50%', transform: 'translateX(-50%)',
+              zIndex: 9100, width: 'calc(100% - 32px)', maxWidth: 440,
+              background: 'linear-gradient(135deg,#0a1f0a,#0d2d10)',
+              border: '2px solid #22c55e',
+              borderRadius: 16, padding: '14px 44px 14px 16px',
+              cursor: 'pointer', userSelect: 'none',
+              boxShadow: '0 0 40px #22c55e33, 0 4px 20px rgba(0,0,0,0.6)',
+              animation: 'bannerSlideDown 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}
+          >
+            <div style={{ fontSize: 32, lineHeight: 1, flexShrink: 0 }}>⚡</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.08em', color: '#22c55e', lineHeight: 1.1 }}>
+                FREE ELO WIN!
+              </div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 600, color: '#94a3b8', marginTop: 3, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {expiredVictoryBanner.opponentName} failed to respond in time.
+                {expiredVictoryBanner.eloGained > 0 && ` +${expiredVictoryBanner.eloGained} ELO awarded.`}
+              </div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#22c55e', letterSpacing: '0.1em', marginTop: 5 }}>
+                TAP TO VIEW RESULTS →
+              </div>
+            </div>
+            <button
+              onClick={e => { e.stopPropagation(); setExpiredVictoryBanner(null) }}
+              style={{ position: 'absolute', top: 10, right: 10, background: 'transparent', border: 'none', cursor: 'pointer', color: '#475569', display: 'flex', padding: 4 }}
+            >
+              <X size={15} />
+            </button>
+          </div>
         )}
 
         {/* ── Challenge-answered arcade banner ─────────────────────── */}
