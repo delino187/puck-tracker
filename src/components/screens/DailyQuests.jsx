@@ -80,16 +80,13 @@ function computeWeeklyQuestProgress(text, sessions, playerId, puckGames = [], pe
     return { current: Math.min(weekShots, target), target }
   }
   // "Log N Backhand Shots in Technique Only Mode this Week"
-  // Counts backhand shots from technique practice by reading the breakdown in dailyLog.
-  // Defensive fallback: if breakdown is missing or undefined, returns 0 (won't crash).
+  // Reads from the techniqueByPlayer map passed as a parameter — never calls a hook.
   if (/Log (\d+) Backhand Shots/i.test(text)) {
-    const target = parseInt(text.match(/\d+/)[0])
-    const techEntry = useAppStore(s => s.techniqueByPlayer?.[playerId])
-    const dailyLog = techEntry?.dailyLog || {}
+    const target   = parseInt(text.match(/\d+/)[0])
+    const dailyLog = techniqueByPlayer?.[playerId]?.dailyLog || {}
 
     let backhandShots = 0
     Object.values(dailyLog).forEach(dayEntry => {
-      // Handle both legacy (number) and new (object) formats
       if (typeof dayEntry === 'object' && dayEntry?.breakdown?.['Backhand']) {
         backhandShots += dayEntry.breakdown['Backhand']
       }
@@ -556,9 +553,9 @@ export default function DailyQuests({
     setSlotSpinning(true)
 
     // Spin audio — same pattern as Daily Quests
-    const spinAudio = new Audio('https://actions.google.com/sounds/v1/science_fiction/glitchy_digital_texture.ogg')
+    const spinAudio = new Audio('/store-spin.mp3')
     spinAudio.loop = true; spinAudio.volume = 0.3
-    spinAudio.play().catch(() => {})
+    try { spinAudio.play().catch(() => {}) } catch {}
 
     // Fast shuffle on all 3 quest rows simultaneously
     weeklyShuffleInterval.current = setInterval(() => {
@@ -574,9 +571,9 @@ export default function DailyQuests({
       clearInterval(weeklyShuffleInterval.current)
       spinAudio.pause()
 
-      const lockAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+      const lockAudio = new Audio('/retro-game-notification.mp3')
       lockAudio.volume = 0.6
-      lockAudio.play().catch(() => {})
+      try { lockAudio.play().catch(() => {}) } catch {}
 
       const safeQuests = picked || []
       setWeeklyQuests(safeQuests)
@@ -613,10 +610,10 @@ export default function DailyQuests({
     audioEngine.playQuestSpin()
 
     // ── Audio: must be created inside user-gesture handler for mobile ─────────
-    const spinAudio = new Audio('https://actions.google.com/sounds/v1/science_fiction/glitchy_digital_texture.ogg')
+    const spinAudio = new Audio('/store-spin.mp3')
     spinAudio.loop   = true
     spinAudio.volume = 0.35
-    spinAudio.play().catch(err => console.log('spin audio blocked:', err))
+    try { spinAudio.play().catch(() => {}) } catch {}
     spinAudioRef.current = spinAudio
 
     setSpinning(true)
@@ -641,9 +638,9 @@ export default function DailyQuests({
       }
 
       // Lock/win sound
-      const lockAudio = new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-84.wav')
+      const lockAudio = new Audio('/retro-game-notification.mp3')
       lockAudio.volume = 0.6
-      lockAudio.play().catch(err => console.log('lock audio blocked:', err))
+      try { lockAudio.play().catch(() => {}) } catch {}
 
       const picked = pickQuests(sessions) || []  // pass sessions so baseline is captured now
       setCurrentQuests(picked.length ? picked : [])
