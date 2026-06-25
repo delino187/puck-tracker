@@ -6,6 +6,7 @@ import Avatar from '../shared/Avatar.jsx'
 import { getStreakAuraClass } from '../../utils/streakAura.js'
 import { playerStats } from '../../utils/stats.js'
 import { usePlayer } from '../../context/PlayerContext.jsx'
+import { useAppStore } from '../../store/useAppStore.js'
 
 const TEAM_ID = 'team_main'
 const MS_24H  = 24 * 60 * 60 * 1000
@@ -73,7 +74,11 @@ function getMetric(p, stats, sortBy) {
 // ── Player Card Modal ─────────────────────────────────────────────────────────
 function PlayerCardModal({ selected, challenges, activePlayerId, onClose }) {
   const { p, stats, rank, position } = selected
-  const isMe  = p.id === activePlayerId
+  const isMe           = p.id === activePlayerId
+  // Technique-only pucks (logged outside sessions) live in Zustand
+  const techniquePucks = useAppStore(s => s.techniqueByPlayer?.[p.id]?.totalPucks || 0)
+  // All-mode lifetime shots: Target Practice + ATW + Technique Only
+  const allLifetimeShots = stats.totalShots + techniquePucks
   const wins  = challenges.filter(c => c.status === 'completed' && c.winnerId === p.id).length
   const losses = challenges.filter(c =>
     c.status === 'completed' && !c.isTie &&
@@ -100,7 +105,7 @@ function PlayerCardModal({ selected, challenges, activePlayerId, onClose }) {
   const stats2 = [
     { label: 'ELO',    value: (p.elo ?? 1000).toString(),                    color: '#f59e0b' },
     { label: 'XP',     value: Math.round(stats.xp).toLocaleString(),          color: '#a855f7' },
-    { label: 'SHOTS',  value: stats.totalShots.toLocaleString(),              color: '#3b82f6' },
+    { label: 'SHOTS',  value: allLifetimeShots.toLocaleString(),               color: '#3b82f6' },
     { label: 'ACC',    value: stats.totalShots > 0 ? `${Math.round(stats.acc)}%` : '—', color: '#06b6d4' },
     { label: 'STREAK', value: (stats.streak || 0) > 0 ? `${stats.streak} 🔥` : '—', color: '#ef4444' },
     { label: 'LEVEL',  value: stats.level?.name ?? '—',                       color: '#22c55e' },
