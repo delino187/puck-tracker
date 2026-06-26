@@ -395,6 +395,9 @@ export default function App() {
     // ── Persist immediately — before any React render ────────────────────────
     // saveSt writes localStorage synchronously and fires Firestore async.
     // Even if the subsequent setSt render crashes, this write already landed.
+    // Stamp selfDiamondClaimRef so the PlayerContext snapshot listener treats
+    // the resulting diamond increase as self-initiated and skips the flute.
+    selfDiamondClaimRef.current = Date.now()
     saveSt(nextSt)
 
     // ── Queue React state update (pure updater — no side effects) ───────────
@@ -714,14 +717,17 @@ export default function App() {
     await forceSessionSync(aSess)
 
     // Quest completion toasts: applyQuestProgress (above) already computed
-    // which quests are newly completed; surface a celebration for each one.
+    // which quests are newly completed; surface a light celebration for each one.
+    // CelebOverlay (setCeleb) is used intentionally — NOT setEpicCeleb — because
+    // quest completions are not badge unlocks and EpicCelebration has no close path
+    // for unknown types, which would freeze the UI.
     if (questResult) {
       questResult.updatedQuests.forEach((q, i) => {
         const wasAlreadyDone = aPlayer.daily_quests?.[i]?.completed
         if (q.completed && !wasAlreadyDone) {
           setTimeout(() => {
-            setEpicCeleb({ type: 'quest', quest: { questText: q.text, newProgress: q.currentProgress, targetProgress: q.targetProgress } })
-            audioEngine.playBadgeUnlock()
+            setCeleb({ emoji: '⭐', title: 'Quest Complete!', subtitle: 'Tap to claim your reward 💎' })
+            audioEngine.playUtilitySuccess()
           }, 500)
         }
       })

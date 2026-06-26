@@ -3,7 +3,35 @@ import confetti from 'canvas-confetti'
 import { TIER } from '../../constants/badges.js'
 
 export default function EpicCelebration({ type, level, badge, onClose, onClaimBonus }) {
-  const isLevelUp   = type === 'levelup'
+  // Safety gate: if the type is unrecognised or required data is missing, render
+  // a minimal fallback that always has a close path to prevent a frozen screen.
+  const isLevelUp = type === 'levelup'
+  const isBadge   = type === 'badge'
+  if (!isLevelUp && !isBadge) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)',
+        zIndex: 2000, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', padding: 24,
+      }}>
+        <div style={{ fontFamily: "'Bangers',sans-serif", fontSize: 48, color: '#fbbf24', marginBottom: 24 }}>
+          ⭐
+        </div>
+        <button
+          onClick={onClose}
+          style={{
+            background: '#fbbf24', color: '#000', border: 'none',
+            borderRadius: 14, padding: '14px 40px',
+            fontFamily: "'Bangers',sans-serif", fontSize: 24, letterSpacing: '0.1em',
+            cursor: 'pointer',
+          }}
+        >
+          CONTINUE
+        </button>
+      </div>
+    )
+  }
+
   const tc          = badge ? TIER[badge.tier] : null
   const accentColor = isLevelUp ? (level?.color   ?? '#ffd700') : (tc?.ring     ?? '#a855f7')
   const glowBase    = isLevelUp ? (level?.glow    ?? '#ffd700') : (tc?.ring     ?? '#a855f7')
@@ -161,6 +189,23 @@ export default function EpicCelebration({ type, level, badge, onClose, onClaimBo
 
       {/* CTA — shown after claiming or for level-ups */}
       {(isLevelUp || claimed) && (
+        <button
+          onClick={onClose}
+          style={{
+            background: accentColor, color: '#000', border: 'none',
+            borderRadius: 14, padding: '15px 48px',
+            fontFamily: "'Bangers',sans-serif", fontSize: 26,
+            letterSpacing: '0.10em', cursor: 'pointer',
+            boxShadow: `0 0 30px ${glowBase}66, 0 4px 20px rgba(0,0,0,0.5)`,
+          }}
+        >
+          LET'S GO!
+        </button>
+      )}
+
+      {/* Safety-net close — always visible so the player is never stuck if
+          badge data is partial or onClaimBonus is unexpectedly missing */}
+      {!isLevelUp && !claimed && !onClaimBonus && (
         <button
           onClick={onClose}
           style={{
