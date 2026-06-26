@@ -188,6 +188,16 @@ function PlayerCardModal({ selected, challenges, activePlayerId, onClose }) {
           color: rank.color, letterSpacing: '0.14em',
         }}>
           {rank.label.toUpperCase()}
+          {p.isAdmin && (
+            <span style={{
+              display: 'inline-block', marginLeft: 8,
+              background: 'rgba(245,158,11,0.18)', color: '#fbbf24',
+              fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
+              padding: '1px 7px', borderRadius: 20,
+              border: '1px solid rgba(245,158,11,0.35)',
+              verticalAlign: 'middle',
+            }}>ADMIN</span>
+          )}
           {p.username && (
             <span style={{ color: '#475569', fontWeight: 400, marginLeft: 6 }}>
               @{p.username}
@@ -441,13 +451,22 @@ export default function Leaderboard() {
                   {p.name}{p.jerseyNum ? ` #${p.jerseyNum}` : ''}{isMe ? ' 👈' : ''}
                 </div>
               </button>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
                 <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: rank.color, letterSpacing: '0.1em' }}>
                   {rank.label.toUpperCase()}
                 </span>
                 <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 700, color: '#94a3b8' }}>
                   {wins}W
                 </span>
+                {p.isAdmin && (
+                  <span style={{
+                    fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
+                    letterSpacing: '0.1em', color: '#fbbf24',
+                    background: 'rgba(245,158,11,0.15)',
+                    border: '1px solid rgba(245,158,11,0.3)',
+                    borderRadius: 10, padding: '0px 5px',
+                  }}>ADMIN</span>
+                )}
               </div>
             </div>
 

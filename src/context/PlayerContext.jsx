@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { loadSt, saveSt, DEFAULT_STATE } from '../utils/storage.js'
+import { setPlayerAdminStatus } from '../utils/firestoreSync.js'
 import { subscribeToTeam } from '../services/realtimeSync.js'
 import { audioEngine } from '../services/audioEngine.js'
 import { useAppStore } from '../store/useAppStore.js'
@@ -39,6 +40,20 @@ export function PlayerProvider({ children }) {
   const coachAwardToastTimerRef = useRef(null)
 
   const upd = patch => setSt(prev => ({ ...prev, ...patch }))
+
+  // Atomically flip isAdmin on a player in Firestore, then mirror to local state.
+  // Only the coach view calls this — the coach PIN gate is the auth check.
+  async function togglePlayerAdminStatus(targetPlayerId, currentStatus) {
+    const newStatus = !currentStatus
+    await setPlayerAdminStatus(targetPlayerId, newStatus)   // throws on failure
+    setSt(prev => ({
+      ...prev,
+      players: prev.players.map(p =>
+        p.id === targetPlayerId ? { ...p, isAdmin: newStatus } : p
+      ),
+    }))
+    return newStatus
+  }
 
   // Keep ref in sync so the team onSnapshot closure always reads the latest value
   activePlayerIdRef.current = st?.activePlayerId ?? null
@@ -340,6 +355,7 @@ export function PlayerProvider({ children }) {
       setCoachAwardToast,
       lastSaveRef,
       selfDiamondClaimRef,
+      togglePlayerAdminStatus,
     }}>
       {children}
     </PlayerContext.Provider>

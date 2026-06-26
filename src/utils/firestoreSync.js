@@ -180,3 +180,23 @@ export async function deletePlayerData(playerId) {
     console.error('[Firestore] deletePlayerData failed:', err.message)
   }
 }
+
+// ── Admin status toggle ───────────────────────────────────────────────────────
+// Atomic transaction: reads the players array, flips isAdmin on the target,
+// and writes back — safe against concurrent coach edits on other fields.
+export async function setPlayerAdminStatus(playerId, isAdmin) {
+  try {
+    const ref = teamDoc()
+    await runTransaction(db, async tx => {
+      const snap = await tx.get(ref)
+      if (!snap.exists()) return
+      const players = snap.data().players || []
+      tx.update(ref, {
+        players: players.map(p => p.id === playerId ? { ...p, isAdmin } : p),
+      })
+    })
+  } catch (err) {
+    console.error('[setPlayerAdminStatus] Firestore write failed:', err.message)
+    throw err
+  }
+}

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { usePlayer } from '../context/PlayerContext.jsx'
 import {
   Plus, Trash2, CheckCircle, X,
   Users, Lock, ChevronLeft, History, Eye, EyeOff,
@@ -39,6 +40,8 @@ async function writeAuditLog(coachLabel, targetPlayer, adjustments) {
 
 // ─── Roster manager ───────────────────────────────────────────────────────────
 function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
+  const { togglePlayerAdminStatus } = usePlayer()
+
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [editPw,   setEditPw]   = useState('')
   const [showPw,   setShowPw]   = useState({})
@@ -55,6 +58,9 @@ function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
   const [correctionToast,  setCorrectionToast]  = useState(null)
   const [corrApplying,     setCorrApplying]     = useState(false)
   const correctionToastTimer                     = useRef(null)
+  const [adminToggling,    setAdminToggling]    = useState(false)
+  const [adminToast,       setAdminToast]       = useState(null) // { msg, ok }
+  const adminToastTimer                          = useRef(null)
 
   const logTechniqueShots  = useAppStore(s => s.logTechniqueShots)
   const techniqueByPlayer  = useAppStore(s => s.techniqueByPlayer)
@@ -110,6 +116,68 @@ function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── Admin rights toggle — coach-only ─────────────────────────────── */}
+        <div style={{ ...C.card, marginBottom: 12, borderColor: p.isAdmin ? '#f59e0b55' : '#1e293b' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+            <div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800, color: '#f59e0b', letterSpacing: '0.14em', marginBottom: 2 }}>
+                🛡️ ADMIN RIGHTS
+              </div>
+              <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, color: '#475569' }}>
+                {p.isAdmin
+                  ? 'This player has admin privileges.'
+                  : 'Grant admin access to this player.'}
+              </div>
+            </div>
+            <button
+              disabled={adminToggling}
+              onClick={async () => {
+                if (adminToggling) return
+                setAdminToggling(true)
+                clearTimeout(adminToastTimer.current)
+                try {
+                  const newStatus = await togglePlayerAdminStatus(p.id, !!p.isAdmin)
+                  setAdminToast({ ok: true, msg: newStatus ? `${p.name} is now an Admin.` : `Admin rights removed from ${p.name}.` })
+                } catch {
+                  setAdminToast({ ok: false, msg: 'Firestore write failed — try again.' })
+                } finally {
+                  setAdminToggling(false)
+                  adminToastTimer.current = setTimeout(() => setAdminToast(null), 3500)
+                }
+              }}
+              style={{
+                flexShrink: 0,
+                background: p.isAdmin
+                  ? 'linear-gradient(135deg,#7c1d1d,#b91c1c)'
+                  : 'linear-gradient(135deg,#78350f,#d97706)',
+                color: '#fff', border: 'none', borderRadius: 10,
+                padding: '9px 14px',
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, fontWeight: 800,
+                letterSpacing: '0.06em',
+                cursor: adminToggling ? 'not-allowed' : 'pointer',
+                opacity: adminToggling ? 0.6 : 1,
+                boxShadow: p.isAdmin ? '0 0 12px #b91c1c55' : '0 0 12px #d9770655',
+                display: 'flex', alignItems: 'center', gap: 5,
+              }}
+            >
+              {adminToggling
+                ? 'Saving…'
+                : p.isAdmin ? '✕ Revoke Admin' : '✦ Grant Admin'}
+            </button>
+          </div>
+          {adminToast && (
+            <div style={{
+              marginTop: 10, padding: '8px 12px', borderRadius: 8,
+              background: adminToast.ok ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+              border: `1px solid ${adminToast.ok ? '#22c55e44' : '#ef444444'}`,
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, fontWeight: 700,
+              color: adminToast.ok ? '#4ade80' : '#f87171',
+            }}>
+              {adminToast.msg}
+            </div>
+          )}
         </div>
 
         {/* Coach message composer */}
