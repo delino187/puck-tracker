@@ -11,10 +11,9 @@ import { validateUsername } from '../../utils/moderation.js'
 export default function ManageProfileModal({ player, stats, onPhotoUpload, onResetCareer, onSwitchProfile, onClose }) {
   const { updatePlayerUsername } = usePlayer()
 
-  const [step,           setStep]           = useState('view')
-  const [uploadPct,      setUploadPct]      = useState(0)
-  const [uploadErr,      setUploadErr]      = useState('')
-  const [previewURL,     setPreviewURL]     = useState(null)
+  const [step,       setStep]       = useState('view')
+  const [uploadErr,  setUploadErr]  = useState('')
+  const [previewURL, setPreviewURL] = useState(null)
   const fileInputRef = useRef(null)
 
   // ── Username editing ──────────────────────────────────────────────────────
@@ -63,56 +62,41 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
     .sort((a, b) => (player.earnedBadges?.[b.id]?.ts || 0) - (player.earnedBadges?.[a.id]?.ts || 0))
     .slice(0, 8)
 
-  async function handleFileSelected(e) {
+  const handleFileSelected = async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+
     const file = e.target.files?.[0]
-    if (!file) { setStep('view'); return }
+    if (!file) return
 
     setUploadErr('')
-    setUploadPct(0)
     setStep('uploading')
 
     try {
-      const base64 = await compressToBase64(file, p => setUploadPct(p))
-      setPreviewURL(base64)
-      await onPhotoUpload(base64)
-      setStep('view')
-    } catch (err) {
-      console.error('[ManageProfile] upload error:', err)
+      const reader = new FileReader()
+      reader.onloadend = async () => {
+        const base64String = reader.result
+        if (base64String) {
+          setPreviewURL(base64String)
+          await onPhotoUpload(base64String)
+          setStep('view')
+        }
+      }
+      reader.onerror = () => {
+        console.error('[ManageProfile] FileReader error')
+        setUploadErr('Upload failed — please try again.')
+        setStep('view')
+        setPreviewURL(null)
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error('[ManageProfile] upload error:', error)
       setUploadErr('Upload failed — please try again.')
       setStep('view')
       setPreviewURL(null)
     } finally {
       e.target.value = ''
     }
-  }
-
-  // Shrinks the image to 256×256 max and returns a compressed JPEG data URL.
-  // Keeps files well under Firestore's 1 MB field limit.
-  function compressToBase64(file, onProgress) {
-    return new Promise((resolve, reject) => {
-      onProgress(10)
-      const img = new Image()
-      const objectURL = URL.createObjectURL(file)
-      img.onload = () => {
-        URL.revokeObjectURL(objectURL)
-        onProgress(40)
-        const MAX = 256
-        const scale = Math.min(1, MAX / Math.max(img.width, img.height))
-        const w = Math.round(img.width  * scale)
-        const h = Math.round(img.height * scale)
-        const canvas = document.createElement('canvas')
-        canvas.width  = w
-        canvas.height = h
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, w, h)
-        onProgress(80)
-        const dataURL = canvas.toDataURL('image/jpeg', 0.82)
-        onProgress(100)
-        resolve(dataURL)
-      }
-      img.onerror = () => { URL.revokeObjectURL(objectURL); reject(new Error('Image load failed')) }
-      img.src = objectURL
-    })
   }
 
   return (
@@ -339,9 +323,8 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
             }}>
               <div style={{
                 position: 'absolute', inset: 0,
-                width: `${uploadPct}%`,
                 background: 'linear-gradient(90deg,#0891b2,#06b6d4)',
-                transition: 'width 0.15s ease-out',
+                animation: 'pulse 1s ease-in-out infinite',
               }} />
               <div style={{
                 position: 'relative', zIndex: 1,
@@ -349,7 +332,7 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
                 fontFamily: "'Bangers',sans-serif", fontSize: 18,
                 letterSpacing: '0.08em', color: '#fff',
               }}>
-                UPLOADING… {uploadPct}%
+                UPLOADING…
               </div>
             </div>
           </div>
