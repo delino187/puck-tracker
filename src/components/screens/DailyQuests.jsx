@@ -494,49 +494,76 @@ export default function DailyQuests({
 
   function handleClaim(questIndex, rect) {
     const quest = currentQuests[questIndex]
-    if (!quest || quest.claimed) return
+
+    console.log('[DailyQuests.handleClaim] Claim button clicked', {
+      questIndex,
+      questText: quest?.text,
+      questClaimed: quest?.claimed,
+      questCompleted: quest?.completed,
+    })
+
+    if (!quest || quest.claimed) {
+      console.warn('[DailyQuests.handleClaim] Quest invalid or already claimed')
+      return
+    }
 
     // Use getQuestProgress — the same function the display uses
     const prog   = quest.reward !== '?' ? getQuestProgress(quest, sessions, player.id, puckGames, peerChallenges, techniqueByPlayer) : null
     const isDone = quest.completed || (prog ? prog.current >= prog.target : false)
-    if (!isDone) return
+    if (!isDone) {
+      console.warn('[DailyQuests.handleClaim] Quest not complete yet')
+      return
+    }
 
-    const questId = quest.id || quest.text  // Use quest ID or text as unique identifier
+    // Use quest.text as the SINGLE source of truth for identification
+    const questText = quest.text
+    const rewardAmount = quest.reward
 
-    console.log(`[handleClaim] User clicked claim for quest: "${quest.text}"`, {
-      questId,
-      reward: quest.reward,
-      questIndex,
+    console.log(`[DailyQuests.handleClaim] ✓ Quest validated, sending to parent`, {
+      questText,
+      rewardAmount,
     })
 
     // Play feedback IMMEDIATELY for snappy feel
     playCashRegister()
     fireBurst(rect)
 
-    // Pass quest ID instead of index — indexes can change due to real-time updates
-    console.log(`[handleClaim] Calling onClaimQuest with questId: "${questId}"`)
-    onClaimQuest?.(questId, quest.reward)
+    // Pass quest text (the stable identifier) to parent
+    console.log(`[DailyQuests.handleClaim] → Calling onClaimQuest('${questText}', ${rewardAmount})`)
+    onClaimQuest?.(questText, rewardAmount)
   }
 
   function handleClaimWeekly(questIndex, rect) {
     const quest = displayWeeklyQuests[questIndex]
-    if (!quest?.completed || quest.claimed) return
 
-    const questId = quest.id || quest.text  // Use quest ID or text as unique identifier
-
-    console.log(`[handleClaimWeekly] User clicked claim for quest: "${quest.text}"`, {
-      questId,
-      reward: quest.reward,
+    console.log('[DailyQuests.handleClaimWeekly] Claim button clicked', {
       questIndex,
+      questText: quest?.text,
+      questClaimed: quest?.claimed,
+      questCompleted: quest?.completed,
+    })
+
+    if (!quest?.completed || quest.claimed) {
+      console.warn('[DailyQuests.handleClaimWeekly] Quest invalid or already claimed')
+      return
+    }
+
+    // Use quest.text as the SINGLE source of truth for identification
+    const questText = quest.text
+    const rewardAmount = quest.reward
+
+    console.log(`[DailyQuests.handleClaimWeekly] ✓ Quest validated, sending to parent`, {
+      questText,
+      rewardAmount,
     })
 
     // Play feedback IMMEDIATELY
     playCashRegister()
     fireBurst(rect)
 
-    // Pass quest ID instead of index — indexes can change due to real-time updates
-    console.log(`[handleClaimWeekly] Calling onClaimWeeklyQuest with questId: "${questId}"`)
-    onClaimWeeklyQuest?.(questId, quest.reward)
+    // Pass quest text (the stable identifier) to parent
+    console.log(`[DailyQuests.handleClaimWeekly] → Calling onClaimWeeklyQuest('${questText}', ${rewardAmount})`)
+    onClaimWeeklyQuest?.(questText, rewardAmount)
   }
 
   function handleWeeklyPull() {
