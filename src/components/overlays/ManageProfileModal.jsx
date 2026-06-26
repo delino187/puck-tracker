@@ -12,9 +12,10 @@ import { validateUsername } from '../../utils/moderation.js'
 export default function ManageProfileModal({ player, stats, onPhotoUpload, onResetCareer, onSwitchProfile, onClose }) {
   const { updatePlayerUsername } = usePlayer()
 
-  const [step,       setStep]      = useState('view')
-  const [uploadPct,  setUploadPct] = useState(0)
-  const [uploadErr,  setUploadErr] = useState('')
+  const [step,           setStep]           = useState('view')
+  const [uploadPct,      setUploadPct]      = useState(0)
+  const [uploadErr,      setUploadErr]      = useState('')
+  const [previewURL,     setPreviewURL]     = useState(null)
   const fileInputRef = useRef(null)
 
   // ── Username editing ──────────────────────────────────────────────────────
@@ -66,6 +67,11 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
   async function handleFileSelected(e) {
     const file = e.target.files?.[0]
     if (!file) { setStep('view'); return }
+
+    // Instant visual feedback: show preview immediately while uploading
+    const localURL = URL.createObjectURL(file)
+    setPreviewURL(localURL)
+
     const ext = file.name.split('.').pop() || 'jpg'
     setUploadErr('')
     setUploadPct(0)
@@ -76,12 +82,15 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
         handleUploadUrl: '/api/avatar/upload',
         onUploadProgress: ({ percentage }) => setUploadPct(Math.round(percentage)),
       })
+      // Call the parent handler with the uploaded URL
       onPhotoUpload(blob.url)
       setStep('view')
+      setPreviewURL(null)
     } catch (err) {
       console.error('[ManageProfile] upload error:', err)
       setUploadErr('Upload failed — please try again.')
       setStep('view')
+      setPreviewURL(null)
     } finally {
       e.target.value = ''
     }
@@ -148,7 +157,23 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
         {/* ── Avatar with camera overlay ────────────────────────────────────── */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 20 }}>
           <div style={{ position: 'relative', display: 'inline-flex' }}>
-            <Avatar player={player} size={88} className="arcade-glow" glowActive={!!player.hasBorderGlow} style={{ borderRadius: '50%' }} />
+            {previewURL ? (
+              <img
+                src={previewURL}
+                alt={player.name}
+                style={{
+                  width: 88,
+                  height: 88,
+                  borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '3px solid #06b6d4',
+                  boxShadow: '0 0 20px rgba(6,182,212,0.4)',
+                  opacity: step === 'uploading' ? 0.6 : 1,
+                }}
+              />
+            ) : (
+              <Avatar player={player} size={88} className="arcade-glow" glowActive={!!player.hasBorderGlow} style={{ borderRadius: '50%' }} />
+            )}
 
             {/* Camera overlay — unlocked only after purchasing Custom PFP in the store */}
             {step === 'view' && player.canChangePfp && (

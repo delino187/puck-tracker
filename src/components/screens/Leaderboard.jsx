@@ -342,7 +342,10 @@ export default function Leaderboard() {
   const techniqueByPlayer = useAppStore(s => s.techniqueByPlayer || {})
 
   // Precompute stats for every player once per render, including shots from all game modes
-  const withStats = players.map(p => ({ p, stats: playerStats(p, sessions, 0, puckGames, challenges, techniqueByPlayer) }))
+  const withStats = players.map(p => {
+    const bonusXP = techniqueByPlayer?.[p.id]?.bonusXP || 0
+    return { p, stats: playerStats(p, sessions, bonusXP, puckGames, challenges, techniqueByPlayer) }
+  })
 
   // Sort based on active filter, descending
   const sorted = [...withStats]
