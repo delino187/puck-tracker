@@ -445,15 +445,16 @@ export default function DailyQuests({
 }) {
   const { activePlayer: player, st } = usePlayer()
   const sessions = st?.sessions || []
+  // Read quests DIRECTLY from PlayerContext — do NOT copy into local state
+  // Local state causes conflicts with the real-time Firestore listener
+  const currentQuests = player?.daily_quests || []
+  const weeklyQuests  = player?.weekly_quests || []
+
   const [spinning,      setSpinning]      = useState(false)
-  const [currentQuests, setCurrentQuests] = useState(() => {
-    return (player?.daily_quests?.length) ? player.daily_quests : []
-  })
   const [shuffleTexts, setShuffleTexts] = useState(['','',''])
   const [burst,        setBurst]        = useState(null)
 
   // ── Weekly quest state ────────────────────────────────────────────────────
-  const [weeklyQuests,       setWeeklyQuests]       = useState(() => player?.weekly_quests || [])
   const [weeklyShuffleTexts, setWeeklyShuffleTexts] = useState(['', '', ''])
   const [slotSpinning,       setSlotSpinning]       = useState(false)
   const [slotLeverPulled,    setSlotLeverPulled]    = useState(false)
@@ -467,23 +468,9 @@ export default function DailyQuests({
   const intervalRef  = useRef(null)
   const spinAudioRef = useRef(null)
 
-  // Sync completed/claimed flags written by the session-end path back into
-  // local display state without triggering during the spin animation.
-  const questStateKey = (player.daily_quests || [])
-    .map(q => `${q.completed ? 1 : 0}${q.claimed ? 1 : 0}${q.currentProgress || 0}`)
-    .join(',')
-  useEffect(() => {
-    if (spinning || !player.daily_quests?.length) return
-    setCurrentQuests(player.daily_quests)
-  }, [questStateKey]) // eslint-disable-line
-
-  // Sync weekly quests from parent (e.g. after claim persisted to Firestore)
-  const weeklyQuestStateKey = (player.weekly_quests || [])
-    .map(q => `${q.completed ? 1 : 0}${q.claimed ? 1 : 0}`)
-    .join(',')
-  useEffect(() => {
-    if (player.weekly_quests?.length) setWeeklyQuests(player.weekly_quests)
-  }, [weeklyQuestStateKey]) // eslint-disable-line
+  // NOTE: Removed sync effects that updated local state.
+  // currentQuests and weeklyQuests now read DIRECTLY from usePlayer()
+  // so they always reflect the real-time Firestore data. No need to sync.
 
   function fireBurst(rect) {
     const cx = rect.left + rect.width / 2
@@ -509,33 +496,39 @@ export default function DailyQuests({
     const quest = currentQuests[questIndex]
     if (!quest || quest.claimed) return
 
-    // Use getQuestProgress — the same function the display uses — so that
-    // technique shots, game arrays, and baselines are all computed identically.
-    // The old call passed extraShots=0, which caused quests completed via
-    // Technique Only mode to report isDone=false and silently block claiming.
+    // Use getQuestProgress — the same function the display uses
     const prog   = quest.reward !== '?' ? getQuestProgress(quest, sessions, player.id, puckGames, peerChallenges, techniqueByPlayer) : null
     const isDone = quest.completed || (prog ? prog.current >= prog.target : false)
     if (!isDone) return
 
-    // Optimistic local update — instant visual feedback
-    setCurrentQuests(prev =>
-      prev.map((q, i) => i === questIndex ? { ...q, claimed: true } : q)
-    )
+    console.log(`[handleClaim] Claiming quest ${questIndex}: "${quest.text}" → +${quest.reward} 💎`)
 
+    // Play feedback IMMEDIATELY for snappy feel
     playCashRegister()
     fireBurst(rect)
 
-    // Persist: award diamonds + mark claimed in Firestore via parent
+    // Call parent callback which triggers Firestore write
+    // DO NOT modify local state — let the real-time snapshot update it
     onClaimQuest?.(questIndex)
+
+    console.log(`[handleClaim] Firestore write initiated for quest ${questIndex}`)
   }
 
   function handleClaimWeekly(questIndex, rect) {
     const quest = displayWeeklyQuests[questIndex]
     if (!quest?.completed || quest.claimed) return
-    setWeeklyQuests(prev => prev.map((q, i) => i === questIndex ? { ...q, claimed: true } : q))
+
+    console.log(`[handleClaimWeekly] Claiming quest ${questIndex}: "${quest.text}" → +${quest.reward} 💎`)
+
+    // Play feedback IMMEDIATELY
     playCashRegister()
     fireBurst(rect)
+
+    // Call parent callback which triggers Firestore write
+    // DO NOT modify local state — let the real-time snapshot update it
     onClaimWeeklyQuest?.(questIndex, quest.reward)
+
+    console.log(`[handleClaimWeekly] Firestore write initiated for quest ${questIndex}`)
   }
 
   function handleWeeklyPull() {
@@ -572,10 +565,11 @@ export default function DailyQuests({
       try { lockAudio.play().catch(() => {}) } catch {}
 
       const safeQuests = picked || []
-      setWeeklyQuests(safeQuests)
       setWeeklyShuffleTexts(['', '', ''])
       setSlotSpinning(false)
       // Persist to Firestore via parent — sets last_weekly_quest_pick to today
+      // DO NOT call setWeeklyQuests here — parent callback updates PlayerContext
+      // which triggers re-render with real-time data
       onInitWeeklyQuests?.(safeQuests)
     }, 2500)
   }
@@ -639,9 +633,11 @@ export default function DailyQuests({
       try { lockAudio.play().catch(() => {}) } catch {}
 
       const picked = pickQuests(sessions) || []  // pass sessions so baseline is captured now
-      setCurrentQuests(picked.length ? picked : [])
       setShuffleTexts(['', '', ''])
       setSpinning(false)
+      // DO NOT call setCurrentQuests here — parent callback updates PlayerContext
+      // which triggers re-render with real-time data
+      console.log(`[handleSpin] Spin complete. Persisting ${picked.length} quests to Firestore.`)
       onSpinComplete?.(picked.length ? picked : [])
     }, 2000)
   }

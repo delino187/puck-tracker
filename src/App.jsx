@@ -1699,11 +1699,17 @@ export default function App() {
 
                 // Persist to Firestore FIRST — only update UI on success
                 try {
+                  console.log(`[onClaimQuest] Firestore payload:`, {
+                    playerId: id,
+                    diamondsAdded: quest.reward,
+                    questClaimed: questIndex,
+                  })
                   await saveToFirestore(nextState, techniqueByPlayer, id)
+                  console.log(`[onClaimQuest] ✓ Firestore write succeeded`)
                   // Only update local state after Firestore write succeeds
                   setSt(nextState)
                 } catch (err) {
-                  console.error('[onClaimQuest] Firestore write failed:', err.message)
+                  console.error('[onClaimQuest] ✗ Firestore write failed:', err.message)
                   // Do NOT update state — let it revert to server state on next snapshot
                   alert(`Failed to claim quest: ${err.message}`)
                 }
@@ -1743,11 +1749,17 @@ export default function App() {
 
                 // Persist to Firestore FIRST — only update UI on success
                 try {
+                  console.log(`[onClaimWeeklyQuest] Firestore payload:`, {
+                    playerId: id,
+                    diamondsAdded: reward,
+                    questClaimed: questIndex,
+                  })
                   await saveToFirestore(nextState, techniqueByPlayer, id)
+                  console.log(`[onClaimWeeklyQuest] ✓ Firestore write succeeded`)
                   // Only update local state after Firestore write succeeds
                   setSt(nextState)
                 } catch (err) {
-                  console.error('[onClaimWeeklyQuest] Firestore write failed:', err.message)
+                  console.error('[onClaimWeeklyQuest] ✗ Firestore write failed:', err.message)
                   // Do NOT update state — let it revert to server state on next snapshot
                   alert(`Failed to claim quest: ${err.message}`)
                 }
