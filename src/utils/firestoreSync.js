@@ -181,6 +181,26 @@ export async function deletePlayerData(playerId) {
   }
 }
 
+// ── Username update ───────────────────────────────────────────────────────────
+// Atomic transaction: reads the players array, updates username on the target.
+// Caller is responsible for validation — this writes whatever is passed in.
+export async function setPlayerUsername(playerId, username) {
+  try {
+    const ref = teamDoc()
+    await runTransaction(db, async tx => {
+      const snap = await tx.get(ref)
+      if (!snap.exists()) return
+      const players = snap.data().players || []
+      tx.update(ref, {
+        players: players.map(p => p.id === playerId ? { ...p, username } : p),
+      })
+    })
+  } catch (err) {
+    console.error('[setPlayerUsername] Firestore write failed:', err.message)
+    throw err
+  }
+}
+
 // ── Admin status toggle ───────────────────────────────────────────────────────
 // Atomic transaction: reads the players array, flips isAdmin on the target,
 // and writes back — safe against concurrent coach edits on other fields.

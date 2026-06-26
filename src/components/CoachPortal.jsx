@@ -16,6 +16,7 @@ import { useTheme } from '../hooks/useTheme.js'
 import { C } from '../styles.js'
 import LevelBadge from './shared/LevelBadge.jsx'
 import { deletePlayerData } from '../utils/firestoreSync.js'
+import { validateUsername } from '../utils/moderation.js'
 import { useAppStore } from '../store/useAppStore.js'
 import { db } from '../firebase.js'
 import { collection, addDoc } from 'firebase/firestore'
@@ -40,7 +41,7 @@ async function writeAuditLog(coachLabel, targetPlayer, adjustments) {
 
 // ─── Roster manager ───────────────────────────────────────────────────────────
 function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
-  const { togglePlayerAdminStatus } = usePlayer()
+  const { togglePlayerAdminStatus, updatePlayerUsername } = usePlayer()
 
   const [selectedPlayer, setSelectedPlayer] = useState(null)
   const [editPw,   setEditPw]   = useState('')
@@ -61,6 +62,11 @@ function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
   const [adminToggling,    setAdminToggling]    = useState(false)
   const [adminToast,       setAdminToast]       = useState(null) // { msg, ok }
   const adminToastTimer                          = useRef(null)
+  const [editUsername,     setEditUsername]     = useState('')
+  const [usernameWarning,  setUsernameWarning]  = useState('') // non-blocking warning for coach
+  const [usernameSaving,   setUsernameSaving]   = useState(false)
+  const [usernameToast,    setUsernameToast]    = useState(null)
+  const usernameToastTimer                       = useRef(null)
 
   const logTechniqueShots  = useAppStore(s => s.logTechniqueShots)
   const techniqueByPlayer  = useAppStore(s => s.techniqueByPlayer)
@@ -116,6 +122,115 @@ function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
               </div>
             )}
           </div>
+        </div>
+
+        {/* ── Username override ────────────────────────────────────────────── */}
+        <div style={{ ...C.card, marginBottom: 12 }}>
+          <div style={C.label}><Edit2 size={11} style={{ display: 'inline', marginRight: 4 }} />Change Username</div>
+
+          {/* Live moderation warning — non-blocking, coach can force-save */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+            <input
+              type="text"
+              value={editUsername}
+              onChange={e => {
+                const val = e.target.value
+                setEditUsername(val)
+                setUsernameToast(null)
+                if (!val.trim()) { setUsernameWarning(''); return }
+                const result = validateUsername(val)
+                setUsernameWarning(result.valid ? '' : result.reason)
+              }}
+              placeholder={p.username ? `Current: ${p.username}` : 'Set a username…'}
+              maxLength={20}
+              style={{ ...C.inp, marginBottom: 0, flex: 1 }}
+            />
+            {/* Normal save */}
+            <button
+              disabled={!editUsername.trim() || usernameSaving}
+              onClick={async () => {
+                if (!editUsername.trim() || usernameSaving) return
+                setUsernameSaving(true)
+                clearTimeout(usernameToastTimer.current)
+                try {
+                  await updatePlayerUsername(p.id, editUsername)
+                  setEditUsername('')
+                  setUsernameWarning('')
+                  setUsernameToast({ ok: true, msg: `Username updated to "${editUsername.replace(/\s/g, '')}".` })
+                } catch (err) {
+                  // Moderation rejected — show warning but allow force-save below
+                  setUsernameWarning(err.message)
+                  setUsernameToast({ ok: false, msg: err.message })
+                } finally {
+                  setUsernameSaving(false)
+                  usernameToastTimer.current = setTimeout(() => setUsernameToast(null), 4000)
+                }
+              }}
+              style={{
+                background: '#1e3a5f', color: '#60a5fa',
+                border: '1px solid #1e3a5f', borderRadius: 8,
+                padding: '9px 12px',
+                fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 13,
+                cursor: !editUsername.trim() || usernameSaving ? 'not-allowed' : 'pointer',
+                flexShrink: 0, opacity: !editUsername.trim() ? 0.5 : 1,
+              }}
+            >
+              {usernameSaving ? '…' : 'Save'}
+            </button>
+          </div>
+
+          {/* Warning row — visible + force-save when validation fails */}
+          {usernameWarning && (
+            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{
+                fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700,
+                color: '#f59e0b', flex: 1,
+              }}>
+                ⚠️ {usernameWarning}
+              </span>
+              <button
+                disabled={usernameSaving}
+                onClick={async () => {
+                  if (!editUsername.trim() || usernameSaving) return
+                  setUsernameSaving(true)
+                  clearTimeout(usernameToastTimer.current)
+                  try {
+                    await updatePlayerUsername(p.id, editUsername, { force: true })
+                    setEditUsername('')
+                    setUsernameWarning('')
+                    setUsernameToast({ ok: true, msg: `Username force-set to "${editUsername.replace(/\s/g, '')}".` })
+                  } catch (err) {
+                    setUsernameToast({ ok: false, msg: `Firestore error: ${err.message}` })
+                  } finally {
+                    setUsernameSaving(false)
+                    usernameToastTimer.current = setTimeout(() => setUsernameToast(null), 4000)
+                  }
+                }}
+                style={{
+                  background: 'rgba(245,158,11,0.15)',
+                  color: '#f59e0b',
+                  border: '1px solid rgba(245,158,11,0.4)',
+                  borderRadius: 6, padding: '4px 10px',
+                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 800,
+                  cursor: 'pointer', flexShrink: 0,
+                }}
+              >
+                Force Save Anyway
+              </button>
+            </div>
+          )}
+
+          {usernameToast && (
+            <div style={{
+              marginTop: 8, padding: '6px 10px', borderRadius: 7,
+              background: usernameToast.ok ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+              border: `1px solid ${usernameToast.ok ? '#22c55e44' : '#ef444444'}`,
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 11, fontWeight: 700,
+              color: usernameToast.ok ? '#4ade80' : '#f87171',
+            }}>
+              {usernameToast.msg}
+            </div>
+          )}
         </div>
 
         {/* ── Admin rights toggle — coach-only ─────────────────────────────── */}

@@ -34,6 +34,7 @@ import {
   normaliseUsername, isUsernameAvailable, registerWithUsername,
   parseContactField, validateContactField, friendlyAuthError,
 } from './utils/authHelpers.js'
+import { validateUsername as moderateUsername } from './utils/moderation.js'
 import GoalHeatmap      from './components/GoalHeatmap.jsx'
 import BadgeGrid        from './components/BadgeGrid.jsx'
 import RanksTab         from './components/RanksTab.jsx'
@@ -990,9 +991,10 @@ export default function App() {
       const username = normaliseUsername(npUsername)
       const name     = npName.trim() || username   // display name falls back to username
 
-      // ── Basic field validation ───────────────────────────────────────────
+      // ── Username validation (length + allowed chars + profanity) ──────────
       if (!username) { setNpSignupErr('Please choose a username.'); return }
-      if (username.length < 3) { setNpSignupErr('Username must be at least 3 characters.'); return }
+      const modResult = moderateUsername(username)
+      if (!modResult.valid) { setNpSignupErr(modResult.reason); return }
       if (!npPw) { setNpSignupErr('Please set a password.'); return }
       if (npPw.length < 6) { setNpSignupErr('Password must be at least 6 characters.'); return }
       if (npPw !== npPwConfirm) { setNpSignupErr('Passwords don\'t match.'); return }

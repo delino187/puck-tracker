@@ -5,13 +5,48 @@ import Avatar from '../shared/Avatar.jsx'
 import { BADGES } from '../../constants/badges.js'
 import { LEVELS } from '../../constants/levels.js'
 import { useAppStore } from '../../store/useAppStore.js'
+import { usePlayer } from '../../context/PlayerContext.jsx'
+import { validateUsername } from '../../utils/moderation.js'
 
 // step: 'view' → 'confirm' → 'uploading' → back to 'view'
 export default function ManageProfileModal({ player, stats, onPhotoUpload, onResetCareer, onSwitchProfile, onClose }) {
+  const { updatePlayerUsername } = usePlayer()
+
   const [step,       setStep]      = useState('view')
   const [uploadPct,  setUploadPct] = useState(0)
   const [uploadErr,  setUploadErr] = useState('')
   const fileInputRef = useRef(null)
+
+  // ── Username editing ──────────────────────────────────────────────────────
+  const [usernameInput,   setUsernameInput]   = useState(player.username ?? '')
+  const [usernameErr,     setUsernameErr]     = useState('')
+  const [usernameSaving,  setUsernameSaving]  = useState(false)
+  const [usernameSuccess, setUsernameSuccess] = useState(false)
+
+  // Live validation as player types
+  function handleUsernameChange(val) {
+    setUsernameInput(val)
+    setUsernameSuccess(false)
+    if (!val.trim()) { setUsernameErr(''); return }
+    const result = validateUsername(val)
+    setUsernameErr(result.valid ? '' : result.reason)
+  }
+
+  async function handleUsernameSave() {
+    const result = validateUsername(usernameInput)
+    if (!result.valid) { setUsernameErr(result.reason); return }
+    if (result.username === player.username) { setUsernameErr(''); setUsernameSuccess(true); return }
+    setUsernameSaving(true)
+    setUsernameErr('')
+    try {
+      await updatePlayerUsername(player.id, usernameInput)
+      setUsernameSuccess(true)
+    } catch (err) {
+      setUsernameErr(err.message)
+    } finally {
+      setUsernameSaving(false)
+    }
+  }
 
   const techniquePucks = useAppStore(s => s.techniqueByPlayer[player.id]?.totalPucks || 0)
 
@@ -338,6 +373,76 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
                   )}
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Username editor — only for username-registered players ─────── */}
+        {player.username !== undefined && (
+          <div style={{ marginTop: 16, width: '100%' }}>
+            <div style={{
+              fontFamily: "'Barlow Condensed',sans-serif",
+              fontSize: 10, fontWeight: 800,
+              color: '#475569', letterSpacing: '0.14em',
+              marginBottom: 6,
+            }}>
+              CHANGE USERNAME
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <input
+                  type="text"
+                  value={usernameInput}
+                  onChange={e => handleUsernameChange(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleUsernameSave() }}
+                  placeholder="@username"
+                  maxLength={15}
+                  style={{
+                    width: '100%', boxSizing: 'border-box',
+                    background: '#0f172a',
+                    border: `1.5px solid ${usernameErr ? '#ef4444' : usernameSuccess ? '#22c55e' : '#1e3a5f'}`,
+                    borderRadius: 8, padding: '9px 12px',
+                    fontFamily: "'Barlow Condensed',sans-serif",
+                    fontSize: 14, fontWeight: 600,
+                    color: '#f1f5f9',
+                    outline: 'none',
+                  }}
+                />
+                {usernameErr && (
+                  <div style={{
+                    fontFamily: "'Barlow Condensed',sans-serif",
+                    fontSize: 11, fontWeight: 700,
+                    color: '#ef4444', marginTop: 4, lineHeight: 1.4,
+                  }}>
+                    {usernameErr}
+                  </div>
+                )}
+                {usernameSuccess && !usernameErr && (
+                  <div style={{
+                    fontFamily: "'Barlow Condensed',sans-serif",
+                    fontSize: 11, fontWeight: 700,
+                    color: '#22c55e', marginTop: 4,
+                  }}>
+                    ✓ Username updated!
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={handleUsernameSave}
+                disabled={!!usernameErr || usernameSaving || !usernameInput.trim()}
+                style={{
+                  flexShrink: 0,
+                  padding: '9px 14px',
+                  background: (usernameErr || !usernameInput.trim()) ? '#1e293b' : '#0891b2',
+                  border: 'none', borderRadius: 8,
+                  fontFamily: "'Barlow Condensed',sans-serif",
+                  fontSize: 13, fontWeight: 800, letterSpacing: '0.06em',
+                  color: (usernameErr || !usernameInput.trim()) ? '#475569' : '#fff',
+                  cursor: (usernameErr || !usernameInput.trim() || usernameSaving) ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {usernameSaving ? '…' : 'Save'}
+              </button>
             </div>
           </div>
         )}

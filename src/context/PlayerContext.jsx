@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { loadSt, saveSt, DEFAULT_STATE } from '../utils/storage.js'
-import { setPlayerAdminStatus } from '../utils/firestoreSync.js'
+import { setPlayerAdminStatus, setPlayerUsername } from '../utils/firestoreSync.js'
+import { validateUsername } from '../utils/moderation.js'
 import { subscribeToTeam } from '../services/realtimeSync.js'
 import { audioEngine } from '../services/audioEngine.js'
 import { useAppStore } from '../store/useAppStore.js'
@@ -40,6 +41,30 @@ export function PlayerProvider({ children }) {
   const coachAwardToastTimerRef = useRef(null)
 
   const upd = patch => setSt(prev => ({ ...prev, ...patch }))
+
+  // Validate then atomically update a player's username in Firestore + local state.
+  // options.force = true skips the profanity check (coach override for false positives).
+  async function updatePlayerUsername(targetPlayerId, rawUsername, { force = false } = {}) {
+    const result = validateUsername(rawUsername)
+
+    if (!result.valid && !force) {
+      // Throw so UI catch blocks receive the human-readable reason directly
+      throw new Error(result.reason)
+    }
+
+    // Use the cleaned form from the validator (spaces stripped, etc.)
+    // If forced despite invalid, still clean spaces but don't alter further
+    const cleanUsername = result.valid ? result.username : rawUsername.replace(/\s/g, '')
+
+    await setPlayerUsername(targetPlayerId, cleanUsername)  // throws on Firestore failure
+    setSt(prev => ({
+      ...prev,
+      players: prev.players.map(p =>
+        p.id === targetPlayerId ? { ...p, username: cleanUsername } : p
+      ),
+    }))
+    return cleanUsername
+  }
 
   // Atomically flip isAdmin on a player in Firestore, then mirror to local state.
   // Only the coach view calls this — the coach PIN gate is the auth check.
@@ -356,6 +381,7 @@ export function PlayerProvider({ children }) {
       lastSaveRef,
       selfDiamondClaimRef,
       togglePlayerAdminStatus,
+      updatePlayerUsername,
     }}>
       {children}
     </PlayerContext.Provider>
