@@ -38,7 +38,7 @@ export function timeUntilWeekReset() {
 export function pickQuests(sessions = []) {
   const today        = new Date().toDateString()
   const todaySess    = sessions.filter(s => new Date(s.date).toDateString() === today)
-  const spinTimeShots = todaySess.flatMap(s => s.sets).length * 10
+  const spinTimeShots = todaySess.flatMap(s => s.sets || []).length * 10
     + todaySess.reduce((sum, s) => sum + (s.pucks ?? 0), 0)
 
   const pick  = arr => arr[Math.floor(Math.random() * arr.length)]
@@ -83,7 +83,7 @@ export function getDailyQuestProgress(quest, sessions, playerId, puckGames, peer
 export function getWeeklyQuestProgress(text, sessions, playerId, puckGames = [], peerChallenges = [], techniqueByPlayer = null) {
   const ws       = getWeekStart()
   const weekSess = sessions.filter(s => s.playerId === playerId && new Date(s.date) >= ws)
-  const weekSets = weekSess.flatMap(s => s.sets)
+  const weekSets = weekSess.flatMap(s => s.sets || [])
   const weekShots = weekSets.length * 10 + weekSess.reduce((sum, s) => sum + (s.pucks ?? 0), 0)
 
   if (/Log (\d+) Total Shots/i.test(text)) {
@@ -106,8 +106,9 @@ export function getWeeklyQuestProgress(text, sessions, playerId, puckGames = [],
     const minAcc = parseInt(accAcross[1])
     const target = parseInt(accAcross[2])
     const current = weekSess.filter(s => {
-      const shots = s.sets.length * 10
-      return shots > 0 && s.sets.reduce((a, x) => a + x.hits, 0) / shots * 100 >= minAcc
+      const sets  = s.sets || []
+      const shots = sets.length * 10
+      return shots > 0 && sets.reduce((a, x) => a + x.hits, 0) / shots * 100 >= minAcc
     }).length
     return { current: Math.min(current, target), target }
   }
@@ -130,7 +131,7 @@ export function getWeeklyQuestProgress(text, sessions, playerId, puckGames = [],
     const byDay  = {}
     weekSess.forEach(s => {
       const d = new Date(s.date).toDateString()
-      byDay[d] = (byDay[d] || 0) + s.sets.length * 10
+      byDay[d] = (byDay[d] || 0) + (s.sets || []).length * 10
     })
     return { current: Math.min(Math.max(0, ...Object.values(byDay)), target), target }
   }

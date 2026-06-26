@@ -678,12 +678,19 @@ export default function App() {
 
   async function endSession() {
     if (!aSess) return
-    const shots = aSess.sets.length * 10
-    if (shots < 10) {
-      alert('shoot at least 10 pucks to log this session')
+
+    const sets  = aSess.sets || []   // guard: sets may be missing on legacy sessions
+    const shots = sets.length * 10
+
+    // Zero-shot session: quietly discard it, clear the active session, and
+    // route back to the dashboard. No Firestore write, no alert, no crash.
+    if (shots === 0) {
+      upd({ activeSessionId: null })
+      setTab('dashboard')
       return
     }
-    const hits = aSess.sets.reduce((a, s) => a + s.hits, 0)
+
+    const hits = sets.reduce((a, s) => a + (s.hits ?? 0), 0)
 
     // ── Quest progress — mark completed, no auto-reward (tap-to-claim) ────
     const techniqueByPlayer = useAppStore.getState().techniqueByPlayer || {}
@@ -786,7 +793,7 @@ export default function App() {
 
     const set         = { zone: zoneId, hits, ts: Date.now() }
     const updSessions = st.sessions.map(s =>
-      s.id === aSess.id ? { ...s, sets: [...s.sets, set] } : s
+      s.id === aSess.id ? { ...s, sets: [...(s.sets || []), set] } : s
     )
 
     // Sound + animations

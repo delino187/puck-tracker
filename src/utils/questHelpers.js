@@ -50,7 +50,7 @@ export function parseQuestSuffix(text) {
 export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 0, puckGames = [], peerChallenges = [], techniqueByPlayer = null, playerId = null) {
   const today     = new Date().toDateString()
   const todaySessions = sessions.filter(s => new Date(s.date).toDateString() === today)
-  const todaySets     = todaySessions.flatMap(s => s.sets)
+  const todaySets     = todaySessions.flatMap(s => s.sets || [])
   // Target Practice: each set = 10 shots
   const targetPracticeShots = todaySets.length * 10
   // Technique Only / other sources: sessions may store a pucks field directly
@@ -91,9 +91,10 @@ export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 
     const bestAcc = sessions
       .filter(s => new Date(s.date).toDateString() === today)
       .reduce((best, s) => {
-        const shots = s.sets.length * 10
+        const sets  = s.sets || []
+        const shots = sets.length * 10
         if (!shots) return best
-        return Math.max(best, Math.round(s.sets.reduce((a, x) => a + x.hits, 0) / shots * 100))
+        return Math.max(best, Math.round(sets.reduce((a, x) => a + x.hits, 0) / shots * 100))
       }, 0)
     return { current: bestAcc, target, suffix: '%' }
   }
