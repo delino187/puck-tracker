@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 import { Camera } from 'lucide-react'
-import { upload } from '@vercel/blob/client'
 import Avatar from '../shared/Avatar.jsx'
 import { BADGES } from '../../constants/badges.js'
 import { LEVELS } from '../../constants/levels.js'
@@ -68,24 +67,15 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
     const file = e.target.files?.[0]
     if (!file) { setStep('view'); return }
 
-    // Instant visual feedback: show preview immediately while uploading
-    const localURL = URL.createObjectURL(file)
-    setPreviewURL(localURL)
-
-    const ext = file.name.split('.').pop() || 'jpg'
     setUploadErr('')
     setUploadPct(0)
     setStep('uploading')
+
     try {
-      const blob = await upload(`profilePictures/${player.id}.${ext}`, file, {
-        access:          'public',
-        handleUploadUrl: '/api/avatar/upload',
-        onUploadProgress: ({ percentage }) => setUploadPct(Math.round(percentage)),
-      })
-      // Call the parent handler with the uploaded URL
-      onPhotoUpload(blob.url)
+      const base64 = await compressToBase64(file, p => setUploadPct(p))
+      setPreviewURL(base64)
+      await onPhotoUpload(base64)
       setStep('view')
-      setPreviewURL(null)
     } catch (err) {
       console.error('[ManageProfile] upload error:', err)
       setUploadErr('Upload failed — please try again.')
@@ -94,6 +84,35 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
     } finally {
       e.target.value = ''
     }
+  }
+
+  // Shrinks the image to 256×256 max and returns a compressed JPEG data URL.
+  // Keeps files well under Firestore's 1 MB field limit.
+  function compressToBase64(file, onProgress) {
+    return new Promise((resolve, reject) => {
+      onProgress(10)
+      const img = new Image()
+      const objectURL = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(objectURL)
+        onProgress(40)
+        const MAX = 256
+        const scale = Math.min(1, MAX / Math.max(img.width, img.height))
+        const w = Math.round(img.width  * scale)
+        const h = Math.round(img.height * scale)
+        const canvas = document.createElement('canvas')
+        canvas.width  = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, w, h)
+        onProgress(80)
+        const dataURL = canvas.toDataURL('image/jpeg', 0.82)
+        onProgress(100)
+        resolve(dataURL)
+      }
+      img.onerror = () => { URL.revokeObjectURL(objectURL); reject(new Error('Image load failed')) }
+      img.src = objectURL
+    })
   }
 
   return (
@@ -107,15 +126,6 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
         padding: '0 16px',
       }}
     >
-      {/* Hidden file input — opened programmatically after confirmation */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileSelected}
-        style={{ display: 'none' }}
-      />
-
       <div
         onClick={e => e.stopPropagation()}
         style={{
@@ -128,6 +138,15 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
           position: 'relative',
         }}
       >
+        {/* Hidden file input — inside stopPropagation boundary so events can't reach the backdrop's onClose */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelected}
+          style={{ display: 'none' }}
+        />
+
         {/* Close — disabled while uploading */}
         {step !== 'uploading' && (
           <button

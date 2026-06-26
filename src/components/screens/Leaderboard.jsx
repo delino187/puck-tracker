@@ -49,9 +49,9 @@ function getMetric(p, stats, sortBy) {
     case 'xp':
       return { value: Math.round(stats.xp).toLocaleString(), label: 'XP', color: '#a855f7', large: true }
     case 'rank':
-      // For rank filter, show the XP-based rank tier (Bronze, Silver, Gold, etc)
+      // For rank filter, show the XP-based tier (Bronze, Silver, Gold, etc)
       const tier = stats.level
-      return { value: tier?.name ?? '—', label: 'TIER', color: tier?.color ?? '#94a3b8', large: false }
+      return { value: tier?.name ?? 'BRONZE', label: 'TIER', color: tier?.color ?? '#cd7f32', large: false }
     case 'shots':
       return { value: stats.totalShots.toLocaleString(), label: 'SHOTS', color: '#3b82f6', large: true }
     case 'accuracy':
