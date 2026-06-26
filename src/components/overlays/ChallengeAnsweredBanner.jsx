@@ -17,12 +17,12 @@ export default function ChallengeAnsweredBanner({ data, onDismiss, onView }) {
   const accentColor = isDraw ? '#06b6d4' : won ? '#22c55e' : '#ef4444'
   const glowColor   = isDraw ? '#06b6d422' : won ? '#22c55e22' : '#ef444422'
   const icon        = isDraw ? '🤝' : won ? '⚡' : '💀'
-  const headline    = isDraw ? "IT'S A TIE!" : won ? 'CHALLENGE WON!' : 'CHALLENGE ANSWERED'
+  const headline    = isDraw ? "IT'S A TIE!" : won ? 'CHALLENGE WON!' : 'CHALLENGE LOST'
   const subtext     = isDraw
     ? `You and ${opponentName} tied it up. See you next time.`
     : won
       ? `${opponentName} answered — and you came out on top.`
-      : `${opponentName} just answered your challenge. Check the results!`
+      : `${opponentName} took the win this time. Get back out there and train!`
 
   return (
     <>

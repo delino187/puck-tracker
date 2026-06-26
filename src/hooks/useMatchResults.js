@@ -130,8 +130,9 @@ export function useMatchResults(peerChallenges) {
       markBannerSeen(challenge.id)
 
       const opponentName = challenge.receiverName ?? 'your opponent'
-      const won    = challenge.winnerId === activeId
-      const isDraw = challenge.isTie ?? false
+      // Explicit three-way result — null winnerId means tie regardless of isTie flag
+      const isDraw = (challenge.isTie === true) || (challenge.winnerId === null)
+      const won    = !isDraw && challenge.winnerId === activeId
 
       // Layer 1: in-app glowing banner (UIContext state)
       setChallengeAnsweredBanner({ opponentName, challengeId: challenge.id, won, isDraw })
