@@ -47,6 +47,9 @@ export function useMatchResults(peerChallenges) {
     setChallengeAnsweredBanner, setExpiredVictoryBanner,
   } = useUI()
 
+  // Session start time — filters out cold-read historical challenges on initial snapshot
+  const sessionStartRef = useRef(Date.now())
+
   const seenVictoryIds = useRef(new Set())
   const seenDefeatIds  = useRef(new Set())
   const seenExpiredIds = useRef(new Set())
@@ -126,6 +129,9 @@ export function useMatchResults(peerChallenges) {
       if (challenge.status !== 'completed')             continue
       if (challenge.challengerId !== activeId)          continue  // only fires for the challenger
       if (getSeenBannerIds().has(challenge.id))         continue  // persisted — survives reloads
+      // Filter out historical challenges from the cold snapshot on app startup
+      // Only fire banners for challenges answered AFTER this session began
+      if (challenge.respondedAt && challenge.respondedAt < sessionStartRef.current) continue
 
       markBannerSeen(challenge.id)
 
