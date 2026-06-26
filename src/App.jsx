@@ -297,13 +297,24 @@ export default function App() {
     if (streakInsuranceCheckedRef.current === key) return
     streakInsuranceCheckedRef.current = key
 
-    const MS_36H   = 36 * 60 * 60 * 1000
-    const elapsed  = Date.now() - (p.lastActivity || 0)
     const hasFreeze = (p.streak_freezes || 0) > 0
-    // Skip the broken-streak modal entirely when the player has a freeze in
-    // inventory — updateStreak() will silently consume one on next login/session
-    // and keep the streak intact without surfacing the loss to the player.
-    if (p.streakCount > 0 && p.lastActivity && elapsed > MS_36H && !hasFreeze) {
+
+    // Use calendar-day comparison to match updateStreak's logic.
+    // Streak is broken if last activity was before yesterday (i.e. 2+ calendar
+    // days ago), not simply "more than 36 hours ago". This prevents falsely
+    // showing the broken-streak modal for a player who shot late one night and
+    // logged in the following evening (>24h gap but consecutive calendar days).
+    const lastDateStr = p.lastActivity ? new Date(p.lastActivity).toDateString() : null
+    const yesterday   = new Date(); yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = yesterday.toDateString()
+    const todayStr     = new Date().toDateString()
+    const streakBroken = lastDateStr
+      && lastDateStr !== todayStr
+      && lastDateStr !== yesterdayStr  // last activity was 2+ days ago
+
+    // Skip the broken-streak modal when a freeze is available — updateStreak()
+    // will silently consume it on the next shot and keep the streak intact.
+    if (p.streakCount > 0 && streakBroken && !hasFreeze) {
       setStreakBrokenData({ prevCount: p.streakCount })
       audioEngine.playStreakBroken()
     }
