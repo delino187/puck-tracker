@@ -1671,21 +1671,39 @@ export default function App() {
                   return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests || [] } : p) }
                 })
               }}
-              onClaimQuest={(questIndex) => setSt(prev => {
-                const id     = prev.activePlayerId
-                const player = prev.players.find(p => p.id === id)
-                const quests = player?.daily_quests || []
-                const quest  = quests[questIndex]
-                if (!quest || quest.claimed || !quest.completed) return prev
-                return {
-                  ...prev,
-                  players: prev.players.map(p =>
-                    p.id === id
-                      ? { ...p, diamonds: (p.diamonds || 0) + (quest.reward || 0), daily_quests: quests.map((q, i) => i === questIndex ? { ...q, claimed: true } : q) }
-                      : p
-                  ),
-                }
-              })}
+              onClaimQuest={(questIndex) => {
+                setSt(prev => {
+                  const id     = prev.activePlayerId
+                  const player = prev.players.find(p => p.id === id)
+                  const quests = player?.daily_quests || []
+                  const quest  = quests[questIndex]
+                  // Guard: prevent double-claiming via rapid clicks
+                  if (!quest || quest.claimed || !quest.completed) return prev
+
+                  const nextState = {
+                    ...prev,
+                    players: prev.players.map(p =>
+                      p.id === id
+                        ? {
+                            ...p,
+                            diamonds: (p.diamonds || 0) + (quest.reward || 0),
+                            daily_quests: quests.map((q, i) => i === questIndex ? { ...q, claimed: true } : q),
+                          }
+                        : p
+                    ),
+                  }
+
+                  // Persist immediately to Firestore so diamonds survive a reload
+                  try {
+                    saveToFirestore(nextState, techniqueByPlayer, id)
+                  } catch (err) {
+                    console.error('[onClaimQuest] Firestore write failed:', err.message)
+                    // State is still optimistically updated locally; user sees diamonds
+                  }
+
+                  return nextState
+                })
+              }}
               onInitWeeklyQuests={(newQuests) => {
                 markRookieQuest('spinWeekly')
                 setSt(prev => {
@@ -1693,12 +1711,38 @@ export default function App() {
                   return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, weekly_quests: newQuests || [], last_weekly_quest_pick: getWeekStart().toDateString() } : p) }
                 })
               }}
-              onClaimWeeklyQuest={(questIndex, reward) => setSt(prev => {
-                const id     = prev.activePlayerId
-                const player = prev.players.find(p => p.id === id)
-                const quests = player?.weekly_quests || []
-                return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, diamonds: (p.diamonds || 0) + reward, weekly_quests: quests.map((q, i) => i === questIndex ? { ...q, claimed: true, completed: true } : q) } : p) }
-              })}
+              onClaimWeeklyQuest={(questIndex, reward) => {
+                setSt(prev => {
+                  const id     = prev.activePlayerId
+                  const player = prev.players.find(p => p.id === id)
+                  const quests = player?.weekly_quests || []
+                  const quest  = quests[questIndex]
+                  // Guard: prevent double-claiming
+                  if (!quest || quest.claimed) return prev
+
+                  const nextState = {
+                    ...prev,
+                    players: prev.players.map(p =>
+                      p.id === id
+                        ? {
+                            ...p,
+                            diamonds: (p.diamonds || 0) + reward,
+                            weekly_quests: quests.map((q, i) => i === questIndex ? { ...q, claimed: true, completed: true } : q),
+                          }
+                        : p
+                    ),
+                  }
+
+                  // Persist immediately to Firestore
+                  try {
+                    saveToFirestore(nextState, techniqueByPlayer, id)
+                  } catch (err) {
+                    console.error('[onClaimWeeklyQuest] Firestore write failed:', err.message)
+                  }
+
+                  return nextState
+                })
+              }}
               onWeeklySpinComplete={(prize) => setSt(prev => {
                 const id     = prev.activePlayerId
                 const player = prev.players.find(p => p.id === id)
