@@ -281,7 +281,11 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  fileInputRef.current?.click()
+                }}
                 style={{
                   flex: 1, background: '#06b6d4', color: '#000',
                   border: 'none', borderRadius: 8, padding: '9px 12px',
