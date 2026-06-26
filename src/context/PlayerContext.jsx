@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { loadSt, saveSt, DEFAULT_STATE } from '../utils/storage.js'
 import { subscribeToTeam } from '../services/realtimeSync.js'
 import { audioEngine } from '../services/audioEngine.js'
@@ -237,32 +237,32 @@ export function PlayerProvider({ children }) {
           const mergedTech = { ...current }
 
           for (const [pid, srv] of Object.entries(serverTech)) {
-            const local = current[pid] || { totalPucks: 0, bonusXP: 0 }
-            // Validate numeric values to prevent NaN from Math.max
-            const localPucks = Number(local.totalPucks) || 0
-            const serverPucks = Number(srv.totalPucks) || 0
-            const mergedTotalPucks = Math.max(localPucks, serverPucks)
-            const mergedBonusXP    = Math.max(Number(local.bonusXP) || 0, Number(srv.bonusXP) || 0)
+          const local       = current[pid] || { totalPucks: 0, bonusXP: 0 }
+          const localPucks  = Number(local.totalPucks) || 0
+          const serverPucks = Number(srv.totalPucks)   || 0
+          const mergedPucks = Math.max(localPucks, serverPucks)
+          const mergedXP    = Math.max(Number(local.bonusXP) || 0, Number(srv.bonusXP) || 0)
 
           const srvLog   = srv.dailyLog   || {}
           const localLog = local.dailyLog || {}
           const allDates = new Set([...Object.keys(srvLog), ...Object.keys(localLog)])
           const mergedLog = {}
-          let logChanged = false
+          let logChanged  = false
+
           for (const date of allDates) {
-            const sEntry  = srvLog[date]
-            const lEntry  = localLog[date]
-            const sTotal  = typeof sEntry === 'object' ? (sEntry?.total || 0) : (sEntry || 0)
-            const lTotal  = typeof lEntry === 'object' ? (lEntry?.total || 0) : (lEntry || 0)
+            const sEntry = srvLog[date]
+            const lEntry = localLog[date]
+            const sTotal = typeof sEntry === 'object' ? (sEntry?.total || 0) : (sEntry || 0)
+            const lTotal = typeof lEntry === 'object' ? (lEntry?.total || 0) : (lEntry || 0)
             // Prefer the object-format entry (carries breakdown data); fall back to number
-            const best    = sTotal >= lTotal ? sEntry : lEntry
+            const best   = sTotal >= lTotal ? sEntry : lEntry
             mergedLog[date] = best ?? 0
             if (lTotal !== Math.max(sTotal, lTotal)) logChanged = true
           }
 
-          if (mergedTotalPucks !== (local.totalPucks ?? 0) || mergedBonusXP !== (local.bonusXP ?? 0) || logChanged) {
+          if (mergedPucks !== localPucks || mergedXP !== (local.bonusXP ?? 0) || logChanged) {
             hasNewData = true
-            mergedTech[pid] = { ...local, dailyLog: mergedLog, totalPucks: mergedTotalPucks, bonusXP: mergedBonusXP }
+            mergedTech[pid] = { ...local, dailyLog: mergedLog, totalPucks: mergedPucks, bonusXP: mergedXP }
           }
         }
 
@@ -321,7 +321,13 @@ export function PlayerProvider({ children }) {
     }
   }, []) // eslint-disable-line
 
-  const activePlayer = st ? (st.players.find(p => p.id === st.activePlayerId) ?? null) : null
+  // useMemo: avoids re-running .find() on every render; also stabilises the
+  // object reference so downstream useMemo/useEffect deps don't fire spuriously.
+  const activePlayer = useMemo(
+    () => st ? (st.players.find(p => p.id === st.activePlayerId) ?? null) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [st?.activePlayerId, st?.players],
+  )
 
   return (
     <PlayerContext.Provider value={{
