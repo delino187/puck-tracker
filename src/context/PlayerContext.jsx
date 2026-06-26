@@ -14,6 +14,10 @@ export function PlayerProvider({ children }) {
   const [coachAwardToast, setCoachAwardToast] = useState(null)
 
   const lastSaveRef             = useRef(0)
+  // Set by App.jsx immediately before any self-initiated diamond write (quest claim,
+  // store purchase, etc.).  The snapshot listener checks this to suppress the
+  // coachAwardToast + flute for events the player already saw acknowledged locally.
+  const selfDiamondClaimRef    = useRef(0)
   // Holds the players array from the first subscribeToTeam snapshot when it arrives
   // before loadSt() completes (st is still null at that point so the normal merge
   // path returns early).  The boot effect drains this ref and merges it into the
@@ -145,13 +149,18 @@ export function PlayerProvider({ children }) {
 
       // Diamond-increase toast: compare against the previous snapshot baseline.
       // Skip the very first fire (baseline = null) to avoid false toasts on login.
+      // Also skip when the player initiated the diamond write themselves (quest claim,
+      // store purchase) — they already have local visual/audio feedback.
+      const SELF_CLAIM_WINDOW_MS = 10_000
       if (lastPlayersRef.current !== null) {
         if (activeId) {
           const prev = lastPlayersRef.current.find(p => p.id === activeId)
           const next = incoming.find(p => p.id === activeId)
           if (prev && next) {
             const gained = (next.diamonds || 0) - (prev.diamonds || 0)
-            if (gained > 0) {
+            const isSelfClaim = (Date.now() - selfDiamondClaimRef.current) < SELF_CLAIM_WINDOW_MS
+            if (gained > 0 && !isSelfClaim) {
+              // External award (coach, ELO reward, etc.) — show toast + play flute
               clearTimeout(coachAwardToastTimerRef.current)
               setCoachAwardToast({ amount: gained, playerName: next.name })
               coachAwardToastTimerRef.current = setTimeout(() => setCoachAwardToast(null), 5000)
@@ -324,6 +333,7 @@ export function PlayerProvider({ children }) {
       coachAwardToast,
       setCoachAwardToast,
       lastSaveRef,
+      selfDiamondClaimRef,
     }}>
       {children}
     </PlayerContext.Provider>

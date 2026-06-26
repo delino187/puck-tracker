@@ -68,7 +68,7 @@ import { C, APP_BG } from './styles.js'
 
 export default function App() {
   // ── Player state (boot, Firestore sync, active player) ───────────────────
-  const { st, setSt, upd, loading, activePlayer, coachAwardToast, setCoachAwardToast, lastSaveRef } = usePlayer()
+  const { st, setSt, upd, loading, activePlayer, coachAwardToast, setCoachAwardToast, lastSaveRef, selfDiamondClaimRef } = usePlayer()
   const aPlayer = activePlayer
 
   // ── UI state (tab nav, overlays, toasts, modals) ─────────────────────────
@@ -1739,6 +1739,10 @@ export default function App() {
 
                 console.log(`[App.jsx onClaimQuest] 📤 Firestore write starting...`)
 
+                // Stamp the self-claim ref so the PlayerContext snapshot listener
+                // won't fire the coachAwardToast + flute for this write
+                selfDiamondClaimRef.current = Date.now()
+
                 // Persist to Firestore FIRST — only update UI on success
                 try {
                   await saveToFirestore(nextState, techniqueByPlayer, id)
@@ -1824,6 +1828,10 @@ export default function App() {
                 }
 
                 console.log(`[App.jsx onClaimWeeklyQuest] 📤 Firestore write starting...`)
+
+                // Stamp the self-claim ref so the PlayerContext snapshot listener
+                // won't fire the coachAwardToast + flute for this write
+                selfDiamondClaimRef.current = Date.now()
 
                 // Persist to Firestore FIRST — only update UI on success
                 try {
