@@ -22,6 +22,8 @@ export function getLevel(xp) {
   for (let i = 0; i < LEVELS.length; i++) {
     if (xp >= LEVELS[i].xpNeeded) li = i
   }
+  // Bounds check: ensure li is within valid range
+  li = Math.max(0, Math.min(li, LEVELS.length - 1))
   return { level: LEVELS[li], li }
 }
 
