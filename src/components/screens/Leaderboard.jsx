@@ -73,13 +73,15 @@ function getMetric(p, stats, sortBy) {
 
 // ── Player Card Modal ─────────────────────────────────────────────────────────
 function PlayerCardModal({ selected, challenges, activePlayerId, onClose }) {
-  const { p, stats, rank, position } = selected
+  const { p, stats, rank: rankFromLeaderboard, position } = selected
   const isMe           = p.id === activePlayerId
   // Technique-only pucks (logged outside sessions) live in Zustand
   const techniquePucks = useAppStore(s => s.techniqueByPlayer?.[p.id]?.totalPucks || 0)
-  // All-mode lifetime shots: Target Practice + ATW + Technique Only
+  // All-mode lifetime shots: Target Practice + ATW + Technique Only + P-U-C-K + Versus
   const allLifetimeShots = stats.totalShots + techniquePucks
-  const wins  = challenges.filter(c => c.status === 'completed' && c.winnerId === p.id).length
+  // Recalculate rank independently to ensure consistency with leaderboard
+  const wins = challenges.filter(c => c.status === 'completed' && c.winnerId === p.id).length
+  const rank = getSnipeRank(wins)
   const losses = challenges.filter(c =>
     c.status === 'completed' && !c.isTie &&
     c.winnerId && c.winnerId !== p.id &&
@@ -304,6 +306,7 @@ export default function Leaderboard() {
   const players  = st.players
   const sessions = st.sessions
   const [challenges,     setChallenges]     = useState([])
+  const [puckGames,      setPuckGames]      = useState([])
   const [topVideo,       setTopVideo]       = useState(null)
   const [sortBy,         setSortBy]         = useState('elo')
   const [selectedPlayer, setSelectedPlayer] = useState(null)  // { p, stats, rank, position }
@@ -317,6 +320,15 @@ export default function Leaderboard() {
     return unsub
   }, [])
 
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, 'teams', TEAM_ID, 'puckGames'),
+      snap => setPuckGames(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      () => {},
+    )
+    return unsub
+  }, [])
+
   // Listen for the top-play event dispatched from inside PlayerCardModal
   useEffect(() => {
     const handler = e => setTopVideo(e.detail)
@@ -324,8 +336,8 @@ export default function Leaderboard() {
     return () => window.removeEventListener('leaderboard-topplay', handler)
   }, [])
 
-  // Precompute stats for every player once per render
-  const withStats = players.map(p => ({ p, stats: playerStats(p, sessions) }))
+  // Precompute stats for every player once per render, including shots from all game modes
+  const withStats = players.map(p => ({ p, stats: playerStats(p, sessions, 0, puckGames, challenges) }))
 
   // Sort based on active filter, descending
   const sorted = [...withStats]

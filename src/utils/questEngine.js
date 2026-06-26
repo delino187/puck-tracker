@@ -84,7 +84,16 @@ export function getWeeklyQuestProgress(text, sessions, playerId, puckGames = [],
   const ws       = getWeekStart()
   const weekSess = sessions.filter(s => s.playerId === playerId && new Date(s.date) >= ws)
   const weekSets = weekSess.flatMap(s => s.sets || [])
-  const weekShots = weekSets.length * 10 + weekSess.reduce((sum, s) => sum + (s.pucks ?? 0), 0)
+  const sessionShots = weekSets.length * 10 + weekSess.reduce((sum, s) => sum + (s.pucks ?? 0), 0)
+
+  // Include shots from P-U-C-K games and Versus challenges
+  const weekPuckGames = puckGames.filter(g => g.playerId === playerId && new Date(g.date) >= ws)
+  const puckGameShots = weekPuckGames.reduce((sum, g) => sum + (g.shots ?? 0), 0)
+
+  const weekChallenges = peerChallenges.filter(c => c.playerId === playerId && new Date(c.date) >= ws)
+  const challengeShots = weekChallenges.reduce((sum, c) => sum + (c.shots ?? 0), 0)
+
+  const weekShots = sessionShots + puckGameShots + challengeShots
 
   if (/Log (\d+) Total Shots/i.test(text)) {
     const target = parseInt(text.match(/\d+/)[0])

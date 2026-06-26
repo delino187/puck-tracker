@@ -69,11 +69,23 @@ export function calculateLifetimeAccuracy(player, sessions) {
   return { totalShots, totalHits, accuracy, zoneStats }
 }
 
-export function playerStats(player, sessions, bonusXP = 0) {
+export function playerStats(player, sessions, bonusXP = 0, puckGames = [], peerChallenges = []) {
   const pss = getPSessions(player, sessions)
 
   // Lifetime accuracy across all sessions (no date filter)
-  const { totalShots, totalHits, accuracy: acc, zoneStats } = calculateLifetimeAccuracy(player, sessions)
+  const { totalShots: sessionShots, totalHits, accuracy: acc, zoneStats } = calculateLifetimeAccuracy(player, sessions)
+
+  // Add shots from P-U-C-K games and Versus challenges for holistic total
+  const puckGameShots = puckGames
+    .filter(g => g.playerId === player.id)
+    .reduce((sum, g) => sum + (g.shots ?? 0), 0)
+
+  const challengeShots = peerChallenges
+    .filter(c => (c.challengerId === player.id || c.receiverId === player.id) && c.status === 'completed')
+    .reduce((sum, c) => sum + ((c.challengerShots ?? 0) + (c.receiverShots ?? 0)), 0)
+
+  // Global total includes sessions, P-U-C-K games, and Versus challenges
+  const totalShots = sessionShots + puckGameShots + challengeShots
 
   const streak     = dayStreak(player, sessions)
   const xp         = calcXP(totalShots, totalHits) + bonusXP

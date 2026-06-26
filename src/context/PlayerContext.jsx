@@ -191,6 +191,8 @@ export function PlayerProvider({ children }) {
       // Skip the very first fire (baseline = null) to avoid false toasts on login.
       // Also skip when the player initiated the diamond write themselves (quest claim,
       // store purchase) — they already have local visual/audio feedback.
+      // Also skip when the diamond increase is from a regular badge unlock (non-rookie).
+      // Only show flute + toast for external awards (coach, ELO) and rookie milestones.
       const SELF_CLAIM_WINDOW_MS = 10_000
       if (lastPlayersRef.current !== null) {
         if (activeId) {
@@ -199,7 +201,23 @@ export function PlayerProvider({ children }) {
           if (prev && next) {
             const gained = (next.diamonds || 0) - (prev.diamonds || 0)
             const isSelfClaim = (Date.now() - selfDiamondClaimRef.current) < SELF_CLAIM_WINDOW_MS
-            if (gained > 0 && !isSelfClaim) {
+
+            // Check if a non-rookie badge was just earned (earned badge that's not ob_* or rookie_grad)
+            const prevBadges = prev.earnedBadges || {}
+            const nextBadges = next.earnedBadges || {}
+            const newBadgeIds = Object.keys(nextBadges).filter(id => !prevBadges[id])
+            const hasRegularBadge = newBadgeIds.some(id =>
+              !id.startsWith('ob_') && id !== 'rookie_grad'
+            )
+            const hasRookieBadge = newBadgeIds.some(id =>
+              id.startsWith('ob_') || id === 'rookie_grad'
+            )
+
+            // Only play flute + toast for:
+            // 1. External awards (not self-initiated, no new badges)
+            // 2. Rookie milestone completions (hasRookieBadge && isSelfClaim)
+            // Skip for regular badge unlocks (hasRegularBadge && not self-claim)
+            if (gained > 0 && !isSelfClaim && !hasRegularBadge) {
               // External award (coach, ELO reward, etc.) — show toast + play flute
               clearTimeout(coachAwardToastTimerRef.current)
               setCoachAwardToast({ amount: gained, playerName: next.name })

@@ -135,7 +135,7 @@ export default function QuestRow({ quest, progress, isSpinning, shuffleText, onN
             </div>
           ) : !isDone && tabTarget && (
             <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, fontWeight: 800, color: '#fbbf24', marginTop: 5, letterSpacing: '0.1em' }}>
-              {tabTarget === 'challenges' ? '⚔️ TAP → VERSUS TAB' : /P-U-C-K/i.test(quest.text) ? '🎮 TAP → SHOOT TAB' : '🏒 TAP → TARGET PRACTICE'}
+              {tabTarget === 'challenges' ? '⚔️ TAP → VERSUS TAB' : /P-U-C-K/i.test(quest.text) ? '🎮 TAP → SHOOT TAB' : /Log (\d+) Total Shots/i.test(quest.text) ? '🏒 Any game mode counts!' : '🏒 TAP → TARGET PRACTICE'}
             </div>
           )
         )}

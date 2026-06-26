@@ -40,7 +40,7 @@ export default function Avatar({ player, size = 28, style = {}, className = '', 
           title="Admin"
           style={{
             position: 'absolute',
-            bottom: 0,
+            top: 0,
             right: 0,
             width:  badgeSize,
             height: badgeSize,
