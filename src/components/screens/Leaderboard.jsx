@@ -351,7 +351,7 @@ export default function Leaderboard() {
       switch (sortBy) {
         case 'elo':      return (b.elo ?? 1000) - (a.elo ?? 1000)
         case 'xp':       return sb.xp       - sa.xp
-        case 'rank':     return sb.li        - sa.li
+        case 'rank':     return (b.totalWins ?? 0) - (a.totalWins ?? 0)
         case 'shots':    return sb.totalShots - sa.totalShots
         case 'accuracy': return sb.acc       - sa.acc
         case 'streak':   return sb.streak     - sa.streak
