@@ -14,6 +14,6 @@ export const NET_POS = {
   bar_down:    { rect: true, x: 92, y: 40, w: 216, h: 26 },
   left_post:   { cx: 30,  cy: 122, r: 20 },
   right_post:  { cx: 370, cy: 122, r: 20 },
-  low_glove:   { cx: 60,  cy: 178, r: 27 },
-  low_blocker: { cx: 340, cy: 178, r: 27 },
+  low_blocker: { cx: 60,  cy: 178, r: 27 },
+  low_glove:   { cx: 340, cy: 178, r: 27 },
 }

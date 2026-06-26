@@ -358,12 +358,13 @@ export default function ShootTracker({
         </div>
 
         {/* ── Visual net grid ───────────────────────────────────────────── */}
-        {/* Layout mirrors a hockey net: TL–BD–TR / LP–·–RP / LG–·–LB */}
+        {/* Layout mirrors a hockey net: TL–BD–TR / LP–·–RP / LB–·–LG */}
+        {/* From shooter's POV: blocker is net-left, glove is net-right */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 12 }}>
           {[
-            'top_left', 'bar_down', 'top_right',
-            'left_post', null,       'right_post',
-            'low_glove', null,       'low_blocker',
+            'top_left',    'bar_down', 'top_right',
+            'left_post',   null,       'right_post',
+            'low_blocker', null,       'low_glove',
           ].map((id, i) => {
             if (!id) return <div key={i} />
             const z    = ZONES.find(z => z.id === id)

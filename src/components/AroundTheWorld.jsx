@@ -6,15 +6,16 @@ import { syncQueue }   from '../services/syncQueue.js'
 const ATW_ZONES = [
   { id: 'top_left',    label: 'Top Left',     short: 'TL' },
   { id: 'top_right',   label: 'Top Right',    short: 'TR' },
-  { id: 'low_blocker', label: 'Bottom Right', short: 'BR' },
-  { id: 'low_glove',   label: 'Bottom Left',  short: 'BL' },
+  { id: 'low_blocker', label: 'Low Blocker',  short: 'LB' },
+  { id: 'low_glove',   label: 'Low Glove',    short: 'LG' },
 ]
 
 const ZONE_TIME = 12
 const PREP_TIME = 5
 
-// Net-corner grid order: TL [0] TR [1] / BL [3] BR [2]
-const GRID_ORDER = [0, 1, 3, 2]
+// Net-corner grid order: TL [0] TR [1] / LB [2] LG [3]
+// From shooter's POV: blocker (index 2) is bottom-left, glove (index 3) is bottom-right
+const GRID_ORDER = [0, 1, 2, 3]
 
 function computePB(player, sessions) {
   const atw = sessions.filter(s => s.playerId === player.id && s.source === 'atw')
