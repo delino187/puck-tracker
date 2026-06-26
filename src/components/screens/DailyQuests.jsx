@@ -509,10 +509,11 @@ export default function DailyQuests({
     const quest = currentQuests[questIndex]
     if (!quest || quest.claimed) return
 
-    // Mirror QuestRow's isDone logic: completed flag OR live progress meeting target.
-    // Without this, clicking "TAP TO CLAIM!" on a progress-complete but not yet
-    // flagged quest silently no-ops because quest.completed is still false.
-    const prog   = quest.reward !== '?' ? computeQuestProgress(quest.text, sessions, 0, quest.baseline ?? 0, puckGames, peerChallenges, techniqueByPlayer, player.id) : null
+    // Use getQuestProgress — the same function the display uses — so that
+    // technique shots, game arrays, and baselines are all computed identically.
+    // The old call passed extraShots=0, which caused quests completed via
+    // Technique Only mode to report isDone=false and silently block claiming.
+    const prog   = quest.reward !== '?' ? getQuestProgress(quest, sessions, player.id, puckGames, peerChallenges, techniqueByPlayer) : null
     const isDone = quest.completed || (prog ? prog.current >= prog.target : false)
     if (!isDone) return
 
