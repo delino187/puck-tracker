@@ -501,34 +501,42 @@ export default function DailyQuests({
     const isDone = quest.completed || (prog ? prog.current >= prog.target : false)
     if (!isDone) return
 
-    console.log(`[handleClaim] Claiming quest ${questIndex}: "${quest.text}" → +${quest.reward} 💎`)
+    const questId = quest.id || quest.text  // Use quest ID or text as unique identifier
+
+    console.log(`[handleClaim] User clicked claim for quest: "${quest.text}"`, {
+      questId,
+      reward: quest.reward,
+      questIndex,
+    })
 
     // Play feedback IMMEDIATELY for snappy feel
     playCashRegister()
     fireBurst(rect)
 
-    // Call parent callback which triggers Firestore write
-    // DO NOT modify local state — let the real-time snapshot update it
-    onClaimQuest?.(questIndex)
-
-    console.log(`[handleClaim] Firestore write initiated for quest ${questIndex}`)
+    // Pass quest ID instead of index — indexes can change due to real-time updates
+    console.log(`[handleClaim] Calling onClaimQuest with questId: "${questId}"`)
+    onClaimQuest?.(questId, quest.reward)
   }
 
   function handleClaimWeekly(questIndex, rect) {
     const quest = displayWeeklyQuests[questIndex]
     if (!quest?.completed || quest.claimed) return
 
-    console.log(`[handleClaimWeekly] Claiming quest ${questIndex}: "${quest.text}" → +${quest.reward} 💎`)
+    const questId = quest.id || quest.text  // Use quest ID or text as unique identifier
+
+    console.log(`[handleClaimWeekly] User clicked claim for quest: "${quest.text}"`, {
+      questId,
+      reward: quest.reward,
+      questIndex,
+    })
 
     // Play feedback IMMEDIATELY
     playCashRegister()
     fireBurst(rect)
 
-    // Call parent callback which triggers Firestore write
-    // DO NOT modify local state — let the real-time snapshot update it
-    onClaimWeeklyQuest?.(questIndex, quest.reward)
-
-    console.log(`[handleClaimWeekly] Firestore write initiated for quest ${questIndex}`)
+    // Pass quest ID instead of index — indexes can change due to real-time updates
+    console.log(`[handleClaimWeekly] Calling onClaimWeeklyQuest with questId: "${questId}"`)
+    onClaimWeeklyQuest?.(questId, quest.reward)
   }
 
   function handleWeeklyPull() {

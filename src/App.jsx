@@ -1671,46 +1671,64 @@ export default function App() {
                   return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests || [] } : p) }
                 })
               }}
-              onClaimQuest={async (questIndex) => {
-                // Validate quest before attempting Firestore write
+              onClaimQuest={async (questId, rewardValue) => {
                 const id     = st.activePlayerId
                 const player = st.players.find(p => p.id === id)
                 const quests = player?.daily_quests || []
-                const quest  = quests[questIndex]
+
+                // Find quest by ID or text — DO NOT use array index (can change during real-time sync)
+                const quest = quests.find(q => q.id === questId || q.text === questId)
 
                 if (!quest || quest.claimed || !quest.completed) {
-                  console.warn('[onClaimQuest] Invalid quest state — skipping')
+                  console.warn('[onClaimQuest] Invalid quest state — skipping', {
+                    questId,
+                    found: !!quest,
+                    claimed: quest?.claimed,
+                    completed: quest?.completed,
+                  })
                   return
                 }
+
+                const diamondReward = rewardValue || quest.reward || 0
+
+                console.log(`[onClaimQuest] ✓ Found quest to claim:`, {
+                  questId,
+                  questText: quest.text,
+                  diamondReward,
+                  playerIdBefore: player.diamonds || 0,
+                })
 
                 // Build the next state with claimed quest + diamonds awarded
                 const nextState = {
                   ...st,
-                  players: st.players.map(p =>
-                    p.id === id
-                      ? {
-                          ...p,
-                          diamonds: (p.diamonds || 0) + (quest.reward || 0),
-                          daily_quests: quests.map((q, i) => i === questIndex ? { ...q, claimed: true } : q),
-                        }
-                      : p
-                  ),
+                  players: st.players.map(p => {
+                    if (p.id !== id) return p
+
+                    return {
+                      ...p,
+                      diamonds: (p.diamonds || 0) + diamondReward,
+                      daily_quests: p.daily_quests.map(q =>
+                        (q.id === questId || q.text === questId)
+                          ? { ...q, claimed: true }
+                          : q
+                      ),
+                    }
+                  }),
                 }
 
                 // Persist to Firestore FIRST — only update UI on success
                 try {
-                  console.log(`[onClaimQuest] Firestore payload:`, {
+                  console.log(`[onClaimQuest] 📤 Firestore write payload:`, {
                     playerId: id,
-                    diamondsAdded: quest.reward,
-                    questClaimed: questIndex,
+                    questId,
+                    diamondsAdded: diamondReward,
+                    diamondsAfter: (player.diamonds || 0) + diamondReward,
                   })
                   await saveToFirestore(nextState, techniqueByPlayer, id)
                   console.log(`[onClaimQuest] ✓ Firestore write succeeded`)
-                  // Only update local state after Firestore write succeeds
                   setSt(nextState)
                 } catch (err) {
-                  console.error('[onClaimQuest] ✗ Firestore write failed:', err.message)
-                  // Do NOT update state — let it revert to server state on next snapshot
+                  console.error('[onClaimQuest] ✗ Firestore write FAILED:', err.message, err)
                   alert(`Failed to claim quest: ${err.message}`)
                 }
               }}
@@ -1721,46 +1739,63 @@ export default function App() {
                   return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, weekly_quests: newQuests || [], last_weekly_quest_pick: getWeekStart().toDateString() } : p) }
                 })
               }}
-              onClaimWeeklyQuest={async (questIndex, reward) => {
-                // Validate quest before attempting Firestore write
+              onClaimWeeklyQuest={async (questId, reward) => {
                 const id     = st.activePlayerId
                 const player = st.players.find(p => p.id === id)
                 const quests = player?.weekly_quests || []
-                const quest  = quests[questIndex]
+
+                // Find quest by ID or text — DO NOT use array index
+                const quest = quests.find(q => q.id === questId || q.text === questId)
 
                 if (!quest || quest.claimed) {
-                  console.warn('[onClaimWeeklyQuest] Invalid quest state — skipping')
+                  console.warn('[onClaimWeeklyQuest] Invalid quest state — skipping', {
+                    questId,
+                    found: !!quest,
+                    claimed: quest?.claimed,
+                  })
                   return
                 }
+
+                const diamondReward = reward || quest.reward || 0
+
+                console.log(`[onClaimWeeklyQuest] ✓ Found quest to claim:`, {
+                  questId,
+                  questText: quest.text,
+                  diamondReward,
+                  playerIdBefore: player.diamonds || 0,
+                })
 
                 // Build the next state with claimed quest + diamonds awarded
                 const nextState = {
                   ...st,
-                  players: st.players.map(p =>
-                    p.id === id
-                      ? {
-                          ...p,
-                          diamonds: (p.diamonds || 0) + reward,
-                          weekly_quests: quests.map((q, i) => i === questIndex ? { ...q, claimed: true, completed: true } : q),
-                        }
-                      : p
-                  ),
+                  players: st.players.map(p => {
+                    if (p.id !== id) return p
+
+                    return {
+                      ...p,
+                      diamonds: (p.diamonds || 0) + diamondReward,
+                      weekly_quests: p.weekly_quests.map(q =>
+                        (q.id === questId || q.text === questId)
+                          ? { ...q, claimed: true, completed: true }
+                          : q
+                      ),
+                    }
+                  }),
                 }
 
                 // Persist to Firestore FIRST — only update UI on success
                 try {
-                  console.log(`[onClaimWeeklyQuest] Firestore payload:`, {
+                  console.log(`[onClaimWeeklyQuest] 📤 Firestore write payload:`, {
                     playerId: id,
-                    diamondsAdded: reward,
-                    questClaimed: questIndex,
+                    questId,
+                    diamondsAdded: diamondReward,
+                    diamondsAfter: (player.diamonds || 0) + diamondReward,
                   })
                   await saveToFirestore(nextState, techniqueByPlayer, id)
                   console.log(`[onClaimWeeklyQuest] ✓ Firestore write succeeded`)
-                  // Only update local state after Firestore write succeeds
                   setSt(nextState)
                 } catch (err) {
-                  console.error('[onClaimWeeklyQuest] ✗ Firestore write failed:', err.message)
-                  // Do NOT update state — let it revert to server state on next snapshot
+                  console.error('[onClaimWeeklyQuest] ✗ Firestore write FAILED:', err.message, err)
                   alert(`Failed to claim quest: ${err.message}`)
                 }
               }}
