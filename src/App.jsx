@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { AlertCircle, Plus, Lock, X } from 'lucide-react'
 
 import { saveSt } from './utils/storage.js'
-import { saveToFirestore, deletePlayerData, forceSessionSync } from './utils/firestoreSync.js'
+import { saveToFirestore, deletePlayerData, forceSessionSync, setPlayerPhotoURL } from './utils/firestoreSync.js'
 import { audioEngine } from './services/audioEngine.js'
 import { sendRageBait, subscribeToRageBaits, dismissRageBait, sendCompliment, subscribeToCompliments, dismissNotification } from './services/rageBaitService.js'
 import { RageBaitSenderModal, RageBaitReceiverModal, ComplimentSenderModal, ComplimentReceiverModal } from './components/overlays/RageBaitModal.jsx'
@@ -1548,7 +1548,14 @@ export default function App() {
           theme={theme}
           onThemeToggle={toggleOutsideMode}
           onStreakClick={() => setTab('store')}
-          onPhotoUpload={url => upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, photoURL: url } : p) })}
+          onPhotoUpload={async url => {
+            try {
+              await setPlayerPhotoURL(aPlayer.id, url)
+              upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, photoURL: url } : p) })
+            } catch (err) {
+              console.error('[App] Photo upload to Firestore failed:', err)
+            }
+          }}
           onResetCareer={handleResetCareer}
           onSwitchProfile={() => {
             localStorage.removeItem(ACTIVE_PLAYER_KEY)

@@ -49,7 +49,10 @@ function getMetric(p, stats, sortBy) {
     case 'xp':
       return { value: Math.round(stats.xp).toLocaleString(), label: 'XP', color: '#a855f7', large: true }
     case 'rank':
-      return { value: stats.level?.name ?? '—', label: 'TIER', color: '#22c55e', large: false }
+      // For rank filter, show the wins-based snipe rank, not the XP-based level
+      const wins = p.totalWins || 0
+      const snipeRank = getSnipeRank(wins)
+      return { value: snipeRank.label, label: 'RANK', color: snipeRank.color, large: false }
     case 'shots':
       return { value: stats.totalShots.toLocaleString(), label: 'SHOTS', color: '#3b82f6', large: true }
     case 'accuracy':
@@ -336,8 +339,11 @@ export default function Leaderboard() {
     return () => window.removeEventListener('leaderboard-topplay', handler)
   }, [])
 
+  // Get technique-only shots from Zustand to include in holistic totals
+  const techniqueByPlayer = useAppStore(s => s.techniqueByPlayer || {})
+
   // Precompute stats for every player once per render, including shots from all game modes
-  const withStats = players.map(p => ({ p, stats: playerStats(p, sessions, 0, puckGames, challenges) }))
+  const withStats = players.map(p => ({ p, stats: playerStats(p, sessions, 0, puckGames, challenges, techniqueByPlayer) }))
 
   // Sort based on active filter, descending
   const sorted = [...withStats]

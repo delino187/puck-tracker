@@ -220,3 +220,25 @@ export async function setPlayerAdminStatus(playerId, isAdmin) {
     throw err
   }
 }
+
+// ── Profile photo URL persistence ────────────────────────────────────────────────
+// Atomic transaction: updates a player's photoURL in Firestore and returns the URL
+// for immediate UI update. The photoURL persists across device reloads and syncs to
+// all logged-in instances of the app.
+export async function setPlayerPhotoURL(playerId, photoURL) {
+  try {
+    const ref = teamDoc()
+    await runTransaction(db, async tx => {
+      const snap = await tx.get(ref)
+      if (!snap.exists()) return
+      const players = snap.data().players || []
+      tx.update(ref, {
+        players: players.map(p => p.id === playerId ? { ...p, photoURL } : p),
+      })
+    })
+    return photoURL
+  } catch (err) {
+    console.error('[setPlayerPhotoURL] Firestore write failed:', err.message)
+    throw err
+  }
+}
