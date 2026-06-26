@@ -47,17 +47,33 @@ export function useMatchResults(peerChallenges) {
     setChallengeAnsweredBanner, setExpiredVictoryBanner,
   } = useUI()
 
-  const seenVictoryIds        = useRef(new Set())
-  const seenDefeatIds         = useRef(new Set())
-  const seenAnsweredBannerIds = useRef(new Set())
-  const seenExpiredIds        = useRef(new Set())
+  const seenVictoryIds = useRef(new Set())
+  const seenDefeatIds  = useRef(new Set())
+  const seenExpiredIds = useRef(new Set())
+  // seenAnsweredBannerIds is persisted to localStorage so the banner never
+  // re-fires for a challenge the player already saw, even across page reloads.
+  const SEEN_BANNERS_KEY = 'puck_seen_banners'
+  const getSeenBannerIds = () => {
+    try { return new Set(JSON.parse(localStorage.getItem(SEEN_BANNERS_KEY) || '[]')) }
+    catch { return new Set() }
+  }
+  const markBannerSeen = (id) => {
+    try {
+      const ids = getSeenBannerIds()
+      ids.add(id)
+      // Cap at 500 entries so localStorage never grows unbounded
+      const arr = [...ids].slice(-500)
+      localStorage.setItem(SEEN_BANNERS_KEY, JSON.stringify(arr))
+    } catch {}
+  }
 
-  // Reset in-session sets when the active player switches accounts
+  // Reset in-session sets when the active player switches accounts.
+  // NOTE: seenAnsweredBannerIds intentionally NOT reset here — it is
+  // cross-session by design (localStorage-backed, player-agnostic).
   useEffect(() => {
-    seenVictoryIds.current        = new Set()
-    seenDefeatIds.current         = new Set()
-    seenAnsweredBannerIds.current = new Set()
-    seenExpiredIds.current        = new Set()
+    seenVictoryIds.current = new Set()
+    seenDefeatIds.current  = new Set()
+    seenExpiredIds.current = new Set()
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Ranked expiration lazy resolver ──────────────────────────────────────
@@ -109,9 +125,9 @@ export function useMatchResults(peerChallenges) {
     for (const challenge of peerChallenges) {
       if (challenge.status !== 'completed')             continue
       if (challenge.challengerId !== activeId)          continue  // only fires for the challenger
-      if (seenAnsweredBannerIds.current.has(challenge.id)) continue
+      if (getSeenBannerIds().has(challenge.id))         continue  // persisted — survives reloads
 
-      seenAnsweredBannerIds.current.add(challenge.id)
+      markBannerSeen(challenge.id)
 
       const opponentName = challenge.receiverName ?? 'your opponent'
       const won    = challenge.winnerId === activeId

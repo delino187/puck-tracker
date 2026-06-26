@@ -37,7 +37,10 @@ export default function ChallengeAnsweredBanner({ data, onDismiss, onView }) {
         }
       `}</style>
       <div
+        role="button"
+        tabIndex={0}
         onClick={onView}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onView() }}
         style={{
           position: 'fixed',
           top: 72, left: '50%',
@@ -53,6 +56,7 @@ export default function ChallengeAnsweredBanner({ data, onDismiss, onView }) {
           animation: 'bannerSlideDown 0.35s cubic-bezier(0.34,1.56,0.64,1) both, bannerPulseGlow 2s ease-in-out 0.4s infinite',
           display: 'flex', alignItems: 'center', gap: 12,
           userSelect: 'none',
+          WebkitTapHighlightColor: 'transparent',
         }}
       >
         {/* Icon */}
