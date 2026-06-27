@@ -33,18 +33,28 @@ export const QUEST_POOL = {
 }
 
 export const WEEKLY_QUEST_POOL = [
+  // Volume quests
   { id: 'wq_shots500', text: 'Log 500 Total Shots This Week',                              reward: 250, icon: '🏒', tier: 'red'    },
   { id: 'wq_shots400', text: 'Log 400 Total Shots This Week',                              reward: 200, icon: '🏒', tier: 'red'    },
   { id: 'wq_shots300', text: 'Log 300 Total Shots This Week',                              reward: 150, icon: '🏒', tier: 'red'    },
   { id: 'wq_shots200', text: 'Log 200 Total Shots This Week',                              reward: 100, icon: '🏒', tier: 'red'    },
+  // Technique-specific shots
+  { id: 'wq_wrist300', text: 'Log 300 Wrist Shots in Technique Only Mode This Week',      reward: 150, icon: '🏒', tier: 'red'    },
+  { id: 'wq_wrist200', text: 'Log 200 Wrist Shots in Technique Only Mode This Week',      reward: 125, icon: '🏒', tier: 'red'    },
+  { id: 'wq_back200',  text: 'Log 200 Backhand Shots in Technique Only Mode This Week',   reward: 125, icon: '🎯', tier: 'red'    },
+  { id: 'wq_back150',  text: 'Log 150 Backhand Shots in Technique Only Mode This Week',   reward: 100, icon: '🎯', tier: 'red'    },
+  { id: 'wq_snap250',  text: 'Log 250 Snap Shots in Technique Only Mode This Week',       reward: 150, icon: '⚡', tier: 'red'    },
+  { id: 'wq_snap200',  text: 'Log 200 Snap Shots in Technique Only Mode This Week',       reward: 125, icon: '⚡', tier: 'red'    },
+  { id: 'wq_slap150',  text: 'Log 150 Slap Shots in Technique Only Mode This Week',       reward: 125, icon: '💥', tier: 'red'    },
+  { id: 'wq_slap100',  text: 'Log 100 Slap Shots in Technique Only Mode This Week',       reward: 100, icon: '💥', tier: 'red'    },
+  // Accuracy quests
   { id: 'wq_acc85x5',  text: 'Hit 50% Accuracy across 5 different Sessions this Week',    reward: 175, icon: '🔥', tier: 'common' },
   { id: 'wq_acc80x3',  text: 'Hit 50% Accuracy across 3 different Sessions this Week',    reward: 100, icon: '📊', tier: 'common' },
   { id: 'wq_acc75x5',  text: 'Hit 40% Accuracy across 5 different Sessions this Week',    reward: 125, icon: '📈', tier: 'common' },
-  { id: 'wq_back200',  text: 'Log 200 Backhand Shots in Technique Only Mode this Week',   reward: 125, icon: '🎯', tier: 'red'    },
-  { id: 'wq_back150',  text: 'Log 150 Backhand Shots in Technique Only Mode this Week',   reward: 100, icon: '🎯', tier: 'red'    },
+  { id: 'wq_acc90x3',  text: 'Hit 50% Accuracy across 3 different Sessions this Week',    reward: 150, icon: '💯', tier: 'common' },
+  // Session quests
   { id: 'wq_sess7',    text: 'Complete 7 Training Sessions this Week',                     reward: 175, icon: '📅', tier: 'epic'   },
   { id: 'wq_sess5',    text: 'Complete 5 Training Sessions this Week',                     reward: 100, icon: '📅', tier: 'epic'   },
-  { id: 'wq_acc90x3',  text: 'Hit 50% Accuracy across 3 different Sessions this Week',    reward: 150, icon: '💯', tier: 'common' },
 ]
 
 export const TIER_COLORS = {

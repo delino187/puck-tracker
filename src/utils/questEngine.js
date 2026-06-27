@@ -56,9 +56,32 @@ export function pickQuests(sessions = []) {
 }
 
 // ── Weekly quest picker ───────────────────────────────────────────────────────
+// Enforces equal distribution across the 4 core shot types: Wrist, Backhand, Snap, Slap
 export function pickWeeklyQuests() {
-  const shuffled = [...WEEKLY_QUEST_POOL].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, 3).map(q => ({
+  const wristQuests  = WEEKLY_QUEST_POOL.filter(q => /Wrist/i.test(q.text))
+  const backQuests   = WEEKLY_QUEST_POOL.filter(q => /Backhand/i.test(q.text))
+  const snapQuests   = WEEKLY_QUEST_POOL.filter(q => /Snap/i.test(q.text))
+  const slapQuests   = WEEKLY_QUEST_POOL.filter(q => /Slap/i.test(q.text))
+
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)]
+  const picked = []
+
+  // Pick one from each shot type to ensure variety
+  if (wristQuests.length > 0) picked.push(pick(wristQuests))
+  if (backQuests.length > 0)  picked.push(pick(backQuests))
+  if (snapQuests.length > 0)  picked.push(pick(snapQuests))
+  if (slapQuests.length > 0)  picked.push(pick(slapQuests))
+
+  // If fewer than 4 shot types available, fill remaining slots from other quests
+  const otherQuests = WEEKLY_QUEST_POOL.filter(q => !picked.includes(q))
+  while (picked.length < 3 && otherQuests.length > 0) {
+    const idx = Math.floor(Math.random() * otherQuests.length)
+    picked.push(otherQuests[idx])
+    otherQuests.splice(idx, 1)
+  }
+
+  // Return first 3 (or fewer if pool is small)
+  return picked.slice(0, 3).map(q => ({
     ...q,
     currentProgress: 0,
     completed:       false,
@@ -100,14 +123,17 @@ export function getWeeklyQuestProgress(text, sessions, playerId, puckGames = [],
     return { current: Math.min(weekShots, target), target }
   }
 
-  if (/Log (\d+) Backhand Shots/i.test(text)) {
-    const target   = parseInt(text.match(/\d+/)[0])
-    const dailyLog = techniqueByPlayer?.[playerId]?.dailyLog || {}
-    let backhands  = 0
+  // Match all technique-specific shot types: Wrist, Backhand, Snap, Slap
+  const techniqueMatch = text.match(/Log (\d+) (Wrist|Backhand|Snap|Slap) Shots/i)
+  if (techniqueMatch) {
+    const target        = parseInt(techniqueMatch[1])
+    const shotType      = techniqueMatch[2]
+    const dailyLog      = techniqueByPlayer?.[playerId]?.dailyLog || {}
+    let shotCount       = 0
     Object.values(dailyLog).forEach(e => {
-      if (typeof e === 'object' && e?.breakdown?.['Backhand']) backhands += e.breakdown['Backhand']
+      if (typeof e === 'object' && e?.breakdown?.[shotType]) shotCount += e.breakdown[shotType]
     })
-    return { current: Math.min(backhands, target), target }
+    return { current: Math.min(shotCount, target), target }
   }
 
   const accAcross = text.match(/Hit (\d+)% Accuracy across (\d+)[^0-9]*Sessions/i)
