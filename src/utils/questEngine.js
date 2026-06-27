@@ -123,15 +123,22 @@ export function getWeeklyQuestProgress(text, sessions, playerId, puckGames = [],
     return { current: Math.min(weekShots, target), target }
   }
 
-  // Match all technique-specific shot types: Wrist, Backhand, Snap, Slap
-  const techniqueMatch = text.match(/Log (\d+) (Wrist|Backhand|Snap|Slap) Shots/i)
+  // Match all technique-specific shot types: "Log N in {Wrist Shot|Backhand|Snap Shot|Slap Shot} Technique"
+  // Breakdown keys must match exactly: breakdown['Wrist Shot'], breakdown['Backhand'], etc.
+  const techniqueMatch = text.match(/Log (\d+) in ((?:Wrist|Snap|Slap) Shot|Backhand) Technique/i)
   if (techniqueMatch) {
     const target        = parseInt(techniqueMatch[1])
     const shotType      = techniqueMatch[2]
     const dailyLog      = techniqueByPlayer?.[playerId]?.dailyLog || {}
     let shotCount       = 0
-    Object.values(dailyLog).forEach(e => {
-      if (typeof e === 'object' && e?.breakdown?.[shotType]) shotCount += e.breakdown[shotType]
+
+    // Only count shots from the current week, not all time
+    const ws = getWeekStart()
+    Object.entries(dailyLog).forEach(([dateStr, e]) => {
+      const entryDate = new Date(dateStr)
+      if (entryDate >= ws && typeof e === 'object' && e?.breakdown?.[shotType]) {
+        shotCount += e.breakdown[shotType]
+      }
     })
     return { current: Math.min(shotCount, target), target }
   }
