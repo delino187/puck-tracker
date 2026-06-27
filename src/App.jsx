@@ -1235,6 +1235,8 @@ export default function App() {
                   eloLastUpdated:    null,
                   hasEloShield:      false,
                   hasSeenOnboarding: false,
+                  hasEverSpunWheelDaily:  false,
+                  hasEverSpunWheelWeekly: false,
                   createdAt:         Date.now(),
                 }
                 upd({ players: [...st.players, p], view: 'coach' })
@@ -1698,10 +1700,13 @@ export default function App() {
                 return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, diamonds: (p.diamonds || 0) + amount } : p) }
               })}
               onSpinComplete={(quests) => {
-                markRookieQuest('spinDaily')
+                // Only award first-spin bonus if player has never spun before
+                if (!aPlayer?.hasEverSpunWheelDaily) {
+                  markRookieQuest('spinDaily')
+                }
                 setSt(prev => {
                   const id = prev.activePlayerId
-                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests || [] } : p) }
+                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests || [], hasEverSpunWheelDaily: true } : p) }
                 })
               }}
               onClaimQuest={async (questText, rewardValue) => {
@@ -1788,10 +1793,13 @@ export default function App() {
                 }
               }}
               onInitWeeklyQuests={(newQuests) => {
-                markRookieQuest('spinWeekly')
+                // Only award first-spin bonus if player has never spun the weekly wheel before
+                if (!aPlayer?.hasEverSpunWheelWeekly) {
+                  markRookieQuest('spinWeekly')
+                }
                 setSt(prev => {
                   const id = prev.activePlayerId
-                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, weekly_quests: newQuests || [], last_weekly_quest_pick: getWeekStart().toDateString() } : p) }
+                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, weekly_quests: newQuests || [], last_weekly_quest_pick: getWeekStart().toDateString(), hasEverSpunWheelWeekly: true } : p) }
                 })
               }}
               onClaimWeeklyQuest={async (questText, rewardValue) => {
