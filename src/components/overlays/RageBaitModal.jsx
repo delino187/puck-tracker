@@ -163,12 +163,19 @@ function MailboxReceiverModal({ notification, onDismiss, cfg }) {
   const animKey = cfg.animName
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 400,
-      background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(8px)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '0 20px',
-    }}>
+    <div
+      onClick={(e) => {
+        // Only dismiss on direct backdrop click, not on child elements
+        if (e.target === e.currentTarget && opened) {
+          onDismiss()
+        }
+      }}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 400,
+        background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '0 20px',
+      }}>
       {!opened ? (
         <div onClick={() => {
           if (notification.type === 'rage_bait') audioEngine.playRageBaitReveal()

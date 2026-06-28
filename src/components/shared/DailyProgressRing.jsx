@@ -20,8 +20,10 @@ export default function DailyProgressRing({ shots }) {
       <div style={{
         position: 'relative', width: 110, height: 110, flexShrink: 0,
         animation: done ? 'ringPulse 1.8s ease-in-out infinite' : 'none',
+        padding: '6px', boxSizing: 'border-box',
+        overflow: 'visible',
       }}>
-        <svg width="110" height="110" viewBox="0 0 110 110">
+        <svg width="110" height="110" viewBox="0 0 110 110" style={{ display: 'block' }}>
           {/* Track */}
           <circle cx="55" cy="55" r={R} fill="none" stroke="#0f172a" strokeWidth="9" />
           {/* Glow blur layer */}

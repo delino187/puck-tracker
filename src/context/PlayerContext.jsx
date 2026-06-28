@@ -216,13 +216,18 @@ export function PlayerProvider({ children }) {
             // Only play flute + toast for:
             // 1. External awards (not self-initiated, no new badges)
             // 2. Rookie milestone completions (hasRookieBadge && isSelfClaim)
-            // Skip for regular badge unlocks (hasRegularBadge && not self-claim)
-            if (gained > 0 && !isSelfClaim && !hasRegularBadge) {
-              // External award (coach, ELO reward, etc.) — show toast + play flute
-              clearTimeout(coachAwardToastTimerRef.current)
-              setCoachAwardToast({ amount: gained, playerName: next.name })
-              coachAwardToastTimerRef.current = setTimeout(() => setCoachAwardToast(null), 5000)
-              audioEngine.playUtilitySuccess()
+            // Skip for regular badge unlocks (hasRegularBadge)
+            if (gained > 0 && !hasRegularBadge) {
+              const isRookieMilestone = isSelfClaim && hasRookieBadge
+              const isExternalAward = !isSelfClaim
+
+              if (isRookieMilestone || isExternalAward) {
+                // Rookie milestone or external award (coach, ELO) — show toast + play flute
+                clearTimeout(coachAwardToastTimerRef.current)
+                setCoachAwardToast({ amount: gained, playerName: next.name })
+                coachAwardToastTimerRef.current = setTimeout(() => setCoachAwardToast(null), 5000)
+                audioEngine.playUtilitySuccess()
+              }
             }
           }
         }

@@ -108,8 +108,10 @@ export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 
 
   // "Score 8+ Hits in Any Zone" — CUMULATIVE across all sets today
   // Sum all zone hits from all sets in today's sessions (cumulative, not max)
+  // Safety: ensure todaySets is an array with actual data before counting hits
   if (/8\+ Hits/i.test(text)) {
-    const totalHits = todaySets.reduce((sum, s) => sum + (s.hits ?? 0), 0)
+    const hasTodayData = Array.isArray(todaySets) && todaySets.length > 0
+    const totalHits = hasTodayData ? todaySets.reduce((sum, s) => sum + (s.hits ?? 0), 0) : 0
     return { current: Math.min(totalHits, 8), target: 8, suffix: '' }
   }
 
