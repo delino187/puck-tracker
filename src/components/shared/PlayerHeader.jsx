@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronLeft, Flame, Sun, Moon } from 'lucide-react'
 import { LEVELS } from '../../constants/levels.js'
 import { playerStats } from '../../utils/stats.js'
@@ -8,6 +8,18 @@ import XPBar from './XPBar.jsx'
 import Avatar from './Avatar.jsx'
 import ManageProfileModal from '../overlays/ManageProfileModal.jsx'
 import { getStreakAuraClass } from '../../utils/streakAura.js'
+
+// Converts a millisecond duration into a compact human-readable label for the
+// freeze countdown badge: "5d 3h", "14h 22m", "45m", etc.
+function formatFreezeRemaining(ms) {
+  if (ms <= 0) return '0m'
+  const days  = Math.floor(ms / 86_400_000)
+  const hours = Math.floor((ms % 86_400_000) / 3_600_000)
+  const mins  = Math.floor((ms % 3_600_000)  / 60_000)
+  if (days  > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${mins}m`
+  return `${mins}m`
+}
 
 export default function PlayerHeader({ onBack, theme, onThemeToggle, onStreakClick, onPhotoUpload, onResetCareer, onSwitchProfile }) {
   const { activePlayer: player, st } = usePlayer()
@@ -27,6 +39,24 @@ export default function PlayerHeader({ onBack, theme, onThemeToggle, onStreakCli
   const totalPucks     = (stats.totalShots ?? 0) + techniquePucks
 
   const [showManageModal, setShowManageModal] = useState(false)
+
+  // ── Freeze countdown clock ────────────────────────────────────────────────
+  // Re-fires every 60 s so the displayed time stays accurate.
+  // The interval is cheap (no network, no re-renders beyond 1/min) and is
+  // cleaned up on unmount.
+  const [nowMs, setNowMs] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNowMs(Date.now()), 60_000)
+    return () => clearInterval(t)
+  }, [])
+
+  // Active freeze window — whichever expires later wins
+  const freezeUntil = Math.max(
+    player.streakFreezeUntil || 0,
+    player.weeklyFreezeUntil || 0,
+  )
+  const freezeIsActive = freezeUntil > nowMs
+  const isWeekFreeze   = (player.weeklyFreezeUntil || 0) >= (player.streakFreezeUntil || 0)
 
   const diamonds   = player.diamonds   || 0
   const hasShield  = player.hasEloShield || false
@@ -88,13 +118,12 @@ export default function PlayerHeader({ onBack, theme, onThemeToggle, onStreakCli
           </div>
         </div>
 
-        {stats.streak > 0 && (() => {
-          const hasFreezeActive = (player.streak_freezes || 0) > 0
-          return hasFreezeActive ? (
-            // ── Frozen streak badge ───────────────────────────────────────────
+        {stats.streak > 0 && (
+          freezeIsActive ? (
+            // ── Active freeze badge with countdown ────────────────────────────
             <button
               onClick={onStreakClick}
-              title={`Streak protected by ❄️ Streak Freeze (${player.streak_freezes} remaining)`}
+              title={`Streak protected · ${isWeekFreeze ? '1-Week Freeze' : 'Streak Shield'} active`}
               style={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
                 background: 'rgba(147,197,253,0.15)',
@@ -112,10 +141,10 @@ export default function PlayerHeader({ onBack, theme, onThemeToggle, onStreakCli
               </div>
               <span style={{
                 fontFamily: "'Barlow Condensed',sans-serif", fontSize: 7, fontWeight: 800,
-                color: '#60a5fa', letterSpacing: '0.06em', lineHeight: 1,
-                textTransform: 'uppercase',
+                color: '#60a5fa', letterSpacing: '0.04em', lineHeight: 1,
+                textTransform: 'uppercase', whiteSpace: 'nowrap',
               }}>
-                FROZEN
+                {formatFreezeRemaining(freezeUntil - nowMs)}
               </span>
             </button>
           ) : (
@@ -137,7 +166,7 @@ export default function PlayerHeader({ onBack, theme, onThemeToggle, onStreakCli
               </span>
             </button>
           )
-        })()}
+        )}
 
         {onThemeToggle && (
           <button

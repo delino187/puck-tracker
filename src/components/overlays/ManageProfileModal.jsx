@@ -112,12 +112,6 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
 
     setUploadErr('')
 
-    // Reset the input value synchronously before entering any async pipeline.
-    // On iOS Safari, holding the reference across an await can cause the browser
-    // to recycle the file handle.  Resetting here also lets the user immediately
-    // re-pick the same file if they want to retry without closing the modal first.
-    e.target.value = ''
-
     try {
       // ── Canvas compression pipeline ───────────────────────────────────────
       // compressImageToJpeg downscales to 256×256 JPEG @ q=0.7 → ~20–40 KB as
@@ -142,6 +136,19 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
       setUploadErr('Could not process photo — please try a different image.')
       setStep('view')
       setPreviewURL(null)
+    } finally {
+      // Clear the input value AFTER the entire async pipeline finishes.
+      //
+      // iOS Safari / WKWebView stores the raw photo bytes inside the <input>
+      // element's internal native buffer.  Clearing e.target.value BEFORE
+      // FileReader.readAsDataURL() completes releases that native buffer — even
+      // though the JavaScript `file` variable still holds a File object reference,
+      // the underlying data source is gone and the read returns empty or errors.
+      //
+      // Running this in `finally` guarantees the canvas has already exported the
+      // base64 JPEG to JavaScript heap memory before the native handle is freed.
+      // It also lets the user re-select the same file without reopening the modal.
+      e.target.value = ''
     }
   }
 

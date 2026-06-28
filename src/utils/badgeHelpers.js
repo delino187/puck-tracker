@@ -34,7 +34,14 @@ export function dayStreak(p, s) {
   // dailyLog is date-keyed in the Zustand store and updated by logTechniqueShots.
   const techEntry = useAppStore.getState().techniqueByPlayer[p.id]
   const dailyLog  = techEntry?.dailyLog || {}
-  Object.entries(dailyLog).forEach(([date, count]) => { if (count > 0) daySet.add(date) })
+  Object.entries(dailyLog).forEach(([date, entry]) => {
+    // dailyLog entries may be a plain number (legacy format) or
+    // { total, breakdown } (current format from logTechniqueShots).
+    // A raw `count > 0` comparison evaluates to NaN for objects, silently
+    // dropping every technique/Versus/PUCK-only day from the streak.
+    const total = typeof entry === 'object' ? (entry?.total || 0) : (entry || 0)
+    if (total > 0) daySet.add(date)
+  })
   const days = [...daySet].sort((a, b) => new Date(b) - new Date(a))
   if (!days.length) return 0
 

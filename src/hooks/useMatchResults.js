@@ -106,6 +106,15 @@ export function useMatchResults(peerChallenges) {
 
       resolveExpiredChallenge(challenge).then(result => {
         if (!result) return  // already resolved by another device, or error
+
+        if (result.extended) {
+          // The receiver has an active Streak Freeze / Weekly Freeze — the
+          // challenge's expiresAt was pushed forward in Firestore.  Remove from
+          // seenExpiredIds so the re-check fires after the freeze expires.
+          seenExpiredIds.current.delete(challenge.id)
+          return
+        }
+
         // Challenger: show the expiry-specific banner (diamonds/XP come from
         // the victory effect below when the completed snapshot arrives).
         if (challenge.challengerId === activeId) {

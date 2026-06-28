@@ -411,6 +411,26 @@ export async function resolveExpiredChallenge(challenge) {
       const receiver   = players.find(p => p.id === challenge.receiverId)
       if (!challenger || !receiver) return
 
+      // ── Receiver freeze guard ─────────────────────────────────────────────
+      // If the receiver has an active Streak Freeze or 1-Week Freeze, extend
+      // the challenge's expiry window to the end of their freeze rather than
+      // forfeiting them.  This preserves the match so they can respond after
+      // returning (e.g. tournament trip covered by the week freeze).
+      const nowTs       = Date.now()
+      const freezeUntil = Math.max(
+        receiver.streakFreezeUntil  || 0,
+        receiver.weeklyFreezeUntil  || 0,
+      )
+      if (freezeUntil > nowTs) {
+        // Push the challenge expiry to the freeze end (keep current if already later)
+        const newExpiresAt = Math.max(cData.expiresAt, freezeUntil)
+        tx.update(challengeRef, { expiresAt: newExpiresAt })
+        // Signal "extended, not resolved" to the caller — do NOT set
+        // expirationResolutionProcessed so re-check is possible after the freeze.
+        eloResult = { extended: true, newExpiresAt }
+        return
+      }
+
       const ratingC = challenger.elo ?? 1000
       const ratingR = receiver.elo   ?? 1000
 

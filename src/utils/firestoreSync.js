@@ -181,6 +181,77 @@ export async function deletePlayerData(playerId) {
   }
 }
 
+// ── Diamond item purchase (atomic) ────────────────────────────────────────────
+// All diamond-priced shop items must go through this transaction rather than the
+// normal saveToFirestore path.  The reason: saveToFirestore's merge step uses
+//   diamonds: Math.max(localDiamonds, serverDiamonds)
+// to prevent a stale local snapshot from rolling back a coach-awarded bonus.
+// That same Math.max silently RESTORES deducted diamonds on every purchase —
+// the player gets the item for free and keeps their balance.
+//
+// This function reads the server-authoritative balance inside a Firestore
+// transaction, enforces the afford + ownership checks there, and writes the
+// deduction and item fields atomically.  The returned `updatedPlayer` object
+// is the exact state written to Firestore and should be used to update local
+// React state so the two sources stay in sync.
+//
+// options:
+//   uniqueFlag    {string}   player boolean field to block re-purchase (e.g. 'hasEloShield')
+//   uniqueItemId  {string}   item id to check against player.ownedItems[]
+//   buildFields   {fn}       (serverPlayer) => partial player object to merge on success
+//
+// Returns { success: true, updatedPlayer } | { success: false, reason: string }
+export async function purchaseDiamondItem(playerId, cost, options = {}) {
+  try {
+    const ref = teamDoc()
+    let updatedPlayer = null
+
+    await runTransaction(db, async tx => {
+      const snap = await tx.get(ref)
+      if (!snap.exists()) throw Object.assign(new Error('team_missing'),       { code: 'team_missing' })
+
+      const players = snap.data().players || []
+      const player  = players.find(p => p.id === playerId)
+      if (!player)  throw Object.assign(new Error('player_missing'),           { code: 'player_missing' })
+
+      // Server-authoritative balance check — immune to stale local state
+      if ((player.diamonds ?? 0) < cost) {
+        throw Object.assign(new Error('insufficient_funds'),                    { code: 'insufficient_funds' })
+      }
+
+      // Unique-item ownership gate: boolean flag on the player doc
+      if (options.uniqueFlag && player[options.uniqueFlag]) {
+        throw Object.assign(new Error('already_owned'),                         { code: 'already_owned' })
+      }
+
+      // Unique-item ownership gate: membership in player.ownedItems[]
+      if (options.uniqueItemId) {
+        const owned = Array.isArray(player.ownedItems) ? player.ownedItems : []
+        if (owned.includes(options.uniqueItemId)) {
+          throw Object.assign(new Error('already_owned'),                       { code: 'already_owned' })
+        }
+      }
+
+      // Build the field delta from the live server player so consumable counters
+      // (streak_freezes, doubleXpTokens, etc.) are always incremented from the
+      // authoritative value, not from a potentially stale local snapshot.
+      const extraFields   = options.buildFields ? options.buildFields(player) : {}
+      updatedPlayer       = { ...player, diamonds: (player.diamonds ?? 0) - cost, ...extraFields }
+
+      tx.update(ref, {
+        players: players.map(p => p.id === playerId ? updatedPlayer : p),
+      })
+    })
+
+    return { success: true, updatedPlayer }
+  } catch (err) {
+    const knownCodes = ['team_missing', 'player_missing', 'insufficient_funds', 'already_owned']
+    const reason     = knownCodes.includes(err.message) ? err.message : 'transaction_error'
+    if (reason === 'transaction_error') console.error('[purchaseDiamondItem]', err)
+    return { success: false, reason }
+  }
+}
+
 // ── Username update ───────────────────────────────────────────────────────────
 // Atomic transaction: reads the players array, updates username on the target.
 // Caller is responsible for validation — this writes whatever is passed in.

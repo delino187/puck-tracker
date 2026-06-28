@@ -73,9 +73,16 @@ export async function updateStreak(playerId) {
       yesterdayDate.setDate(yesterdayDate.getDate() - 1)
       const yesterdayStr  = yesterdayDate.toDateString()
 
-      const lastAct     = player.lastActivity || 0
-      const lastDateStr = lastAct ? dateStr(lastAct) : null
-      const hasFreeze   = (player.streak_freezes || 0) > 0
+      const lastAct        = player.lastActivity || 0
+      const lastDateStr    = lastAct ? dateStr(lastAct) : null
+      const has1DayFreeze  = (player.streak_freezes     || 0) > 0
+      const hasWeekFreeze  = (player.week_streak_freezes || 0) > 0
+
+      // An active timestamp-based freeze also counts as protection (set below when
+      // a freeze is consumed, or when a week freeze is purchased from the store).
+      const hasTimestampFreeze =
+        ((player.streakFreezeUntil  || 0) > now) ||
+        ((player.weeklyFreezeUntil  || 0) > now)
 
       if (lastDateStr === todayStr) {
         // ── Same calendar day ─────────────────────────────────────────────────
@@ -101,15 +108,17 @@ export async function updateStreak(playerId) {
           ),
         })
 
-      } else if (hasFreeze) {
-        // ── Missed one or more days, freeze available ─────────────────────────
+      } else if (has1DayFreeze) {
+        // ── Missed day(s) — consume one daily Streak Shield ──────────────────
+        // Sets streakFreezeUntil to 24 h from now so the challenge-expiry guard
+        // and the UI countdown know an active freeze window is in effect.
         const prevDates = player.protectedDates || []
         newStreak       = (player.streakCount || 0) + 1
 
         console.log(
-          `[Streak Protection] Freeze consumed for player ${playerId}. `
+          `[Streak] 1-day freeze consumed for ${playerId}. `
           + `Streak preserved at ${newStreak}. `
-          + `Remaining freezes: ${(player.streak_freezes || 1) - 1}`
+          + `Remaining: ${(player.streak_freezes || 1) - 1}`
         )
 
         tx.update(teamRef, {
@@ -117,11 +126,54 @@ export async function updateStreak(playerId) {
             p.id === playerId
               ? {
                   ...p,
-                  lastActivity:   now,
-                  streakCount:    newStreak,
-                  streak_freezes: Math.max(0, (p.streak_freezes || 1) - 1),
-                  protectedDates: [...prevDates, todayStr],
+                  lastActivity:     now,
+                  streakCount:      newStreak,
+                  streak_freezes:   Math.max(0, (p.streak_freezes || 1) - 1),
+                  protectedDates:   [...prevDates, todayStr],
+                  // Active window: challenges won't expire and UI shows countdown
+                  streakFreezeUntil: now + 24 * 60 * 60 * 1000,
                 }
+              : p
+          ),
+        })
+
+      } else if (hasWeekFreeze) {
+        // ── Missed day(s) — consume one 1-Week Freeze ────────────────────────
+        // Sets weeklyFreezeUntil to 7 days from now.
+        const prevDates = player.protectedDates || []
+        newStreak       = (player.streakCount || 0) + 1
+
+        console.log(
+          `[Streak] Week freeze consumed for ${playerId}. `
+          + `Streak preserved at ${newStreak}. `
+          + `Remaining week freezes: ${(player.week_streak_freezes || 1) - 1}`
+        )
+
+        tx.update(teamRef, {
+          players: players.map(p =>
+            p.id === playerId
+              ? {
+                  ...p,
+                  lastActivity:        now,
+                  streakCount:         newStreak,
+                  week_streak_freezes: Math.max(0, (p.week_streak_freezes || 1) - 1),
+                  protectedDates:      [...prevDates, todayStr],
+                  // Active for 7 days — challenges won't expire during this window
+                  weeklyFreezeUntil:   now + 7 * 24 * 60 * 60 * 1000,
+                }
+              : p
+          ),
+        })
+
+      } else if (hasTimestampFreeze) {
+        // ── Active freeze window from a prior consume — treat same as consecutive
+        // (the timestamp was set when a freeze was consumed; the player is still
+        // within that protection window even though they missed another calendar day).
+        newStreak = (player.streakCount || 0) + 1
+        tx.update(teamRef, {
+          players: players.map(p =>
+            p.id === playerId
+              ? { ...p, lastActivity: now, streakCount: newStreak }
               : p
           ),
         })

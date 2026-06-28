@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { AlertCircle, Plus, Lock, X } from 'lucide-react'
 
 import { saveSt } from './utils/storage.js'
-import { saveToFirestore, deletePlayerData, forceSessionSync, setPlayerPhotoURL } from './utils/firestoreSync.js'
+import { saveToFirestore, deletePlayerData, forceSessionSync, setPlayerPhotoURL, purchaseDiamondItem } from './utils/firestoreSync.js'
 import { audioEngine } from './services/audioEngine.js'
 import { sendRageBait, subscribeToRageBaits, dismissRageBait, sendCompliment, subscribeToCompliments, dismissNotification } from './services/rageBaitService.js'
 import { RageBaitSenderModal, RageBaitReceiverModal, ComplimentSenderModal, ComplimentReceiverModal } from './components/overlays/RageBaitModal.jsx'
@@ -297,7 +297,14 @@ export default function App() {
     if (streakInsuranceCheckedRef.current === key) return
     streakInsuranceCheckedRef.current = key
 
-    const hasFreeze = (p.streak_freezes || 0) > 0
+    // Any active freeze path protects against the broken-streak modal:
+    // consumable counts (pending, not yet triggered), or active timestamp windows
+    // (set when a freeze is actually consumed, or when a week freeze is purchased).
+    const hasFreeze =
+      (p.streak_freezes      || 0) > 0 ||
+      (p.week_streak_freezes || 0) > 0 ||
+      ((p.streakFreezeUntil  || 0) > Date.now()) ||
+      ((p.weeklyFreezeUntil  || 0) > Date.now())
 
     // Use calendar-day comparison to match updateStreak's logic.
     // Streak is broken if last activity was before yesterday (i.e. 2+ calendar
@@ -1909,49 +1916,97 @@ export default function App() {
               onEquipTaunt={(tauntId) => {
                 upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, equippedTaunt: tauntId } : p) })
               }}
-              onPurchaseItem={(itemId, cost) => {
-                const diamonds = aPlayer.diamonds || 0
-                if (diamonds < cost) return
+              onPurchaseItem={async (itemId, cost) => {
+                const pid = aPlayer.id
 
-                let nextSt = null
-                if (itemId === 'streakFreeze') {
-                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) }
-                } else if (itemId === 'weekStreakFreeze') {
-                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, week_streak_freezes: (p.week_streak_freezes || 0) + 1 } : p) }
-                } else if (itemId === 'doubleXpToken') {
-                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, doubleXpTokens: (p.doubleXpTokens || 0) + 1 } : p) }
-                } else if (itemId === 'eloShield') {
-                  if (aPlayer.hasEloShield) return
-                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, hasEloShield: true } : p) }
-                } else if (itemId === 'eloReset') {
-                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, elo: 1000 } : p) }
-                } else if (itemId === 'borderGlow') {
-                  if (aPlayer.boughtBorderGlow) return
-                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, boughtBorderGlow: true, hasBorderGlow: true } : p) }
-                } else if (itemId === 'toggleBorderGlow') {
-                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, hasBorderGlow: !p.hasBorderGlow } : p) }
-                  audioEngine.playUtilitySuccess()
-                } else if (itemId === 'unlockPfp') {
-                  if (aPlayer.canChangePfp) return
-                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, canChangePfp: true } : p) }
-                } else if (itemId === 'sadTrombone') {
-                  if (aPlayer.sadTromboneUnlocked) return
-                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, sadTromboneUnlocked: true, ownedItems: [...(p.ownedItems || []), 'sad_trombone'] } : p) }
-                } else if (itemId === 'rageBait') {
-                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost } : p) }
-                  setRageBaitSender(true)
-                } else if (itemId === 'compliment') {
-                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost } : p) }
-                  setComplimentSender(true)
-                }
-
-                if (nextSt) {
-                  saveSt(nextSt, aPlayer.id)
+                // ── Free cosmetic toggle — no diamonds, no transaction needed ──────
+                if (itemId === 'toggleBorderGlow') {
+                  const nextSt = { ...st, players: st.players.map(p =>
+                    p.id === pid ? { ...p, hasBorderGlow: !p.hasBorderGlow } : p
+                  )}
                   upd(nextSt)
-                  saveToFirestore(nextSt, useAppStore.getState().techniqueByPlayer, aPlayer.id).catch(err => {
-                    console.error('[Purchase] Firestore write failed:', err.message)
-                  })
+                  saveSt(nextSt, pid)
+                  audioEngine.playUtilitySuccess()
+                  return
                 }
+
+                // ── Build Firestore transaction options per item ───────────────────
+                // All diamond purchases flow through purchaseDiamondItem(), which reads
+                // the server-authoritative balance in a transaction and writes atomically.
+                // This bypasses the Math.max merge in saveToFirestore that silently
+                // restores deducted diamonds, effectively making every purchase free.
+                let options = {}
+                if (itemId === 'streakFreeze') {
+                  options.buildFields = p => ({ streak_freezes: (p.streak_freezes || 0) + 1 })
+
+                } else if (itemId === 'weekStreakFreeze') {
+                  options.buildFields = p => ({
+                    week_streak_freezes: (p.week_streak_freezes || 0) + 1,
+                    // Activate the 7-day protection window immediately on purchase.
+                    // Stacks: if a freeze is already active, extends from its end
+                    // rather than resetting from now.
+                    weeklyFreezeUntil: Math.max(p.weeklyFreezeUntil || 0, Date.now())
+                      + 7 * 24 * 60 * 60 * 1000,
+                  })
+
+                } else if (itemId === 'doubleXpToken') {
+                  options.buildFields = p => ({ doubleXpTokens: (p.doubleXpTokens || 0) + 1 })
+
+                } else if (itemId === 'eloShield') {
+                  options.uniqueFlag  = 'hasEloShield'
+                  options.buildFields = () => ({ hasEloShield: true })
+
+                } else if (itemId === 'eloReset') {
+                  options.buildFields = () => ({ elo: 1000 })
+
+                } else if (itemId === 'borderGlow') {
+                  options.uniqueFlag  = 'boughtBorderGlow'
+                  options.buildFields = () => ({ boughtBorderGlow: true, hasBorderGlow: true })
+
+                } else if (itemId === 'unlockPfp') {
+                  options.uniqueFlag  = 'canChangePfp'
+                  options.buildFields = () => ({ canChangePfp: true })
+
+                } else if (itemId === 'sadTrombone') {
+                  // Double-locked: boolean flag AND ownedItems membership so that
+                  // both old (flag-only) and new (array-based) accounts are covered.
+                  options.uniqueFlag   = 'sadTromboneUnlocked'
+                  options.uniqueItemId = 'sad_trombone'
+                  options.buildFields  = p => ({
+                    sadTromboneUnlocked: true,
+                    // Deduplicate in case the legacy flag was set without the array entry
+                    ownedItems: [...new Set([...(Array.isArray(p.ownedItems) ? p.ownedItems : []), 'sad_trombone'])],
+                  })
+
+                } else if (itemId === 'rageBait' || itemId === 'compliment') {
+                  options.buildFields = () => ({})   // consumable — just deduct diamonds
+
+                } else {
+                  return   // unknown item
+                }
+
+                const result = await purchaseDiamondItem(pid, cost, options)
+
+                if (!result.success) {
+                  // 'already_owned' and 'insufficient_funds' are expected non-error states —
+                  // the StreakHub UI already blocks these in normal flow.
+                  // 'transaction_error' is logged inside purchaseDiamondItem.
+                  return
+                }
+
+                // ── Sync server-written player into local state ───────────────────
+                // result.updatedPlayer is the exact object committed to Firestore.
+                // Using it directly prevents Math.max from re-inflating diamonds in
+                // the follow-up saveSt call (both sides of the max are now equal).
+                const nextSt = { ...st, players: st.players.map(p =>
+                  p.id === pid ? result.updatedPlayer : p
+                )}
+                upd(nextSt)
+                saveSt(nextSt, pid)   // localStorage backup + silent Firestore re-confirm
+
+                // Sender modals for consumable social items
+                if (itemId === 'rageBait')   setRageBaitSender(true)
+                if (itemId === 'compliment') setComplimentSender(true)
               }}
             />
           )}
