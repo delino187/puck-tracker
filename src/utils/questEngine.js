@@ -83,6 +83,7 @@ export function pickWeeklyQuests() {
   // Return first 3 (or fewer if pool is small)
   return picked.slice(0, 3).map(q => ({
     ...q,
+    targetProgress:  parseQuestTarget(q.text),
     currentProgress: 0,
     completed:       false,
     claimed:         false,
@@ -124,7 +125,7 @@ export function getWeeklyQuestProgress(text, sessions, playerId, puckGames = [],
   }
 
   // Match all technique-specific shot types: "Log N in {Wrist Shot|Backhand|Snap Shot|Slap Shot} Technique"
-  // Breakdown keys must match exactly: breakdown['Wrist Shot'], breakdown['Backhand'], etc.
+  // Breakdown keys are lowercase: breakdown['wrist shot'], breakdown['backhand'], etc.
   const techniqueMatch = text.match(/Log (\d+) in ((?:Wrist|Snap|Slap) Shot|Backhand) Technique/i)
   if (techniqueMatch) {
     const target        = parseInt(techniqueMatch[1])
@@ -132,12 +133,15 @@ export function getWeeklyQuestProgress(text, sessions, playerId, puckGames = [],
     const dailyLog      = techniqueByPlayer?.[playerId]?.dailyLog || {}
     let shotCount       = 0
 
+    // Normalize shotType to lowercase for breakdown key lookup
+    const breakdownKey = shotType.toLowerCase()
+
     // Only count shots from the current week, not all time
     const ws = getWeekStart()
     Object.entries(dailyLog).forEach(([dateStr, e]) => {
       const entryDate = new Date(dateStr)
-      if (entryDate >= ws && typeof e === 'object' && e?.breakdown?.[shotType]) {
-        shotCount += e.breakdown[shotType]
+      if (entryDate >= ws && typeof e === 'object' && e?.breakdown?.[breakdownKey]) {
+        shotCount += e.breakdown[breakdownKey]
       }
     })
     return { current: Math.min(shotCount, target), target }

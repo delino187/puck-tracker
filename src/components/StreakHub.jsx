@@ -242,21 +242,6 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
     audioEngine.playMp3('/retro-game-notification.mp3', 0.85)
     onPurchaseItem?.(itemId, cost)
 
-    // Add item to ownedItems if it's a taunt
-    if (itemId === 'sadTrombone' && !ownedItems.includes('sad_trombone')) {
-      try {
-        upd({
-          players: st.players.map(p =>
-            p.id === player.id
-              ? { ...p, ownedItems: [...ownedItems, 'sad_trombone'] }
-              : p
-          ),
-        })
-      } catch (err) {
-        console.error('[buyItem] Failed to update ownedItems:', err.message)
-      }
-    }
-
     // Increase lock to 1000ms to prevent double-taps from rapid purchasing
     setTimeout(() => setIsProcessingPurchase(false), 1000)
   }
@@ -905,25 +890,65 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
                 </div>
               </div>
 
-              {equippedTaunt === 'standard' && ownedItems.length > 0 && (
+              {/* Action buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {/* Preview button for Standard sound */}
                 <button
-                  onClick={() => equipTaunt(ownedItems[0])}
+                  onClick={() => {
+                    try {
+                      if (previewAudioRef.current) {
+                        previewAudioRef.current.pause()
+                        previewAudioRef.current.currentTime = 0
+                      }
+                      const a = new Audio('/ice-hockey-sports-buzzer.mp3')
+                      previewAudioRef.current = a
+                      a.play().catch(() => {})
+                    } catch {}
+                  }}
+                  title="Preview sound"
                   style={{
-                    background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
-                    border: '1px solid #1e40af',
+                    background: '#1e3a5f',
+                    border: '1px solid #334155',
                     borderRadius: 8,
-                    padding: '6px 12px',
+                    padding: '6px 8px',
                     cursor: 'pointer',
-                    fontFamily: "'Barlow Condensed',sans-serif",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: '#fff',
-                    letterSpacing: '0.05em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = '#3b5a7a'
+                    e.currentTarget.style.borderColor = '#60a5fa'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = '#1e3a5f'
+                    e.currentTarget.style.borderColor = '#334155'
                   }}
                 >
-                  ⬜ SWITCH
+                  <Volume2 size={16} color="#60a5fa" />
                 </button>
-              )}
+
+                {equippedTaunt === 'standard' && ownedItems.length > 0 && (
+                  <button
+                    onClick={() => equipTaunt(ownedItems[0])}
+                    style={{
+                      background: 'linear-gradient(135deg,#1d4ed8,#3b82f6)',
+                      border: '1px solid #1e40af',
+                      borderRadius: 8,
+                      padding: '6px 12px',
+                      cursor: 'pointer',
+                      fontFamily: "'Barlow Condensed',sans-serif",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: '#fff',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    ⬜ SWITCH
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

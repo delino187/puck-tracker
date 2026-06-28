@@ -70,7 +70,6 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
     if (!file) return
 
     setUploadErr('')
-    setStep('uploading')
 
     try {
       const reader = new FileReader()
@@ -78,8 +77,16 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
         const base64String = reader.result
         if (base64String) {
           setPreviewURL(base64String)
-          await onPhotoUpload(base64String)
-          setStep('view')
+          setStep('uploading')
+          try {
+            await onPhotoUpload(base64String)
+            setStep('view')
+          } catch (err) {
+            console.error('[ManageProfile] upload error:', err)
+            setUploadErr('Upload failed — please try again.')
+            setStep('view')
+            setPreviewURL(null)
+          }
         }
       }
       reader.onerror = () => {

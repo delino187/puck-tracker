@@ -1904,35 +1904,45 @@ export default function App() {
               onPurchaseItem={(itemId, cost) => {
                 const diamonds = aPlayer.diamonds || 0
                 if (diamonds < cost) return
+
+                let nextSt = null
                 if (itemId === 'streakFreeze') {
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) })
+                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, streak_freezes: (p.streak_freezes || 0) + 1 } : p) }
                 } else if (itemId === 'weekStreakFreeze') {
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, week_streak_freezes: (p.week_streak_freezes || 0) + 1 } : p) })
+                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, week_streak_freezes: (p.week_streak_freezes || 0) + 1 } : p) }
                 } else if (itemId === 'doubleXpToken') {
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, doubleXpTokens: (p.doubleXpTokens || 0) + 1 } : p) })
+                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, doubleXpTokens: (p.doubleXpTokens || 0) + 1 } : p) }
                 } else if (itemId === 'eloShield') {
                   if (aPlayer.hasEloShield) return
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, hasEloShield: true } : p) })
+                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, hasEloShield: true } : p) }
                 } else if (itemId === 'eloReset') {
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, elo: 1000 } : p) })
+                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, elo: 1000 } : p) }
                 } else if (itemId === 'borderGlow') {
                   if (aPlayer.boughtBorderGlow) return
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, boughtBorderGlow: true, hasBorderGlow: true } : p) })
+                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, boughtBorderGlow: true, hasBorderGlow: true } : p) }
                 } else if (itemId === 'toggleBorderGlow') {
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, hasBorderGlow: !p.hasBorderGlow } : p) })
+                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, hasBorderGlow: !p.hasBorderGlow } : p) }
                   audioEngine.playUtilitySuccess()
                 } else if (itemId === 'unlockPfp') {
                   if (aPlayer.canChangePfp) return
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, canChangePfp: true } : p) })
+                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, canChangePfp: true } : p) }
                 } else if (itemId === 'sadTrombone') {
                   if (aPlayer.sadTromboneUnlocked) return
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, sadTromboneUnlocked: true } : p) })
+                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost, sadTromboneUnlocked: true, ownedItems: [...(p.ownedItems || []), 'sad_trombone'] } : p) }
                 } else if (itemId === 'rageBait') {
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost } : p) })
+                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost } : p) }
                   setRageBaitSender(true)
                 } else if (itemId === 'compliment') {
-                  upd({ players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost } : p) })
+                  nextSt = { ...st, players: st.players.map(p => p.id === aPlayer.id ? { ...p, diamonds: diamonds - cost } : p) }
                   setComplimentSender(true)
+                }
+
+                if (nextSt) {
+                  saveSt(nextSt, aPlayer.id)
+                  upd(nextSt)
+                  saveToFirestore(nextSt, useAppStore.getState().techniqueByPlayer, aPlayer.id).catch(err => {
+                    console.error('[Purchase] Firestore write failed:', err.message)
+                  })
                 }
               }}
             />
