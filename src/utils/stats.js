@@ -120,3 +120,28 @@ export function playerStats(player, sessions, bonusXP = 0, puckGames = [], peerC
 export function newId() {
   return Math.random().toString(36).slice(2, 9)
 }
+
+/**
+ * Returns a locale-independent local-date string in YYYY-MM-DD format.
+ *
+ * Why not toDateString()?
+ *   toDateString() is locale-dependent ("Thu Jun 26 2026") and changes when
+ *   the user switches their device language.  It also changes when a player
+ *   switches timezone — a device-clock exploit that lets them invalidate any
+ *   stored spin-gate key and re-spin unlimited times.
+ *
+ * Why local time, not UTC?
+ *   Streaks and quest resets are anchored to the player's calendar day, not
+ *   a global UTC boundary.  A player in UTC-8 shooting at 11 PM should still
+ *   count as "today" in their timezone, not "tomorrow" in UTC.
+ *
+ * Consistent: both WRITES (spin records) and READS (gate checks) call this
+ *   function, so the comparison always resolves with the same key regardless
+ *   of locale or OS language setting.
+ */
+export function localDateStr(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}

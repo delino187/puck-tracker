@@ -3,7 +3,7 @@ import { playCashRegister } from '../../utils/arcadeSounds.js'
 import { audioEngine }      from '../../services/audioEngine.js'
 import { useAppStore }      from '../../store/useAppStore.js'
 import { usePlayer }        from '../../context/PlayerContext.jsx'
-import { getWeekStart }     from '../../utils/stats.js'
+import { getWeekStart, localDateStr } from '../../utils/stats.js'
 import {
   SHUFFLE_POOL, WEEKLY_SHUFFLE_POOL,
 } from '../../constants/questPools.js'
@@ -56,9 +56,13 @@ export default function DailyQuests({
   }, [])
 
   // ── Derived display data ──────────────────────────────────────────────────
-  const today           = new Date().toDateString()
-  const spinAvailable   = player.last_quest_spin !== today
-  const isWeeklyLocked  = player.last_weekly_quest_pick === getWeekStart().toDateString()
+  // Use localDateStr() (YYYY-MM-DD, local timezone) instead of toDateString() for spin
+  // gate keys.  toDateString() is locale-dependent and changes when the device language
+  // or timezone is switched — a trivial exploit that lets players re-spin on demand.
+  const spinDateKey     = localDateStr()
+  const weekStartKey    = localDateStr(getWeekStart())
+  const spinAvailable   = player.last_quest_spin !== spinDateKey
+  const isWeeklyLocked  = player.last_weekly_quest_pick === weekStartKey
   const slotCanPull     = !isWeeklyLocked && !slotSpinning
 
   const placeholders = useMemo(() => [0, 1, 2].map(i => ({

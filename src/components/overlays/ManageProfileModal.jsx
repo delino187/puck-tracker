@@ -7,6 +7,45 @@ import { useAppStore } from '../../store/useAppStore.js'
 import { usePlayer } from '../../context/PlayerContext.jsx'
 import { validateUsername } from '../../utils/moderation.js'
 
+// ── Canvas compression ─────────────────────────────────────────────────────────
+// Firestore documents are hard-capped at 1 MB.  A modern mobile camera produces
+// 4–12 MB photos; base64-encoding adds ~33% on top.  This function downscales
+// the image to exactly targetW×targetH using an off-screen canvas, then exports
+// it as a JPEG at the given quality.  A 256×256 JPEG at q=0.7 reliably comes in
+// under 50 KB as base64 — well inside the Firestore limit.
+//
+// White fill before drawImage: JPEG has no alpha channel, so transparent PNG pixels
+// would otherwise render as black instead of white.
+function compressImageToJpeg(file, targetW, targetH, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('FileReader error'))
+    reader.onloadend = () => {
+      const dataUrl = reader.result
+      if (!dataUrl) { reject(new Error('Empty FileReader result')); return }
+
+      const img = new Image()
+      img.onerror = () => reject(new Error('Image decode error'))
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas')
+          canvas.width  = targetW
+          canvas.height = targetH
+          const ctx = canvas.getContext('2d')
+          ctx.fillStyle = '#ffffff'           // white background for transparent source images
+          ctx.fillRect(0, 0, targetW, targetH)
+          ctx.drawImage(img, 0, 0, targetW, targetH)
+          resolve(canvas.toDataURL('image/jpeg', quality))
+        } catch (canvasErr) {
+          reject(canvasErr)
+        }
+      }
+      img.src = dataUrl
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 // step: 'view' → 'confirm' → 'uploading' → back to 'view'
 export default function ManageProfileModal({ player, stats, onPhotoUpload, onResetCareer, onSwitchProfile, onClose }) {
   const { updatePlayerUsername } = usePlayer()
@@ -63,6 +102,8 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
     .slice(0, 8)
 
   const handleFileSelected = async (e) => {
+    // These two guards must remain first — they prevent the iOS file-picker event
+    // from bubbling up to the modal backdrop and triggering onClose mid-upload.
     e.preventDefault()
     e.stopPropagation()
 
@@ -71,38 +112,36 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
 
     setUploadErr('')
 
+    // Reset the input value synchronously before entering any async pipeline.
+    // On iOS Safari, holding the reference across an await can cause the browser
+    // to recycle the file handle.  Resetting here also lets the user immediately
+    // re-pick the same file if they want to retry without closing the modal first.
+    e.target.value = ''
+
     try {
-      const reader = new FileReader()
-      reader.onloadend = async () => {
-        const base64String = reader.result
-        if (base64String) {
-          setPreviewURL(base64String)
-          setStep('uploading')
-          try {
-            await onPhotoUpload(base64String)
-            setStep('view')
-          } catch (err) {
-            console.error('[ManageProfile] upload error:', err)
-            setUploadErr('Upload failed — please try again.')
-            setStep('view')
-            setPreviewURL(null)
-          }
-        }
-      }
-      reader.onerror = () => {
-        console.error('[ManageProfile] FileReader error')
+      // ── Canvas compression pipeline ───────────────────────────────────────
+      // compressImageToJpeg downscales to 256×256 JPEG @ q=0.7 → ~20–40 KB as
+      // base64.  Raw phone photos can be 4–12 MB; base64 adds another ~33% on
+      // top of that, blowing past Firestore's hard 1 MB document size limit and
+      // causing the write to fail with a 'Document exceeds maximum size' error.
+      const compressed = await compressImageToJpeg(file, 256, 256, 0.7)
+
+      setPreviewURL(compressed)
+      setStep('uploading')
+      try {
+        await onPhotoUpload(compressed)
+        setStep('view')
+      } catch (err) {
+        console.error('[ManageProfile] upload error:', err)
         setUploadErr('Upload failed — please try again.')
         setStep('view')
         setPreviewURL(null)
       }
-      reader.readAsDataURL(file)
-    } catch (error) {
-      console.error('[ManageProfile] upload error:', error)
-      setUploadErr('Upload failed — please try again.')
+    } catch (err) {
+      console.error('[ManageProfile] compression error:', err)
+      setUploadErr('Could not process photo — please try a different image.')
       setStep('view')
       setPreviewURL(null)
-    } finally {
-      e.target.value = ''
     }
   }
 

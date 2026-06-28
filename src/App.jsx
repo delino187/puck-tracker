@@ -7,7 +7,7 @@ import { audioEngine } from './services/audioEngine.js'
 import { sendRageBait, subscribeToRageBaits, dismissRageBait, sendCompliment, subscribeToCompliments, dismissNotification } from './services/rageBaitService.js'
 import { RageBaitSenderModal, RageBaitReceiverModal, ComplimentSenderModal, ComplimentReceiverModal } from './components/overlays/RageBaitModal.jsx'
 import PuckRoundOutcomeModal from './components/modals/PuckRoundOutcomeModal.jsx'
-import { playerStats, newId, getWeekStart, getLevel } from './utils/stats.js'
+import { playerStats, newId, getWeekStart, getLevel, localDateStr } from './utils/stats.js'
 import { useAppStore } from './store/useAppStore.js'
 import { useShallow } from 'zustand/react/shallow'
 import { BADGES, getBadgeXP }             from './constants/badges.js'
@@ -60,7 +60,7 @@ import VersusDefeatModal   from './components/overlays/VersusDefeatModal.jsx'
 import CreatePeerChallenge from './components/screens/CreatePeerChallenge.jsx'
 import RespondToChallenge  from './components/screens/RespondToChallenge.jsx'
 import { getGameAction } from './services/puckGameService.js'
-import { markChallengesAsSeen, claimChallengeLoserReward } from './services/peerChallengeService.js'
+import { markChallengesAsSeen, claimChallengeLoserReward, claimChallengeTieReward } from './services/peerChallengeService.js'
 import { subscribeToChallenges, subscribeToPuckGames } from './services/realtimeSync.js'
 import { usePlayer, ACTIVE_PLAYER_KEY } from './context/PlayerContext.jsx'
 import { useUI } from './context/UIContext.jsx'
@@ -135,7 +135,7 @@ export default function App() {
   // Extracted into a dedicated hook that owns all snapshot-driven win/loss logic.
   // Refs are returned so handlePeerChallengeSubmit can mark challenges seen before
   // the peerChallenges state update triggers the hook's effects.
-  const { seenVictoryIds, seenDefeatIds } = useMatchResults(peerChallenges)
+  const { seenVictoryIds, seenDefeatIds, seenTieIds } = useMatchResults(peerChallenges)
   usePuckTurnAlerts(puckGames)
 
   // Reactive read of the technique/challenge XP pool.  Drives XP bar + level display.
@@ -525,7 +525,7 @@ export default function App() {
       challenge.status === 'pending' &&
       challenge.challengerId === st.activePlayerId
     ) {
-      const today = new Date().toDateString()
+      const today = localDateStr()
       const pl = st.players.find(p => p.id === st.activePlayerId)
       if (pl?.last_quest_spin === today) {
         setSt(prev => {
@@ -591,7 +591,7 @@ export default function App() {
         : (challenge.receiverVideo   ?? null)
 
       // Mark "Play 1 Versus Quick Match Today" quest complete — ties count the same as wins
-      const today = new Date().toDateString()
+      const today = localDateStr()
       if (aPlayer?.last_quest_spin === today) {
         setSt(prev => {
           const pid = prev.activePlayerId
@@ -616,9 +616,17 @@ export default function App() {
         })
       }
 
-      // Tie: both players get equal partial reward
+      // Tie: receiver gets equal partial reward; mark seen so the snapshot effect
+      // in useMatchResults (which guards the CHALLENGER path) doesn't double-fire.
       if (challenge.isTie) {
-        setTieReward({ type: 'versus', diamonds: 5, xp: 10, opponentId, opponentName: challenge.challengerId === activeId ? challenge.receiverName : challenge.challengerName, challengeId: challenge.id })
+        seenTieIds.current.add(challenge.id)
+        const opponentNameTie = challenge.challengerId === activeId ? challenge.receiverName : challenge.challengerName
+        // Atomic lock: prevents the receiver from re-collecting if the app is reloaded
+        // before the VersusTieModal's onClaim runs.
+        claimChallengeTieReward(challenge.id, 'receiver').then(granted => {
+          if (!granted) return  // already claimed on another device or session
+          setTieReward({ type: 'versus', diamonds: 5, xp: 10, opponentId, opponentName: opponentNameTie, challengeId: challenge.id })
+        })
       } else if (challenge.winnerId === activeId) {
         // The snapshot useEffect handles win detection, Firestore flag write,
         // reward application, and modal show atomically.  Mark as seen here so
@@ -1633,7 +1641,7 @@ export default function App() {
                                    (updated.status === 'p2_wins' && updated.p2Id === pid)
                   const myTechs  = (updated.p1Id === pid ? updated.p1Techniques : updated.p2Techniques) || []
                   if (isWinner && myTechs.includes('Backhand')) {
-                    const today = new Date().toDateString()
+                    const today = localDateStr()
                     if (aPlayer.last_quest_spin === today) {
                       const qi = (aPlayer.daily_quests || []).findIndex(
                         q => q.text === 'Win a P-U-C-K Game Using at Least One Backhand Shot' && !q.completed && !q.claimed
@@ -1706,7 +1714,7 @@ export default function App() {
                 }
                 setSt(prev => {
                   const id = prev.activePlayerId
-                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, last_quest_spin: new Date().toDateString(), daily_quests: quests || [], hasEverSpunWheelDaily: true } : p) }
+                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, last_quest_spin: localDateStr(), daily_quests: quests || [], hasEverSpunWheelDaily: true } : p) }
                 })
               }}
               onClaimQuest={async (questText, rewardValue) => {
@@ -1799,7 +1807,7 @@ export default function App() {
                 }
                 setSt(prev => {
                   const id = prev.activePlayerId
-                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, weekly_quests: newQuests || [], last_weekly_quest_pick: getWeekStart().toDateString(), hasEverSpunWheelWeekly: true } : p) }
+                  return { ...prev, players: prev.players.map(p => p.id === id ? { ...p, weekly_quests: newQuests || [], last_weekly_quest_pick: localDateStr(getWeekStart()), hasEverSpunWheelWeekly: true } : p) }
                 })
               }}
               onClaimWeeklyQuest={async (questText, rewardValue) => {

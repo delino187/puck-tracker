@@ -125,24 +125,25 @@ export function getWeeklyQuestProgress(text, sessions, playerId, puckGames = [],
   }
 
   // Match all technique-specific shot types: "Log N in {Wrist Shot|Backhand|Snap Shot|Slap Shot} Technique"
-  // Breakdown keys are lowercase: breakdown['wrist shot'], breakdown['backhand'], etc.
+  // Breakdown keys are stored with original TechniqueTracker casing ("Wrist Shot", "Backhand", etc.)
   const techniqueMatch = text.match(/Log (\d+) in ((?:Wrist|Snap|Slap) Shot|Backhand) Technique/i)
   if (techniqueMatch) {
-    const target        = parseInt(techniqueMatch[1])
-    const shotType      = techniqueMatch[2]
-    const dailyLog      = techniqueByPlayer?.[playerId]?.dailyLog || {}
-    let shotCount       = 0
+    const target   = parseInt(techniqueMatch[1])
+    const shotType = techniqueMatch[2]
+    const dailyLog = techniqueByPlayer?.[playerId]?.dailyLog || {}
+    let shotCount  = 0
 
-    // Normalize shotType to lowercase for breakdown key lookup
-    const breakdownKey = shotType.toLowerCase()
+    // Lowercase once for case-insensitive comparison — breakdown keys may be stored in any casing.
+    const breakdownKeyLc = shotType.toLowerCase()
 
     // Only count shots from the current week, not all time
     const ws = getWeekStart()
     Object.entries(dailyLog).forEach(([dateStr, e]) => {
       const entryDate = new Date(dateStr)
-      if (entryDate >= ws && typeof e === 'object' && e?.breakdown?.[breakdownKey]) {
-        shotCount += e.breakdown[breakdownKey]
-      }
+      if (entryDate < ws || typeof e !== 'object' || !e?.breakdown) return
+      // Case-insensitive lookup: keys stored as "Wrist Shot"/"Backhand"/etc. may vary
+      const hit = Object.entries(e.breakdown).find(([k]) => k.toLowerCase() === breakdownKeyLc)
+      if (hit) shotCount += hit[1]
     })
     return { current: Math.min(shotCount, target), target }
   }

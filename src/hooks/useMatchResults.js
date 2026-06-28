@@ -5,6 +5,7 @@ import { useAppStore } from '../store/useAppStore.js'
 import {
   claimChallengeWinReward,
   claimChallengeLoserReward,
+  claimChallengeTieReward,
   fetchFreshTeamPlayers,
   resolveExpiredChallenge,
 } from '../services/peerChallengeService.js'
@@ -12,6 +13,8 @@ import { showNativeNotification } from '../utils/notificationEngine.js'
 
 const VERSUS_WIN_DIAMONDS = 10
 const VERSUS_WIN_XP       = 20
+const VERSUS_TIE_DIAMONDS = 5
+const VERSUS_TIE_XP       = 10
 
 // Resolve a player's equipped taunt to its audio asset path.
 // Returns null if no taunt is equipped (caller uses default streak-broken sting).
@@ -43,7 +46,7 @@ function tauntPathFor(player) {
 export function useMatchResults(peerChallenges) {
   const { st, setSt } = usePlayer()
   const {
-    setVictoryReward, setDefeatState,
+    setVictoryReward, setDefeatState, setTieReward,
     setChallengeAnsweredBanner, setExpiredVictoryBanner,
   } = useUI()
 
@@ -52,6 +55,7 @@ export function useMatchResults(peerChallenges) {
 
   const seenVictoryIds = useRef(new Set())
   const seenDefeatIds  = useRef(new Set())
+  const seenTieIds     = useRef(new Set())
   const seenExpiredIds = useRef(new Set())
   // seenAnsweredBannerIds is persisted to localStorage so the banner never
   // re-fires for a challenge the player already saw, even across page reloads.
@@ -76,6 +80,7 @@ export function useMatchResults(peerChallenges) {
   useEffect(() => {
     seenVictoryIds.current = new Set()
     seenDefeatIds.current  = new Set()
+    seenTieIds.current     = new Set()
     seenExpiredIds.current = new Set()
   }, [st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -347,10 +352,53 @@ export function useMatchResults(peerChallenges) {
     }
   }, [peerChallenges, st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Tie detection (challenger perspective via Firestore snapshot) ─────────────
+  // The RECEIVER's tie modal is shown synchronously via handlePeerChallengeSubmit
+  // in App.jsx.  The CHALLENGER only learns about the tie through this snapshot,
+  // so without this effect they would receive zero rewards from a drawn match.
+  //
+  // Idempotency: claimChallengeTieReward() atomically sets challengerTieRewardClaimed
+  // in Firestore — the modal never re-fires across sessions or page reloads.
+  useEffect(() => {
+    if (!st?.activePlayerId) return
+    const activeId = st.activePlayerId
+    const RECENCY_MS = 30 * 60 * 1000
+    const cutoff = Date.now() - RECENCY_MS
+
+    for (const challenge of peerChallenges) {
+      if (challenge.status !== 'completed')          continue
+      if (!challenge.isTie)                          continue
+      if (challenge.challengerId !== activeId)       continue  // receiver path is App.jsx handlePeerChallengeSubmit
+      if (seenTieIds.current.has(challenge.id))     continue  // in-session de-dup
+      if (challenge.challengerTieRewardClaimed)      continue  // persistent cross-session lock
+      if ((challenge.respondedAt ?? 0) < cutoff)    continue  // too old to show on login
+
+      seenTieIds.current.add(challenge.id)
+
+      const opponentName = challenge.receiverName ?? 'your opponent'
+      const opponentId   = challenge.receiverId
+
+      // Atomic Firestore lock — prevents re-showing on every page reload
+      claimChallengeTieReward(challenge.id, 'challenger').then(granted => {
+        if (!granted) return  // already claimed on another device or session
+        setTieReward({
+          type: 'versus',
+          diamonds: VERSUS_TIE_DIAMONDS,
+          xp: VERSUS_TIE_XP,
+          opponentId,
+          opponentName,
+          challengeId: challenge.id,
+        })
+      })
+
+      break  // show one tie modal at a time
+    }
+  }, [peerChallenges, st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Expose refs so handlePeerChallengeSubmit in App.jsx can mark challenges as
   // already-seen before the peerChallenges state update triggers a re-render,
   // preventing double-fire between the submit path and the snapshot path.
-  return { seenVictoryIds, seenDefeatIds }
+  return { seenVictoryIds, seenDefeatIds, seenTieIds }
 }
 
 // Re-export for App.jsx's handlePeerChallengeSubmit defeat path

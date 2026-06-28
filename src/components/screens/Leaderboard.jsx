@@ -316,7 +316,30 @@ export default function Leaderboard() {
   useEffect(() => {
     const unsub = onSnapshot(
       collection(db, 'teams', TEAM_ID, 'peerChallenges'),
-      snap => setChallenges(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      snap => {
+        // docChanges() delivers only the delta on every snapshot — typically a
+        // single added/modified/removed entry per P-U-C-K turn or ELO update.
+        // The previous approach rebuilt every document object in the collection on
+        // every event, triggering a full withStats recalculation across all players
+        // even when only one ELO field changed on one document.
+        const changes = snap.docChanges()
+        if (changes.length === 0) return
+        setChallenges(prev => {
+          const next = [...prev]
+          changes.forEach(change => {
+            const doc = { id: change.doc.id, ...change.doc.data() }
+            const idx = next.findIndex(c => c.id === doc.id)
+            if (change.type === 'removed') {
+              if (idx >= 0) next.splice(idx, 1)
+            } else {
+              // 'added' or 'modified' — upsert in place
+              if (idx >= 0) next[idx] = doc
+              else next.push(doc)
+            }
+          })
+          return next
+        })
+      },
       () => {},
     )
     return unsub
@@ -325,7 +348,24 @@ export default function Leaderboard() {
   useEffect(() => {
     const unsub = onSnapshot(
       collection(db, 'teams', TEAM_ID, 'puckGames'),
-      snap => setPuckGames(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      snap => {
+        const changes = snap.docChanges()
+        if (changes.length === 0) return
+        setPuckGames(prev => {
+          const next = [...prev]
+          changes.forEach(change => {
+            const doc = { id: change.doc.id, ...change.doc.data() }
+            const idx = next.findIndex(g => g.id === doc.id)
+            if (change.type === 'removed') {
+              if (idx >= 0) next.splice(idx, 1)
+            } else {
+              if (idx >= 0) next[idx] = doc
+              else next.push(doc)
+            }
+          })
+          return next
+        })
+      },
       () => {},
     )
     return unsub

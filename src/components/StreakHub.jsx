@@ -232,18 +232,26 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
 
   const [showLowBalance,       setShowLowBalance]       = useState(false)
   const [isProcessingPurchase, setIsProcessingPurchase] = useState(false)
-  const previewAudioRef = useRef(null)
+  // Synchronous in-flight guard — a ref updates immediately, unlike useState which
+  // is batched through React's scheduler.  Without this, two rapid taps can both
+  // pass the isProcessingPurchase === false check before the first state update
+  // re-renders the button, allowing duplicate purchase calls to reach App.jsx.
+  const purchaseInFlight = useRef(false)
+  const previewAudioRef  = useRef(null)
 
   // Plays the purchase chime then fires the purchase handler.
-  // Locks for 1000 ms to prevent accidental double-billing.
+  // purchaseInFlight.current is the synchronous gate; isProcessingPurchase drives
+  // the visual spinner/disabled state shown to the player.
   function buyItem(itemId, cost) {
-    if (isProcessingPurchase) return
-    setIsProcessingPurchase(true)
+    if (purchaseInFlight.current) return
+    purchaseInFlight.current = true       // synchronous — blocks any concurrent tap instantly
+    setIsProcessingPurchase(true)         // async — drives button visual state
     audioEngine.playMp3('/retro-game-notification.mp3', 0.85)
     onPurchaseItem?.(itemId, cost)
-
-    // Increase lock to 1000ms to prevent double-taps from rapid purchasing
-    setTimeout(() => setIsProcessingPurchase(false), 1000)
+    setTimeout(() => {
+      purchaseInFlight.current = false
+      setIsProcessingPurchase(false)
+    }, 1200)
   }
 
   // Update the player's equipped taunt and show success notification

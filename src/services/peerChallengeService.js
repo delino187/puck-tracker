@@ -312,6 +312,32 @@ export async function claimChallengeWinReward(challengeId) {
   return granted
 }
 
+// ── Claim tie rewards (idempotent, per-role) ──────────────────────────────────
+// Both players in a tie earn diamonds/XP.  Two independent Firestore flags gate
+// each side so that both can claim without blocking each other, yet neither can
+// double-claim across sessions or devices.
+//
+// role: 'challenger' | 'receiver'
+export async function claimChallengeTieReward(challengeId, role) {
+  const field = role === 'challenger' ? 'challengerTieRewardClaimed' : 'receiverTieRewardClaimed'
+  const ref   = doc(COL(), challengeId)
+  let granted = false
+
+  try {
+    await runTransaction(db, async tx => {
+      const snap = await tx.get(ref)
+      if (!snap.exists()) return
+      if (snap.data()[field]) return   // already claimed on another device/session
+      tx.update(ref, { [field]: true })
+      granted = true
+    })
+  } catch (err) {
+    console.error('[claimChallengeTieReward] transaction failed:', err.message)
+  }
+
+  return granted
+}
+
 // ── Claim loser consolation rewards (idempotent) ──────────────────────────────
 // Mirrors claimChallengeWinReward exactly but for the losing side.
 // Without this, a loser could refresh the page within the 30-minute defeat

@@ -51,7 +51,7 @@ export const WEEKLY_QUEST_POOL = [
   { id: 'wq_acc85x5',  text: 'Hit 50% Accuracy across 5 different Sessions this Week',    reward: 175, icon: '🔥', tier: 'common' },
   { id: 'wq_acc80x3',  text: 'Hit 50% Accuracy across 3 different Sessions this Week',    reward: 100, icon: '📊', tier: 'common' },
   { id: 'wq_acc75x5',  text: 'Hit 40% Accuracy across 5 different Sessions this Week',    reward: 125, icon: '📈', tier: 'common' },
-  { id: 'wq_acc90x3',  text: 'Hit 50% Accuracy across 3 different Sessions this Week',    reward: 150, icon: '💯', tier: 'common' },
+  { id: 'wq_acc90x3',  text: 'Hit 60% Accuracy across 3 different Sessions this Week',    reward: 150, icon: '💯', tier: 'common' },
   // Session quests
   { id: 'wq_sess7',    text: 'Complete 7 Training Sessions this Week',                     reward: 175, icon: '📅', tier: 'epic'   },
   { id: 'wq_sess5',    text: 'Complete 5 Training Sessions this Week',                     reward: 100, icon: '📅', tier: 'epic'   },

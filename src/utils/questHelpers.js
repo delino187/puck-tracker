@@ -6,6 +6,16 @@
  * out of sync and re-awarding diamonds on quests that are already complete.
  */
 
+// Locale-independent local-date string (YYYY-MM-DD) — matches the format
+// written by localDateStr() in stats.js.  Duplicated here to avoid a circular
+// import (stats.js → questHelpers.js is the existing dependency direction).
+function _localDateStr(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 /**
  * Extracts the numeric target from a quest's text string.
  * Returns the raw number used as targetProgress on the quest object.
@@ -61,16 +71,25 @@ export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 
   // Reads from breakdown: dailyLog[today].breakdown[techniqueName]
   const techniqueMatch = text.match(/Log (\d+) (\w+(?:\s\w+)*) Shots in Technique Mode/i)
   if (techniqueMatch && playerId && techniqueByPlayer) {
-    const target = parseInt(techniqueMatch[1])
-    const techniqueName = techniqueMatch[2]
-    const techEntry = techniqueByPlayer[playerId]
-    const dailyLog = techEntry?.dailyLog || {}
+    const target  = parseInt(techniqueMatch[1])
+    const rawName = techniqueMatch[2]
+    // The regex captures "Wrist"/"Snap"/"Slap" from quest text like "Wrist Shots",
+    // but TechniqueTracker stores breakdown keys as "Wrist Shot"/"Snap Shot"/"Slap Shot".
+    // "Backhand" is stored as-is (no "Shot" suffix). Normalize the key before lookup.
+    const SHOT_SUFFIX_NORM = { Wrist: 'Wrist Shot', Snap: 'Snap Shot', Slap: 'Slap Shot' }
+    const techniqueName = SHOT_SUFFIX_NORM[rawName] ?? rawName
+
+    const techEntry  = techniqueByPlayer[playerId]
+    const dailyLog   = techEntry?.dailyLog || {}
     const todayEntry = dailyLog[today]
 
-    // Handle both legacy (number) and new (object with breakdown) formats
     let current = 0
-    if (typeof todayEntry === 'object' && todayEntry?.breakdown?.[techniqueName]) {
-      current = todayEntry.breakdown[techniqueName]
+    if (typeof todayEntry === 'object' && todayEntry?.breakdown) {
+      // Case-insensitive lookup to tolerate any key-casing variance in persisted data.
+      const hit = Object.entries(todayEntry.breakdown).find(
+        ([k]) => k.toLowerCase() === techniqueName.toLowerCase()
+      )
+      current = hit ? hit[1] : 0
     }
 
     return { current: Math.min(current, target), target, suffix: '' }
@@ -146,29 +165,29 @@ export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 
     return { current: todayBackhandWins > 0 ? 1 : 0, target: 1, suffix: '' }
   }
 
-  // "Issue a Versus Challenge Today"
+  // "Issue a Versus Challenge Today" — must be the challenger, not any participant
   if (/Issue.*Challenge|Send.*Challenge/i.test(text)) {
     const todayChallenges = challenges.filter(c => {
       const challengeDate = new Date(c.createdAt || c.ts || 0).toDateString()
-      return challengeDate === today && c.status === 'pending'
+      return challengeDate === today && c.challengerId === playerId
     })
     return { current: todayChallenges.length > 0 ? 1 : 0, target: 1, suffix: '' }
   }
 
-  // "Win 1 Versus Quick Match Today"
+  // "Win 1 Versus Quick Match Today" — must be the actual winner, not just any participant
   if (/Win.*Versus|Play.*Versus/i.test(text)) {
     const todayVersusWins = challenges.filter(c => {
       const challengeDate = new Date(c.createdAt || c.ts || 0).toDateString()
-      return challengeDate === today && c.status === 'completed'
+      return challengeDate === today && c.status === 'completed' && c.winnerId === playerId
     })
     return { current: todayVersusWins.length > 0 ? 1 : 0, target: 1, suffix: '' }
   }
 
-  // "Accept an Incoming Challenge"
+  // "Accept an Incoming Challenge" — must be the receiver, not the challenger
   if (/Accept.*Challenge/i.test(text)) {
     const todayAccepts = challenges.filter(c => {
       const challengeDate = new Date(c.createdAt || c.ts || 0).toDateString()
-      return challengeDate === today && c.status === 'completed'
+      return challengeDate === today && c.status === 'completed' && c.receiverId === playerId
     })
     return { current: todayAccepts.length > 0 ? 1 : 0, target: 1, suffix: '' }
   }
@@ -193,16 +212,20 @@ export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 
  * Returns null when there is nothing to update.
  */
 export function applyQuestProgress(player, sessions, techniqueByPlayer = {}, puckGames = [], peerChallenges = []) {
-  const today  = new Date().toDateString()
+  // spinDateKey uses the same stable YYYY-MM-DD format that DailyQuests/App.jsx
+  // write via localDateStr().  todayStr uses toDateString() because dailyLog keys
+  // and session date comparisons inside computeQuestProgress use that format.
+  const spinDateKey = _localDateStr()
+  const todayStr    = new Date().toDateString()
   const quests = player.daily_quests || []
 
-  if (player.last_quest_spin !== today || !quests.length) return null
+  if (player.last_quest_spin !== spinDateKey || !quests.length) return null
 
   // Include technique-only pucks logged today so shot-count quests track all activity
   // Handle both legacy (number) and new (object with breakdown) formats
   const techEntry = techniqueByPlayer[player.id] || {}
   const dailyLog  = techEntry.dailyLog || {}
-  const todayEntry = dailyLog[today]
+  const todayEntry = dailyLog[todayStr]
   const todayTechPucks = typeof todayEntry === 'number' ? todayEntry : (todayEntry?.total ?? 0)
 
   const updatedQuests = quests.map(q => {
