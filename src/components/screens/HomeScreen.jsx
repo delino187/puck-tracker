@@ -5,6 +5,7 @@ import { APP_BG } from '../../styles.js'
 import { useTheme } from '../../hooks/useTheme.js'
 import GlobalStyles from '../shared/GlobalStyles.jsx'
 import WelcomeModal from '../overlays/WelcomeModal.jsx'
+import LandingPage  from './LandingPage.jsx'
 
 const WELCOME_KEY = 'puck_hasSeenWelcome'
 
@@ -173,6 +174,9 @@ export default function HomeScreen({ st, upd }) {
         >
           New Player? Create a Profile 🏒
         </button>
+
+        {/* ── Feature pillar previews ───────────────────────────────────────── */}
+        <LandingPage />
       </div>
     </div>
   )
