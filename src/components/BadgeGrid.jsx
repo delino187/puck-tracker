@@ -259,8 +259,8 @@ export default function BadgeGrid({ newBadgeIds, onBadgeClick }) {
                     key={sb.id}
                     badge={toCircleBadge(sb)}
                     earned={streakPB >= sb.milestone}
-                    earnedDate={null}
-                    isNew={false}
+                    earnedDate={player.earnedBadges?.[sb.id]?.ts ?? null}
+                    isNew={!!newBadgeIds[sb.id]}
                     size={68}
                     onClick={onBadgeClick}
                   />

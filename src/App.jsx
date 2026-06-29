@@ -11,6 +11,8 @@ import { playerStats, newId, getWeekStart, getLevel, localDateStr } from './util
 import { useAppStore } from './store/useAppStore.js'
 import { useShallow } from 'zustand/react/shallow'
 import { BADGES, getBadgeXP }             from './constants/badges.js'
+import { STREAK_BADGES, toCircleBadge }  from './constants/streakBadges.js'
+import { allTimeStreakPB }               from './utils/badgeHelpers.js'
 import { ROOKIE_QUESTS, DEFAULT_ROOKIE_QUESTS } from './constants/rookieQuests.js'
 import { useAudio }                      from './hooks/useAudio.js'
 import { useTheme }                      from './hooks/useTheme.js'
@@ -245,13 +247,21 @@ export default function App() {
     if (!st?.activePlayerId || !st) return
     const player = st.players.find(p => p.id === st.activePlayerId)
     if (!player) return
-    const already   = { ...(player.earnedBadges || {}) }
-    const newBadges = BADGES.filter(b => !already[b.id] && b.check(player, st.sessions))
-    if (!newBadges.length) return
+    const already        = { ...(player.earnedBadges || {}) }
+    const newBadges      = BADGES.filter(b => !already[b.id] && b.check(player, st.sessions))
+    // Also backfill STREAK_BADGES: any milestone the player's all-time PB covers
+    // but whose ID is missing from earnedBadges is granted here (covers all intermediate
+    // levels — Hat Trick at 3, Five-Hole Fire at 5, Hot Stick at 7, etc.).
+    const streakPB        = allTimeStreakPB(player, st.sessions)
+    const newStreakBadges = STREAK_BADGES
+      .filter(sb => streakPB >= sb.milestone && !already[sb.id])
+      .map(sb => toCircleBadge(sb))
+    const allNewBadges   = [...newBadges, ...newStreakBadges]
+    if (!allNewBadges.length) return
     const now = Date.now()
-    newBadges.forEach(b => { already[b.id] = { ts: now } })
+    allNewBadges.forEach(b => { already[b.id] = { ts: now } })
     // Award XP before setSt so Zustand is fresh when the save fires
-    const totalBadgeXP = newBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
+    const totalBadgeXP = allNewBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
     if (totalBadgeXP > 0) useAppStore.getState().logTechniqueShots(player.id, 0, totalBadgeXP)
     setSt(prev => ({
       ...prev,
@@ -831,16 +841,21 @@ export default function App() {
       setEpicCeleb({ type: 'levelup', level: newSt.level })
     }
 
-    // Badge check
-    const already   = { ...(aPlayer.earnedBadges || {}) }
-    const newBadges = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
+    // Badge check — regular badges + streak milestones
+    const already        = { ...(aPlayer.earnedBadges || {}) }
+    const newBadges      = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
+    const streakPB        = allTimeStreakPB(aPlayer, updSessions)
+    const newStreakBadges = STREAK_BADGES
+      .filter(sb => streakPB >= sb.milestone && !already[sb.id])
+      .map(sb => toCircleBadge(sb))
+    const allNewBadges   = [...newBadges, ...newStreakBadges]
 
     let updPlayers = st.players
-    if (newBadges.length) {
+    if (allNewBadges.length) {
       const now = Date.now()
-      newBadges.forEach(b => { already[b.id] = { ts: now } })
+      allNewBadges.forEach(b => { already[b.id] = { ts: now } })
       // Award XP before upd() so Zustand is fresh when the resulting saveSt fires
-      const totalBadgeXP = newBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
+      const totalBadgeXP = allNewBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
       if (totalBadgeXP > 0) useAppStore.getState().logTechniqueShots(aPlayer.id, 0, totalBadgeXP)
       updPlayers = st.players.map(p =>
         p.id === aPlayer.id ? {
@@ -851,10 +866,10 @@ export default function App() {
       )
       setNewBadgeIds(prev => {
         const n = { ...prev }
-        newBadges.forEach(b => { n[b.id] = true })
+        allNewBadges.forEach(b => { n[b.id] = true })
         return n
       })
-      badgeQRef.current.push(...newBadges)
+      badgeQRef.current.push(...allNewBadges)
       setEpicCeleb(cur => {
         if (cur) return cur
         const next = badgeQRef.current.shift()
@@ -890,16 +905,21 @@ export default function App() {
       setEpicCeleb({ type: 'levelup', level: newSt.level })
     }
 
-    // Badge check
-    const already   = { ...(aPlayer.earnedBadges || {}) }
-    const newBadges = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
+    // Badge check — regular badges + streak milestones
+    const already        = { ...(aPlayer.earnedBadges || {}) }
+    const newBadges      = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
+    const streakPB        = allTimeStreakPB(aPlayer, updSessions)
+    const newStreakBadges = STREAK_BADGES
+      .filter(sb => streakPB >= sb.milestone && !already[sb.id])
+      .map(sb => toCircleBadge(sb))
+    const allNewBadges   = [...newBadges, ...newStreakBadges]
 
     let updPlayers = st.players
-    if (newBadges.length) {
+    if (allNewBadges.length) {
       const now = Date.now()
-      newBadges.forEach(b => { already[b.id] = { ts: now } })
+      allNewBadges.forEach(b => { already[b.id] = { ts: now } })
       // Award XP before upd() so Zustand is fresh when the resulting saveSt fires
-      const totalBadgeXP = newBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
+      const totalBadgeXP = allNewBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
       if (totalBadgeXP > 0) useAppStore.getState().logTechniqueShots(aPlayer.id, 0, totalBadgeXP)
       updPlayers = st.players.map(p =>
         p.id === aPlayer.id ? {
@@ -910,10 +930,10 @@ export default function App() {
       )
       setNewBadgeIds(prev => {
         const n = { ...prev }
-        newBadges.forEach(b => { n[b.id] = true })
+        allNewBadges.forEach(b => { n[b.id] = true })
         return n
       })
-      badgeQRef.current.push(...newBadges)
+      badgeQRef.current.push(...allNewBadges)
       setEpicCeleb(cur => {
         if (cur) return cur
         const next = badgeQRef.current.shift()

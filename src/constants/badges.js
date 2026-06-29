@@ -23,9 +23,9 @@ export const TIER = {
 export const BADGES = [
   // ── Streaks ──────────────────────────────────────────────────────────────────
   { id: 's1',  name: 'The Spark',        desc: 'Log pucks 2 days in a row!',  cat: 'streak', tier: 1, Icon: Flame, innerBg: 'linear-gradient(135deg,#7f1d1d,#dc2626)', innerIcon: '#fca5a5', check: (p,s) => dayStreak(p,s)>=2  },
-  { id: 's3',  name: 'Hat Trick',        desc: 'Log pucks 3 days in a row!',  cat: 'streak', tier: 2, Icon: Flame, innerBg: 'linear-gradient(135deg,#92400e,#f97316)', innerIcon: '#fed7aa', check: (p,s) => dayStreak(p,s)>=3  },
-  { id: 's4',  name: 'Light the Lamp',   desc: 'Log pucks 4 days in a row!',  cat: 'streak', tier: 2, Icon: Flame, innerBg: 'linear-gradient(135deg,#92400e,#fb923c)', innerIcon: '#ffedd5', check: (p,s) => dayStreak(p,s)>=4  },
-  { id: 's5',  name: 'Hot Stick',        desc: '5-day streak',           cat: 'streak', tier: 2, Icon: Flame, innerBg: 'linear-gradient(135deg,#b45309,#fbbf24)', innerIcon: '#fef3c7', check: (p,s) => dayStreak(p,s)>=5  },
+  { id: 's3',  name: 'Hat Trick',        desc: 'Log pucks 3 days in a row!',  cat: 'streak', tier: 2, img: '/badges/hat-trick.webp',      Icon: Flame, innerBg: 'linear-gradient(135deg,#92400e,#f97316)', innerIcon: '#fed7aa', check: (p,s) => dayStreak(p,s)>=3  },
+  { id: 's4',  name: 'Light the Lamp',   desc: 'Log pucks 4 days in a row!',  cat: 'streak', tier: 2, img: '/badges/light-the-lamp.webp', Icon: Flame, innerBg: 'linear-gradient(135deg,#92400e,#fb923c)', innerIcon: '#ffedd5', check: (p,s) => dayStreak(p,s)>=4  },
+  { id: 's5',  name: 'Hot Stick',        desc: '5-day streak',           cat: 'streak', tier: 2, img: '/badges/hot-stick.webp',      Icon: Flame, innerBg: 'linear-gradient(135deg,#b45309,#fbbf24)', innerIcon: '#fef3c7', check: (p,s) => dayStreak(p,s)>=5  },
   { id: 's10', name: 'Inferno',          desc: '10-day streak',          cat: 'streak', tier: 3, Icon: Flame, innerBg: 'linear-gradient(135deg,#7c2d12,#ea580c)', innerIcon: '#fdba74', check: (p,s) => dayStreak(p,s)>=10 },
   { id: 's20', name: 'Three-Week March', desc: '20-day streak',          cat: 'streak', tier: 3, Icon: Flame, innerBg: 'linear-gradient(135deg,#78350f,#f59e0b)', innerIcon: '#fde68a', check: (p,s) => dayStreak(p,s)>=20 },
   { id: 's30', name: 'Monthly Warrior',  desc: '30-day streak',          cat: 'streak', tier: 4, Icon: Flame, innerBg: 'linear-gradient(135deg,#4c1d95,#7c3aed)', innerIcon: '#ddd6fe', check: (p,s) => dayStreak(p,s)>=30 },
