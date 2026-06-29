@@ -249,11 +249,15 @@ export default function ShootTracker({
       return <TechniqueTracker player={player} onBack={() => setSubMode(null)} onGoalReached={onGoalReached} />
     }
 
+    // subMode === 'target' but session hasn't been created yet (race on start).
+    // Return null so the component suspends gracefully instead of crashing.
+    return null
   }
 
-  const sLeft  = Math.max(0, sesGoal - session.sets.length)
-  const sHits  = session.sets.reduce((a, s) => a + s.hits, 0)
-  const sShots = session.sets.length * 10
+  const sets   = session.sets || []
+  const sLeft  = Math.max(0, sesGoal - sets.length)
+  const sHits  = sets.reduce((a, s) => a + s.hits, 0)
+  const sShots = sets.length * 10
   const sAcc   = sShots > 0 ? (sHits / sShots * 100).toFixed(0) : '—'
 
   // How many zones have a value selected (for "Log All" button)
@@ -369,7 +373,7 @@ export default function ShootTracker({
             if (!id) return <div key={i} />
             const z    = ZONES.find(z => z.id === id)
             const hits = zoneInputs[id] !== undefined && zoneInputs[id] !== '' ? parseInt(zoneInputs[id]) : 0
-            const prev = session.sets.filter(s => s.zone === id)
+            const prev = sets.filter(s => s.zone === id)
             const sel  = selectedZone === id
             const color = hits === 0 ? '#475569'
                         : hits >= 8 ? '#f97316'
@@ -547,10 +551,10 @@ export default function ShootTracker({
       <div style={{ marginBottom: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
           <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, letterSpacing: '0.1em', color: '#94a3b8', textTransform: 'uppercase' }}>Progress</span>
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#6b7280' }}>{session.sets.length}/{sesGoal}</span>
+          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 10, color: '#6b7280' }}>{sets.length}/{sesGoal}</span>
         </div>
         <div style={{ height: 5, background: '#0a0f1a', borderRadius: 3, overflow: 'hidden', border: '1px solid #1e3a5f' }}>
-          <div style={{ height: '100%', width: `${Math.min(100, session.sets.length / sesGoal * 100)}%`, background: 'linear-gradient(90deg,#3b82f6,#22c55e)', borderRadius: 3, transition: 'width 0.4s' }} />
+          <div style={{ height: '100%', width: `${Math.min(100, sets.length / sesGoal * 100)}%`, background: 'linear-gradient(90deg,#3b82f6,#22c55e)', borderRadius: 3, transition: 'width 0.4s' }} />
         </div>
       </div>
 
@@ -565,10 +569,10 @@ export default function ShootTracker({
       </div>
 
       {/* ── Recent sets ──────────────────────────────────────────────────── */}
-      {session.sets.length > 0 && (
+      {sets.length > 0 && (
         <div style={C.card}>
           <div style={C.label}>Recent Sets</div>
-          {[...session.sets].reverse().slice(0, 4).map((s, i) => {
+          {[...sets].reverse().slice(0, 4).map((s, i) => {
             const z = ZONES.find(x => x.id === s.zone)
             return (
               <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: i < 3 ? '1px solid #1e3a5f' : 'none' }}>

@@ -49,9 +49,9 @@ export function healPlayerStats(player, sessions, techniqueEntry) {
   const sessionShots = sessions
     .filter(s => s.playerId === player.id)
     .reduce((acc, s) => {
-      const hits = s.sets.reduce((sum, st) => sum + st.hits, 0)
+      const hits = (s.sets || []).reduce((sum, st) => sum + st.hits, 0)
       // ATW sessions only record hits (no misses), so shots === hits for those
-      return acc + (s.source === 'atw' ? hits : s.sets.length * 10)
+      return acc + (s.source === 'atw' ? hits : (s.sets?.length ?? 0) * 10)
     }, 0)
 
   const currentTotalPucks = techniqueEntry?.totalPucks ?? 0

@@ -50,7 +50,7 @@ export default function Dashboard({ onStartSession, newBadgeIds, onBadgeClick, o
   const weekRank = [...players]
     .map(p => ({
       id: p.id,
-      wS: sessions.filter(s => s.playerId === p.id && new Date(s.date) >= ws).flatMap(s => s.sets).length * 10,
+      wS: sessions.filter(s => s.playerId === p.id && new Date(s.date) >= ws).flatMap(s => s.sets || []).length * 10,
     }))
     .sort((a, b) => b.wS - a.wS)
     .findIndex(p => p.id === player.id) + 1
@@ -66,7 +66,7 @@ export default function Dashboard({ onStartSession, newBadgeIds, onBadgeClick, o
   const todayStr          = new Date().toDateString()
   const sessionTodayShots = sessions
     .filter(s => s.playerId === player.id && new Date(s.date).toDateString() === todayStr)
-    .reduce((a, s) => a + s.sets.length * 10, 0)
+    .reduce((a, s) => a + (s.sets?.length ?? 0) * 10, 0)
   // Handle both legacy (number) and new (object with .total) dailyLog formats
   const todayTechEntry = techniqueDailyLog[todayStr]
   const todayTechShots = typeof todayTechEntry === 'object' ? (todayTechEntry?.total || 0) : (todayTechEntry || 0)

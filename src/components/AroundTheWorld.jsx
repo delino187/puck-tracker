@@ -20,7 +20,7 @@ const GRID_ORDER = [0, 1, 2, 3]
 function computePB(player, sessions) {
   const atw = sessions.filter(s => s.playerId === player.id && s.source === 'atw')
   if (!atw.length) return null
-  return Math.max(...atw.map(s => s.sets.reduce((a, x) => a + x.hits, 0)))
+  return Math.max(...atw.map(s => (s.sets || []).reduce((a, x) => a + x.hits, 0)))
 }
 
 export default function AroundTheWorld({ player, sessions, onSubmitGame, onBack }) {

@@ -56,31 +56,29 @@ export function pickQuests(sessions = []) {
 }
 
 // ── Weekly quest picker ───────────────────────────────────────────────────────
-// Enforces equal distribution across the 4 core shot types: Wrist, Backhand, Snap, Slap
+// Guarantees a balanced 3-quest set: 1 zone target + 1 technique + 1 other.
 export function pickWeeklyQuests() {
-  const wristQuests  = WEEKLY_QUEST_POOL.filter(q => /Wrist/i.test(q.text))
-  const backQuests   = WEEKLY_QUEST_POOL.filter(q => /Backhand/i.test(q.text))
-  const snapQuests   = WEEKLY_QUEST_POOL.filter(q => /Snap/i.test(q.text))
-  const slapQuests   = WEEKLY_QUEST_POOL.filter(q => /Slap/i.test(q.text))
+  const ZONE_RE = /Hit \d+ (Top Left|Top Right|Left Post|Right Post|Crossbar|Bar Down|Low Glove|Low Blocker)s? this Week/i
+  const TECH_RE = /Wrist|Backhand|Snap Shot|Slap Shot/i
 
-  const pick = arr => arr[Math.floor(Math.random() * arr.length)]
-  const picked = []
+  const zoneQuests  = WEEKLY_QUEST_POOL.filter(q => ZONE_RE.test(q.text))
+  const techQuests  = WEEKLY_QUEST_POOL.filter(q => TECH_RE.test(q.text))
+  const otherQuests = WEEKLY_QUEST_POOL.filter(q => !ZONE_RE.test(q.text) && !TECH_RE.test(q.text))
 
-  // Pick one from each shot type to ensure variety
-  if (wristQuests.length > 0) picked.push(pick(wristQuests))
-  if (backQuests.length > 0)  picked.push(pick(backQuests))
-  if (snapQuests.length > 0)  picked.push(pick(snapQuests))
-  if (slapQuests.length > 0)  picked.push(pick(slapQuests))
+  const pick    = arr => arr[Math.floor(Math.random() * arr.length)]
+  const picked  = []
 
-  // If fewer than 4 shot types available, fill remaining slots from other quests
-  const otherQuests = WEEKLY_QUEST_POOL.filter(q => !picked.includes(q))
-  while (picked.length < 3 && otherQuests.length > 0) {
-    const idx = Math.floor(Math.random() * otherQuests.length)
-    picked.push(otherQuests[idx])
-    otherQuests.splice(idx, 1)
+  if (zoneQuests.length > 0)  picked.push(pick(zoneQuests))
+  if (techQuests.length > 0)  picked.push(pick(techQuests))
+  if (otherQuests.length > 0) picked.push(pick(otherQuests))
+
+  // Fallback: fill any empty category slot from the remainder
+  const remaining = WEEKLY_QUEST_POOL.filter(q => !picked.includes(q))
+  while (picked.length < 3 && remaining.length > 0) {
+    const idx = Math.floor(Math.random() * remaining.length)
+    picked.push(remaining.splice(idx, 1)[0])
   }
 
-  // Return first 3 (or fewer if pool is small)
   return picked.slice(0, 3).map(q => ({
     ...q,
     targetProgress:  parseQuestTarget(q.text),
@@ -101,6 +99,19 @@ export function getDailyQuestProgress(quest, sessions, playerId, puckGames, peer
     quest.text, sessions, todayTechPucks, quest.baseline ?? 0,
     puckGames, peerChallenges, techniqueByPlayer, playerId
   )
+}
+
+// Maps quest-text zone labels to their canonical snake_case zone IDs (zones.js).
+// "Crossbar" is an alias for the bar_down zone used in quest text.
+const ZONE_LABEL_TO_ID = {
+  'top left':    'top_left',
+  'top right':   'top_right',
+  'left post':   'left_post',
+  'right post':  'right_post',
+  'crossbar':    'bar_down',
+  'bar down':    'bar_down',
+  'low glove':   'low_glove',
+  'low blocker': 'low_blocker',
 }
 
 // ── Weekly quest progress ─────────────────────────────────────────────────────
@@ -181,6 +192,52 @@ export function getWeeklyQuestProgress(text, sessions, playerId, puckGames = [],
       byDay[d] = (byDay[d] || 0) + (s.sets || []).length * 10
     })
     return { current: Math.min(Math.max(0, ...Object.values(byDay)), target), target }
+  }
+
+  // Zone target quests — aggregate hits across all three game modes.
+  // Regex intentionally matches pluralised or unpluralised form ("Top Lefts" / "Top Left").
+  const zoneM = text.match(/Hit (\d+) (Top Left|Top Right|Left Post|Right Post|Crossbar|Bar Down|Low Glove|Low Blocker)s? this Week/i)
+  if (zoneM) {
+    const target = parseInt(zoneM[1])
+    const zoneId = ZONE_LABEL_TO_ID[zoneM[2].toLowerCase()]
+    if (!zoneId) return { current: 0, target }
+
+    // a. Target Practice sessions — sets carry a per-zone hit count
+    const sessionZoneHits = weekSess
+      .flatMap(s => s.sets || [])
+      .filter(st => st.zone === zoneId)
+      .reduce((sum, st) => sum + (st.hits ?? 0), 0)
+
+    // b. Versus (peer) challenges — each challenge targets a single zone
+    const versusZoneHits = peerChallenges
+      .filter(c => {
+        const ts = c.createdAt ?? c.date
+        return ts && new Date(ts) >= ws && c.zone === zoneId &&
+          (c.challengerId === playerId || c.receiverId === playerId)
+      })
+      .reduce((sum, c) => {
+        if (c.challengerId === playerId) return sum + (c.challengerHits ?? 0)
+        if (c.receiverId   === playerId) return sum + (c.receiverHits   ?? 0)
+        return sum
+      }, 0)
+
+    // c. P-U-C-K games — full round history is not persisted; only currentRound
+    //    is available per game, so this counts setter/defender hits for that round.
+    const puckZoneHits = puckGames
+      .filter(g => {
+        const ts = g.createdAt ?? g.lastActivityAt
+        return ts && new Date(ts) >= ws && (g.p1Id === playerId || g.p2Id === playerId)
+      })
+      .reduce((sum, g) => {
+        const r = g.currentRound
+        if (!r || r.zone !== zoneId) return sum
+        if (r.setterPlayerId === playerId && r.setterMade === true)   return sum + 1
+        if (r.setterPlayerId !== playerId && r.defenderMade === true) return sum + 1
+        return sum
+      }, 0)
+
+    const current = sessionZoneHits + versusZoneHits + puckZoneHits
+    return { current: Math.min(current, target), target }
   }
 
   return { current: 0, target: 1 }

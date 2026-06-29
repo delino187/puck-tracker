@@ -14,9 +14,9 @@ export default function TeamLeaderboards({ player, players, sessions, h2h }) {
   const ranked = [...players].map(p => {
     const pss  = sessions.filter(s => s.playerId === p.id)
     const sets =
-      period === 'today'   ? pss.filter(s => new Date(s.date).toDateString() === today).flatMap(s => s.sets) :
-      period === 'week'    ? pss.filter(s => new Date(s.date) >= ws).flatMap(s => s.sets) :
-                             pss.flatMap(s => s.sets)
+      period === 'today'   ? pss.filter(s => new Date(s.date).toDateString() === today).flatMap(s => s.sets || []) :
+      period === 'week'    ? pss.filter(s => new Date(s.date) >= ws).flatMap(s => s.sets || []) :
+                             pss.flatMap(s => s.sets || [])
     const shots = sets.length * 10
     const hits  = sets.reduce((a, s) => a + s.hits, 0)
     const pstat = playerStats(p, sessions)

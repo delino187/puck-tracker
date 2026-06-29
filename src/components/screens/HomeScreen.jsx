@@ -22,7 +22,7 @@ export default function HomeScreen({ st, upd }) {
       ...p,
       wS: st.sessions
         .filter(s => s.playerId === p.id && new Date(s.date) >= ws)
-        .flatMap(s => s.sets).length * 10,
+        .flatMap(s => s.sets || []).length * 10,
     }))
     .sort((a, b) => b.wS - a.wS)[0]
 

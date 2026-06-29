@@ -89,7 +89,7 @@ function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
               <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 20, fontWeight: 900, color: '#f1f5f9' }}>
                 {p.name}{p.jerseyNum ? <span style={{ color: '#60a5fa' }}> #{p.jerseyNum}</span> : ''}
               </div>
-              <LevelBadge li={getLevel(calcXP(getPSessions(p, st.sessions).flatMap(s => s.sets).length * 10, getPSessions(p, st.sessions).flatMap(s => s.sets).reduce((a, x) => a + x.hits, 0))).li} />
+              <LevelBadge li={getLevel(calcXP(getPSessions(p, st.sessions).flatMap(s => s.sets || []).length * 10, getPSessions(p, st.sessions).flatMap(s => s.sets || []).reduce((a, x) => a + x.hits, 0))).li} />
             </div>
           </div>
 
@@ -648,8 +648,8 @@ function CoachRoster({ st, upd, onPuckCreditAdded, onPlayerLevelUp }) {
         {pss.length === 0 ? (
           <div style={{ color: '#94a3b8', textAlign: 'center', padding: 24, fontFamily: "'Barlow Condensed',sans-serif", fontSize: 14 }}>No sessions yet</div>
         ) : pss.map(s => {
-          const shots = s.sets.length * 10
-          const hits  = s.sets.reduce((a, x) => a + x.hits, 0)
+          const shots = (s.sets?.length ?? 0) * 10
+          const hits  = (s.sets || []).reduce((a, x) => a + x.hits, 0)
           const acc   = shots > 0 ? hits / shots * 100 : 0
           return (
             <div key={s.id} style={{ background: '#0a0f1a', borderRadius: 10, padding: '12px 14px', marginBottom: 8, border: '1px solid #334155' }}>

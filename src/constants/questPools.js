@@ -55,6 +55,19 @@ export const WEEKLY_QUEST_POOL = [
   // Session quests
   { id: 'wq_sess7',    text: 'Complete 7 Training Sessions this Week',                     reward: 175, icon: '📅', tier: 'epic'   },
   { id: 'wq_sess5',    text: 'Complete 5 Training Sessions this Week',                     reward: 100, icon: '📅', tier: 'epic'   },
+  // Zone / Target quests — aggregated across Target Practice, Versus, and P-U-C-K
+  { id: 'wq_zone_tl25', text: 'Hit 25 Top Lefts this Week',     reward: 100, icon: '🎯', tier: 'common' },
+  { id: 'wq_zone_tl50', text: 'Hit 50 Top Lefts this Week',     reward: 175, icon: '🎯', tier: 'red'    },
+  { id: 'wq_zone_tr25', text: 'Hit 25 Top Rights this Week',    reward: 100, icon: '🎯', tier: 'common' },
+  { id: 'wq_zone_tr50', text: 'Hit 50 Top Rights this Week',    reward: 175, icon: '🎯', tier: 'red'    },
+  { id: 'wq_zone_lp25', text: 'Hit 25 Left Posts this Week',    reward: 100, icon: '🏒', tier: 'common' },
+  { id: 'wq_zone_lp50', text: 'Hit 50 Left Posts this Week',    reward: 150, icon: '🏒', tier: 'red'    },
+  { id: 'wq_zone_rp25', text: 'Hit 25 Right Posts this Week',   reward: 100, icon: '🏒', tier: 'common' },
+  { id: 'wq_zone_rp50', text: 'Hit 50 Right Posts this Week',   reward: 150, icon: '🏒', tier: 'red'    },
+  { id: 'wq_zone_cb15', text: 'Hit 15 Crossbars this Week',     reward: 125, icon: '⭐', tier: 'epic'   },
+  { id: 'wq_zone_cb25', text: 'Hit 25 Crossbars this Week',     reward: 175, icon: '⭐', tier: 'epic'   },
+  { id: 'wq_zone_lg25', text: 'Hit 25 Low Gloves this Week',    reward: 100, icon: '🥅', tier: 'common' },
+  { id: 'wq_zone_lb25', text: 'Hit 25 Low Blockers this Week',  reward: 100, icon: '🥅', tier: 'common' },
 ]
 
 export const TIER_COLORS = {

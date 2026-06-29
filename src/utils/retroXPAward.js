@@ -110,8 +110,8 @@ export async function runRetroXPAwardMigration() {
     let totalShots = 0
     let totalHits  = 0
     for (const s of pSessions) {
-      const h = s.sets.reduce((a, x) => a + x.hits, 0)
-      totalShots += s.source === 'atw' ? h : s.sets.length * 10
+      const h = (s.sets || []).reduce((a, x) => a + x.hits, 0)
+      totalShots += s.source === 'atw' ? h : (s.sets?.length ?? 0) * 10
       totalHits  += h
     }
     const sessionXP = calcXP(totalShots, totalHits)

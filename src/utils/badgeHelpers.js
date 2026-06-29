@@ -8,8 +8,8 @@ export function getPSessions(player, sessions) {
 export function lifetimeShots(p, s) {
   // ATW sessions only track successful hits; count shots = hits to avoid inflating miss count.
   const sessionShots = getPSessions(p, s).reduce((a, x) => {
-    const h = x.sets.reduce((sum, st) => sum + st.hits, 0)
-    return a + (x.source === 'atw' ? h : x.sets.length * 10)
+    const h = (x.sets || []).reduce((sum, st) => sum + st.hits, 0)
+    return a + (x.source === 'atw' ? h : (x.sets?.length ?? 0) * 10)
   }, 0)
   // Technique-mode pucks live in Zustand, not in the sessions array —
   // read synchronously via getState() so this works outside React components.
@@ -20,7 +20,7 @@ export function lifetimeShots(p, s) {
 
 export function zoneHits(p, s, zones) {
   return getPSessions(p, s)
-    .flatMap(x => x.sets)
+    .flatMap(x => x.sets || [])
     .filter(st => zones.includes(st.zone))
     .reduce((a, st) => a + st.hits, 0)
 }
@@ -70,7 +70,7 @@ export function maxShotsInDay(p, s) {
   const m = {}
   getPSessions(p, s).forEach(x => {
     const d = new Date(x.date).toDateString()
-    m[d] = (m[d] || 0) + x.sets.length * 10
+    m[d] = (m[d] || 0) + (x.sets?.length ?? 0) * 10
   })
   return Math.max(0, ...Object.values(m))
 }
@@ -80,7 +80,7 @@ export function maxShotsInDay(p, s) {
 export function maxSessionsInDay(p, s, minPucks = 50) {
   const m = {}
   getPSessions(p, s).forEach(x => {
-    const shots = x.sets.length * 10
+    const shots = (x.sets?.length ?? 0) * 10
     if (shots < minPucks) return
     const d = new Date(x.date).toDateString()
     m[d] = (m[d] || 0) + 1
@@ -97,14 +97,14 @@ export function sessionTimeCheck(p, s, after, before) {
 
 export function chirpProof(p, s) {
   for (const z of ZONES) {
-    const sets = getPSessions(p, s).flatMap(x => x.sets.filter(st => st.zone === z.id))
+    const sets = getPSessions(p, s).flatMap(x => (x.sets || []).filter(st => st.zone === z.id))
     if (sets.length >= 2 && sets[0].hits === 0 && sets[sets.length - 1].hits / 10 >= 0.4) return true
   }
   return false
 }
 
 export function hasCelery(p, s) {
-  return getPSessions(p, s).some(x => x.sets.some(st => st.hits === 0))
+  return getPSessions(p, s).some(x => (x.sets || []).some(st => st.hits === 0))
 }
 
 export function challengesCompleted(p, s) {
@@ -112,20 +112,20 @@ export function challengesCompleted(p, s) {
 }
 
 export function perfectEveryZone(p, s) {
-  const sets = getPSessions(p, s).flatMap(x => x.sets)
+  const sets = getPSessions(p, s).flatMap(x => x.sets || [])
   return ZONES.every(z => sets.some(st => st.zone === z.id && st.hits === 10))
 }
 
 // True if ANY single set in the given zone scored >= minHits (default 8)
 export function hasHighSetInZone(p, s, zoneId, minHits = 8) {
   return getPSessions(p, s).some(sess =>
-    sess.sets.some(st => st.zone === zoneId && st.hits >= minHits)
+    (sess.sets || []).some(st => st.zone === zoneId && st.hits >= minHits)
   )
 }
 
 // True if ANY single logged set ever scored a perfect 10/10
 export function hasPerfectSet(p, s) {
-  return getPSessions(p, s).some(sess => sess.sets.some(st => st.hits === 10))
+  return getPSessions(p, s).some(sess => (sess.sets || []).some(st => st.hits === 10))
 }
 
 // Longest consecutive-day streak the player has ever had (all time)
@@ -152,7 +152,7 @@ function _atwSess(p, s) {
 }
 
 function _atwScore(sess) {
-  return sess.sets.reduce((a, st) => a + st.hits, 0)
+  return (sess.sets || []).reduce((a, st) => a + st.hits, 0)
 }
 
 export function atwGamesPlayed(p, s) {
@@ -166,7 +166,7 @@ export function atwMaxRunHits(p, s) {
 
 export function atwAllCornersAtLeast(p, s, min) {
   return _atwSess(p, s).some(
-    sess => sess.sets.length === 4 && sess.sets.every(st => st.hits >= min),
+    sess => (sess.sets?.length ?? 0) === 4 && (sess.sets || []).every(st => st.hits >= min),
   )
 }
 
@@ -195,7 +195,7 @@ export function maxDailyPostHits(p, s) {
   const m = {}
   getPSessions(p, s).forEach(sess => {
     const d  = new Date(sess.date).toDateString()
-    const ph = sess.sets
+    const ph = (sess.sets || [])
       .filter(st => st.zone === 'left_post' || st.zone === 'right_post')
       .reduce((a, st) => a + st.hits, 0)
     m[d] = (m[d] || 0) + ph
