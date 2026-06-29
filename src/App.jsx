@@ -705,6 +705,58 @@ export default function App() {
           useAppStore.getState().logTechniqueShots(activeId, 0, 2)
         })
       }
+
+      // ── Versus counter increment + badge check ────────────────────────────
+      // Runs for both the receiver (this path) and, for the receiver side, it is
+      // the synchronous completion event. Uses a functional setSt updater so it
+      // merges safely with the ELO upd() that already fired above.
+      const pid      = activeId
+      const pSnap    = aPlayer   // snapshot; ok for additive badge checks
+      if (pSnap && pid) {
+        const isTie    = challenge.isTie || challenge.winnerId === null
+        const didWin   = !isTie && challenge.winnerId === pid
+        // Detect perfect turn: active player scored every shot in the challenge
+        const myHits   = challenge.challengerId === pid
+          ? (challenge.challengerHits ?? 0)
+          : (challenge.receiverHits   ?? 0)
+        const shotCnt  = challenge.shotCount ?? 0
+        const perfect  = !isTie && shotCnt > 0 && myHits === shotCnt
+
+        const newCounters = {
+          versusMatchesPlayed: (pSnap.versusMatchesPlayed || 0) + 1,
+          versusWins:          (pSnap.versusWins || 0) + (didWin ? 1 : 0),
+          ...(perfect && !pSnap.hasPerfectVersusScore ? { hasPerfectVersusScore: true } : {}),
+        }
+        const projPlayer   = { ...pSnap, ...newCounters }
+        const already      = { ...(pSnap.earnedBadges || {}) }
+        const allNewBadges = BADGES.filter(b => !already[b.id] && b.check(projPlayer, st.sessions))
+
+        if (allNewBadges.length) {
+          const now = Date.now()
+          allNewBadges.forEach(b => { already[b.id] = { ts: now } })
+          const totalBadgeXP = allNewBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
+          if (totalBadgeXP > 0) useAppStore.getState().logTechniqueShots(pid, 0, totalBadgeXP)
+          setNewBadgeIds(prev => {
+            const n = { ...prev }
+            allNewBadges.forEach(b => { n[b.id] = true })
+            return n
+          })
+          badgeQRef.current.push(...allNewBadges)
+          setEpicCeleb(cur => {
+            if (cur) return cur
+            const next = badgeQRef.current.shift()
+            if (next) audioEngine.playBadgeUnlock()
+            return next ? { type: 'badge', badge: next } : null
+          })
+          newCounters.earnedBadges = already
+        }
+
+        // Merge counter + badge updates into latest state via functional updater
+        setSt(prev => ({
+          ...prev,
+          players: prev.players.map(p => p.id === pid ? { ...p, ...newCounters } : p),
+        }))
+      }
     }
   }
 
