@@ -8,7 +8,7 @@ export const TAUNT_CATALOG = {
   'pop-wow':      { id: 'pop-wow',      emoji: '💥', name: 'Pop Wow',        file: 'pop-wow.mp3',              desc: 'A dramatic pop-wow moment punctuates your opponent\'s defeat screen.'      },
   'sooo-funny':   { id: 'sooo-funny',   emoji: '😂', name: 'Sooo Funny',     file: 'sooo-funny.mp3',           desc: 'A sarcastic "Sooo Funny" jab fires on your opponent\'s loss card.'         },
   'funny-yay':    { id: 'funny-yay',    emoji: '🥳', name: 'Funny Yay',      file: 'funny-yay.mp3',            desc: 'A sarcastic cheer plays automatically when your opponent gets defeated.'    },
-  'laughing':     { id: 'laughing',     emoji: '😆', name: 'Crowd Laughing', file: 'laughing.mp3',             desc: 'The whole crowd laughs at your opponent\'s expense on their defeat screen.'  },
+  'laughing':     { id: 'laughing',     emoji: '😆', name: 'Weird Laugh',    file: 'laughing.mp3',             desc: 'The whole crowd laughs at your opponent\'s expense on their defeat screen.'  },
   'losing-horn':  { id: 'losing-horn',  emoji: '📯', name: 'Losing Horn',    file: 'losing-horn-313723.mp3',   desc: 'A classic loser horn marks your opponent\'s defeat with authority.'          },
   'game-over':    { id: 'game-over',    emoji: '🎮', name: 'Game Over',      file: 'game-over.mp3',            desc: 'Game Over rings out the moment your opponent bites the dust.'               },
 }
