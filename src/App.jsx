@@ -625,7 +625,9 @@ export default function App() {
 
       // Tie: receiver gets equal partial reward; mark seen so the snapshot effect
       // in useMatchResults (which guards the CHALLENGER path) doesn't double-fire.
-      if (challenge.isTie) {
+      // Guard on both isTie flag AND winnerId === null so legacy documents that
+      // predate the isTie field don't accidentally fall into the defeat branch.
+      if (challenge.isTie || challenge.winnerId === null) {
         seenTieIds.current.add(challenge.id)
         const opponentNameTie = challenge.challengerId === activeId ? challenge.receiverName : challenge.challengerName
         // Atomic lock: prevents the receiver from re-collecting if the app is reloaded
