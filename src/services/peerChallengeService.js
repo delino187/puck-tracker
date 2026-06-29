@@ -84,7 +84,7 @@ export async function createChallenge({
 }
 
 // ── Respond ───────────────────────────────────────────────────────────────────
-export async function respondToChallenge(challenge, receiverHits, videoUrl) {
+export async function respondToChallenge(challenge, receiverHits, videoUrl, defeatAudioTrack = null) {
   // Detect tie: both players scored the same number of hits
   const isTie = receiverHits === challenge.challengerHits
   const winnerId = isTie ? null : (
@@ -93,7 +93,7 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
       : challenge.challengerId
   )
 
-  await updateDoc(doc(db, 'teams', TEAM_ID, 'peerChallenges', challenge.id), {
+  const baseFields = {
     receiverHits,
     receiverVideo:  videoUrl,
     winnerId,
@@ -101,7 +101,12 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
     status:         'completed',
     respondedAt:    Date.now(),
     eloProcessed:   false,   // ELO transaction will flip this to true atomically
-  })
+  }
+  // Stamp the winner's equipped taunt path so the loser hears the correct audio
+  // even if the winner later changes their taunt selection.
+  if (defeatAudioTrack && !isTie) baseFields.defeatAudioTrack = defeatAudioTrack
+
+  await updateDoc(doc(db, 'teams', TEAM_ID, 'peerChallenges', challenge.id), baseFields)
 
   // Atomic transaction: update ELO + totalWins for both players simultaneously.
   // Ties: outcome=0.5 for both players, no one gets a win, minimal ELO change.

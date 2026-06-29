@@ -6,29 +6,18 @@ import { playerStats } from '../utils/stats.js'
 import { useAppStore } from '../store/useAppStore.js'
 import { usePlayer } from '../context/PlayerContext.jsx'
 import { useUI } from '../context/UIContext.jsx'
+import { TAUNT_CATALOG, TAUNT_PRICE, TAUNT_IDS } from '../constants/taunts.js'
 
-const FREEZE_COST       = 75
-const WEEK_FREEZE_COST  = 400
-const DOUBLE_XP_COST    = 200
-const TROMBONE_COST     = 300
-const RAGE_BAIT_COST    = 15
-const COMPLIMENT_COST   = 15
-const SHIELD_COST       = 100
-const ELO_RESET_COST    = 200
-const GLOW_COST         = 150
-const PFP_COST          = 50
-const BASE_ELO       = 1000
-
-// ── Cosmetic items inventory ────────────────────────────────────────────────
-const COSMETIC_ITEMS = {
-  'sad_trombone': {
-    id: 'sad_trombone',
-    name: 'Sad Trombone',
-    emoji: '🎺',
-    desc: 'Plays when opponent wins',
-    audioPath: '/sad-game-over-trombone.mp3',
-  },
-}
+const FREEZE_COST      = 75
+const WEEK_FREEZE_COST = 400
+const DOUBLE_XP_COST   = 200
+const RAGE_BAIT_COST   = 15
+const COMPLIMENT_COST  = 15
+const SHIELD_COST      = 100
+const ELO_RESET_COST   = 200
+const GLOW_COST        = 150
+const PFP_COST         = 50
+const BASE_ELO         = 1000
 
 // ── Individual showcase card inside the stall grid ────────────────────────────
 function ItemCard({ emoji, imgSrc, name, desc, tag, cost, balance, canBuy, isOwned, owned, onBuy, onInsufficientFunds, isEquipped, onEquip, onPreview, processing }) {
@@ -217,17 +206,27 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
   const boughtBorderGlow    = player.boughtBorderGlow    || false
   const hasBorderGlow       = player.hasBorderGlow       || false
   const canChangePfp        = player.canChangePfp        || false
-  const weekFreezeQty       = player.week_streak_freezes || 0
-  const doubleXpQty         = player.doubleXpTokens      || 0
-  const hasTrombone         = player.sadTromboneUnlocked || false
+  const weekFreezeQty = player.week_streak_freezes || 0
+  const doubleXpQty   = player.doubleXpTokens      || 0
 
-  // Safe defaults for inventory tracking with validation
-  // Support both old field (sadTromboneUnlocked) and new field (ownedItems array)
+  // Build the effective set of unlocked taunt IDs from both storage paths:
+  //   • player.unlockedTaunts  — new array used by all newly purchased taunts
+  //   • player.sadTromboneUnlocked / player.ownedItems — legacy fields from old purchases
+  const rawUnlocked   = Array.isArray(player.unlockedTaunts) ? player.unlockedTaunts : []
+  const legacyItems   = Array.isArray(player.ownedItems)     ? player.ownedItems     : []
+  const unlockedTaunts = new Set([
+    ...rawUnlocked,
+    ...legacyItems.filter(id => TAUNT_IDS.includes(id)),
+    // 'sad_trombone' (underscore) is the old ID; map it to the canonical hyphen form
+    ...(player.sadTromboneUnlocked || legacyItems.includes('sad_trombone') ? ['sad-trombone'] : []),
+  ])
+
+  // Legacy ownedItems still used by the existing locker room renderer for non-taunt items
   let ownedItems = Array.isArray(player.ownedItems) ? player.ownedItems : []
-  // If player has old sadTromboneUnlocked flag but it's not in ownedItems, add it
-  if (hasTrombone && !ownedItems.includes('sad_trombone')) {
+  if ((player.sadTromboneUnlocked) && !ownedItems.includes('sad_trombone')) {
     ownedItems = [...ownedItems, 'sad_trombone']
   }
+
   const equippedTaunt = player.equippedTaunt || 'standard'
 
   const [showLowBalance,       setShowLowBalance]       = useState(false)
@@ -270,7 +269,7 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
 
     // Show success toast
     clearTimeout(rookieToastTimer.current)
-    const itemName = tauntId === 'standard' ? 'Standard' : COSMETIC_ITEMS[tauntId]?.name || tauntId
+    const itemName = tauntId === 'standard' ? 'Standard' : (TAUNT_CATALOG[tauntId]?.name || tauntId)
     setRookieToast({ label: `${itemName} Equipped!`, reward: 0, icon: '✨' })
     rookieToastTimer.current = setTimeout(() => setRookieToast(null), 3500)
   }
@@ -584,23 +583,56 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
                 processing={isProcessingPurchase}
                 onInsufficientFunds={() => setShowLowBalance(true)}
               />
-              <ItemCard
-                emoji="🎺"
-                name="SAD TROMBONE TAUNT"
-                desc="When you defeat an opponent in HORSE or Versus, they will automatically hear this sad trombone blast over their phone!"
-                tag={hasTrombone ? undefined : 'HOT'}
-                cost={TROMBONE_COST}
-                owned={hasTrombone ? 1 : 0}
-                canBuy={!hasTrombone && totalDiamonds >= TROMBONE_COST}
-                isOwned={hasTrombone}
-                isEquipped={player.equippedTaunt === 'sad_trombone'}
-                onPreview={() => audioEngine.playTauntTrombone()}
-                onBuy={() => buyItem('sadTrombone', TROMBONE_COST)}
-                onEquip={() => equipTaunt(hasTrombone ? 'sad_trombone' : 'standard')}
-                balance={totalDiamonds}
-                processing={isProcessingPurchase}
-                onInsufficientFunds={() => setShowLowBalance(true)}
-              />
+            </div>
+
+            {/* ── Divider ───────────────────────────────────────────────── */}
+            <div style={{ height: 1, background: 'rgba(0,0,0,0.35)', margin: '14px 0 14px' }} />
+
+            {/* ── Defeat taunts label ───────────────────────────────────── */}
+            <div style={{
+              fontFamily: "'Barlow Condensed',sans-serif", fontSize: 9, fontWeight: 800,
+              color: 'rgba(254,243,199,0.55)', letterSpacing: '0.22em',
+              textTransform: 'uppercase', textAlign: 'center', marginBottom: 10,
+            }}>
+              🎺 DEFEAT TAUNTS · {TAUNT_PRICE} 💎 EACH
+            </div>
+
+            {/* ── All 9 taunts in a 2-col grid ─────────────────────────── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              {TAUNT_IDS.map(tauntId => {
+                const taunt    = TAUNT_CATALOG[tauntId]
+                const isOwned  = unlockedTaunts.has(tauntId)
+                const equipped = equippedTaunt === tauntId
+                return (
+                  <ItemCard
+                    key={tauntId}
+                    emoji={taunt.emoji}
+                    name={taunt.name.toUpperCase()}
+                    desc={taunt.desc}
+                    cost={TAUNT_PRICE}
+                    owned={isOwned ? 1 : 0}
+                    canBuy={!isOwned && totalDiamonds >= TAUNT_PRICE}
+                    isOwned={isOwned}
+                    isEquipped={equipped}
+                    onPreview={() => {
+                      try {
+                        if (previewAudioRef.current) {
+                          previewAudioRef.current.pause()
+                          previewAudioRef.current.currentTime = 0
+                        }
+                        const a = new Audio(`/${taunt.file}`)
+                        previewAudioRef.current = a
+                        a.play().catch(() => {})
+                      } catch {}
+                    }}
+                    onBuy={() => buyItem(tauntId, TAUNT_PRICE)}
+                    onEquip={() => equipTaunt(equipped ? 'standard' : tauntId)}
+                    balance={totalDiamonds}
+                    processing={isProcessingPurchase}
+                    onInsufficientFunds={() => setShowLowBalance(true)}
+                  />
+                )
+              })}
             </div>
           </div>
         </div>
@@ -705,8 +737,8 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
           🎒 YOUR LOCKER ROOM
         </div>
 
-        {/* Owned items grid or empty state */}
-        {ownedItems.length === 0 ? (
+        {/* Owned taunts grid or empty state */}
+        {unlockedTaunts.size === 0 ? (
           <div style={{
             textAlign: 'center', padding: '20px 16px',
             background: 'rgba(30, 58, 95, 0.3)', borderRadius: 12,
@@ -716,23 +748,23 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
               fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13,
               color: '#94a3b8', letterSpacing: '0.05em',
             }}>
-              No cosmetics yet
+              No taunts unlocked yet
             </div>
             <div style={{
               fontFamily: "'Barlow',sans-serif", fontSize: 11,
               color: '#64748b', marginTop: 6,
             }}>
-              Purchase taunts from the Pro Shop to unlock them here.
+              Purchase defeat taunts from the Pro Shop above to unlock them here.
             </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {ownedItems.map(itemId => {
-              const item = COSMETIC_ITEMS[itemId]
+            {[...unlockedTaunts].map(itemId => {
+              const item = TAUNT_CATALOG[itemId]
               if (!item) return null
 
               const isEquipped = equippedTaunt === itemId
-              const canPreview = item.audioPath
+              const canPreview = !!item.file
 
               return (
                 <div
@@ -790,7 +822,7 @@ export default function StreakHub({ onPurchaseItem, onNavigate, onEquipTaunt }) 
                               previewAudioRef.current.pause()
                               previewAudioRef.current.currentTime = 0
                             }
-                            const a = new Audio(item.audioPath)
+                            const a = new Audio(`/${item.file}`)
                             previewAudioRef.current = a
                             a.play().catch(() => {})
                           } catch {}

@@ -15,6 +15,7 @@ import { ROOKIE_QUESTS, DEFAULT_ROOKIE_QUESTS } from './constants/rookieQuests.j
 import { useAudio }                      from './hooks/useAudio.js'
 import { useTheme }                      from './hooks/useTheme.js'
 import { useMatchResults, tauntPathFor } from './hooks/useMatchResults.js'
+import { TAUNT_IDS, TAUNT_PRICE }        from './constants/taunts.js'
 import { usePuckTurnAlerts }             from './hooks/usePuckTurnAlerts.js'
 
 import HomeScreen         from './components/screens/HomeScreen.jsx'
@@ -1891,6 +1892,18 @@ export default function App() {
 
                 } else if (itemId === 'rageBait' || itemId === 'compliment') {
                   options.buildFields = () => ({})   // consumable — just deduct diamonds
+
+                } else if (TAUNT_IDS.includes(itemId)) {
+                  // Audio taunt: push the taunt ID into the player's unlockedTaunts array.
+                  // Uses a Set deduplicate so re-purchasing after an edge-case rollback is safe.
+                  options.buildFields = p => ({
+                    unlockedTaunts: [
+                      ...new Set([
+                        ...(Array.isArray(p.unlockedTaunts) ? p.unlockedTaunts : []),
+                        itemId,
+                      ]),
+                    ],
+                  })
 
                 } else {
                   return   // unknown item

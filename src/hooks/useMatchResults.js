@@ -10,17 +10,17 @@ import {
   resolveExpiredChallenge,
 } from '../services/peerChallengeService.js'
 import { showNativeNotification } from '../utils/notificationEngine.js'
+import { tauntAudioPath } from '../constants/taunts.js'
 
 const VERSUS_WIN_DIAMONDS = 10
 const VERSUS_WIN_XP       = 20
 const VERSUS_TIE_DIAMONDS = 5
 const VERSUS_TIE_XP       = 10
 
-// Resolve a player's equipped taunt to its audio asset path.
-// Returns null if no taunt is equipped (caller uses default streak-broken sting).
+// Resolve a player's equipped taunt to its audio asset path using the shared catalog.
+// Returns null if no taunt is equipped (caller falls back to streak-broken sting).
 function tauntPathFor(player) {
-  if (player?.equippedTaunt === 'sad_trombone') return '/sad-game-over-trombone.mp3'
-  return null
+  return tauntAudioPath(player?.equippedTaunt) ?? null
 }
 
 /**
@@ -320,16 +320,18 @@ export function useMatchResults(peerChallenges) {
           }))
         }
 
-        // Resolve winner's equipped taunt from authoritative Firestore data
-        const winnerProfile = freshPlayers.find(p => p.id === challenge.winnerId)
-        const tauntAudioPath = tauntPathFor(winnerProfile)
+        // Prefer the path stamped onto the challenge doc at resolution time —
+        // it's authoritative even if the winner later changes their equipped taunt.
+        // Fall back to resolving from the fresh player profile if absent.
+        const winnerProfile  = freshPlayers.find(p => p.id === challenge.winnerId)
+        const resolvedTaunt  = challenge.defeatAudioTrack ?? tauntPathFor(winnerProfile)
 
         setDefeatState({
           type: 'versus', diamonds: 1, xp: 2,
           opponentId, opponentName,
           myHits: myHits ?? 0, opponentHits: opponentHits ?? 0,
           opponentVideoUrl: winnerVideoUrl,
-          tauntAudioPath,
+          tauntAudioPath: resolvedTaunt,
         })
       }).catch(() => {
         // Fallback: show defeat modal without taunt (network error)
@@ -338,7 +340,7 @@ export function useMatchResults(peerChallenges) {
           opponentId, opponentName,
           myHits: myHits ?? 0, opponentHits: opponentHits ?? 0,
           opponentVideoUrl: winnerVideoUrl,
-          tauntAudioPath: null,
+          tauntAudioPath: challenge.defeatAudioTrack ?? null,
         })
       })
 

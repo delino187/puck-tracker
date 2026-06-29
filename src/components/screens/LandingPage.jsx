@@ -391,16 +391,18 @@ export default function LandingPage() {
     <div style={{ marginTop: 40, paddingBottom: 12 }}>
 
       {/* Section divider */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 26 }}>
-        <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#1e3a5f88)' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 26 }}>
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,transparent,#3b82f666)' }} />
         <div style={{
-          fontFamily: "'Barlow Condensed',sans-serif",
-          fontSize: 10, fontWeight: 800, letterSpacing: '0.22em',
-          color: '#334155', padding: '0 4px',
+          fontFamily: "'Bangers',sans-serif",
+          fontSize: 34, letterSpacing: '0.14em', lineHeight: 1,
+          color: '#f1f5f9', textTransform: 'uppercase',
+          textShadow: '0 2px 0 #1d4ed8, 0 0 28px #60a5fa55',
+          padding: '0 2px',
         }}>
           HOW IT WORKS
         </div>
-        <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,#1e3a5f88,transparent)' }} />
+        <div style={{ flex: 1, height: 1, background: 'linear-gradient(90deg,#3b82f666,transparent)' }} />
       </div>
 
       <StatsTrackerCard />

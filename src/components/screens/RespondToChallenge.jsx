@@ -4,6 +4,7 @@ import { ZONES } from '../../constants/zones.js'
 import { C } from '../../styles.js'
 import { useAppStore } from '../../store/useAppStore.js'
 import { uploadChallengeVideo, respondToChallenge, WARN_FILE_BYTES } from '../../services/peerChallengeService.js'
+import { tauntAudioPath } from '../../constants/taunts.js'
 import { disputeChallenge } from '../../services/disputeService.js'
 import { updateStreak } from '../../utils/streakService.js'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
@@ -51,19 +52,18 @@ function VictoryOverlay({ won, player, opponent, eloData, myHits, shotCount, cha
 
   const shieldSaved = eloData?.receiverShieldSaved ?? false
 
-  // Audio: on defeat, play the challenger's equipped taunt if they own it,
-  // otherwise fall back to the generic loss sting.
+  // Audio: on defeat, play the winner's equipped taunt stamped on the challenge doc
+  // (defeatAudioTrack), then fall back to live equippedTaunt lookup, then generic sting.
   useEffect(() => {
     let src, volume
     if (won) {
-      src = '/win-fanfare.mp3'
+      src    = '/win-fanfare.mp3'
       volume = 0.7
-    } else if (opponent?.sadTromboneUnlocked) {
-      src = '/sad-game-over-trombone.mp3'
-      volume = 0.85
     } else {
-      src = '/loss-fail.mp3'
-      volume = 0.7
+      const stamped    = challenge?.defeatAudioTrack ?? null
+      const liveLookup = tauntAudioPath(opponent?.equippedTaunt)
+      src    = stamped ?? liveLookup ?? '/streak-broken.mp3'
+      volume = (stamped || liveLookup) ? 0.85 : 0.7
     }
     const audio = new Audio(src)
     audio.volume = volume
@@ -448,7 +448,21 @@ export default function RespondToChallenge({ player, challenge, onBack, onSubmit
     try {
       const tempKey  = `${player.id}_${Date.now()}`
       const videoUrl = await uploadChallengeVideo(videoFile, tempKey, 'receiver', setUploadProgress)
-      const updated  = await respondToChallenge(challenge, myHits, videoUrl)
+
+      // Determine the winner at submit time so their taunt path gets stamped onto
+      // the Firestore doc — authoritative even if they later change their selection.
+      const receiverWins      = myHits > challenge.challengerHits
+      const isTieCheck        = myHits === challenge.challengerHits
+      let   defeatAudioTrack  = null
+      if (!isTieCheck) {
+        const winnerId      = receiverWins ? player.id : challenge.challengerId
+        const winnerProfile = winnerId === player.id
+          ? player
+          : (st?.players?.find(p => p.id === winnerId) ?? null)
+        defeatAudioTrack = tauntAudioPath(winnerProfile?.equippedTaunt)
+      }
+
+      const updated  = await respondToChallenge(challenge, myHits, videoUrl, defeatAudioTrack)
       logTechniqueShots(player.id, shotCount, 2)   // shotCount pucks, flat 2 XP for completion
       updateStreak(player.id).catch(() => {})
       const didWin = updated.winnerId === player.id
