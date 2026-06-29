@@ -40,23 +40,25 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], s
   const expired      = Date.now() > challenge.expiresAt
   const completed    = challenge.status === 'completed'
   const won          = completed && challenge.winnerId === playerId
-  const lost         = completed && challenge.winnerId !== playerId
+  const tied         = completed && (challenge.isTie || challenge.winnerId === null)
+  const lost         = completed && !won && !tied
 
   // ── Completed card ─────────────────────────────────────────────────────────
   if (completed) {
     const opp = isChallenger ? receiver : challenger
+    const resultColor = won ? '#22c55e' : tied ? '#fbbf24' : '#ef4444'
     return (
       <>
         <div style={{
           background: 'var(--card-bg)',
-          border: `1px solid ${won ? '#22c55e44' : '#ef444444'}`,
+          border: `1px solid ${won ? '#22c55e44' : tied ? '#fbbf2444' : '#ef444444'}`,
           borderRadius: 14, padding: '16px 18px', marginBottom: 12,
-          boxShadow: won ? '0 0 20px #22c55e12' : 'none',
+          boxShadow: won ? '0 0 20px #22c55e12' : tied ? '0 0 20px #fbbf2410' : 'none',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-            <Trophy size={14} color={won ? '#22c55e' : '#ef4444'} />
-            <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em', color: won ? '#22c55e' : '#ef4444' }}>
-              {won ? 'CHALLENGE WON!' : 'CHALLENGE LOST'}
+            <Trophy size={14} color={resultColor} />
+            <span style={{ fontFamily: "'Bangers',sans-serif", fontSize: 18, letterSpacing: '0.06em', color: resultColor }}>
+              {won ? 'CHALLENGE WON!' : tied ? 'CHALLENGE TIED!' : 'CHALLENGE LOST'}
             </span>
             <span style={{ marginLeft: 'auto' }}>
               <MatchTypeBadge matchType={challenge.matchType} />
