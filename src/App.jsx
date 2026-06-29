@@ -248,14 +248,47 @@ export default function App() {
     const player = st.players.find(p => p.id === st.activePlayerId)
     if (!player) return
     const already        = { ...(player.earnedBadges || {}) }
-    const newBadges      = BADGES.filter(b => !already[b.id] && b.check(player, st.sessions))
-    // Also backfill STREAK_BADGES: any milestone the player's all-time PB covers
-    // but whose ID is missing from earnedBadges is granted here (covers all intermediate
-    // levels — Hat Trick at 3, Five-Hole Fire at 5, Hot Stick at 7, etc.).
-    const streakPB        = allTimeStreakPB(player, st.sessions)
+
+    // ── Step 1: migrate legacy name-keyed streak entries to canonical IDs ──────
+    // Earlier code inadvertently wrote badge display names (e.g. 'Hat Trick')
+    // as earnedBadges keys instead of the system IDs ('streak_3'). Remap them
+    // so the BadgeGrid's ID-based lookup finds them correctly.
+    const STREAK_NAME_TO_ID = {
+      'The Spark':      'streak_1',
+      'Light the Lamp': 'streak_2',
+      'Hat Trick':      'streak_3',
+      'Five-Hole Fire': 'streak_5',
+      'Hot Stick':      'streak_7',
+      'Playoff Beard':  'streak_14',
+      'Iron Guard':     'streak_30',
+      'Barn Burner':    'streak_60',
+      'Living Legend':  'streak_90',
+    }
+    Object.entries(STREAK_NAME_TO_ID).forEach(([name, id]) => {
+      if (already[name] && !already[id]) {
+        already[id] = already[name]
+        delete already[name]
+      } else if (already[name]) {
+        delete already[name]   // duplicate — correct ID already present
+      }
+    })
+
+    const newBadges = BADGES.filter(b => !already[b.id] && b.check(player, st.sessions))
+
+    // ── Step 2: backfill STREAK_BADGES ────────────────────────────────────────
+    // Use the higher of allTimeStreakPB (from session history) and streakCount
+    // (stored in Firestore). Technique-only days and PUCK/Versus turns update
+    // streakCount without creating session documents, so allTimeStreakPB alone
+    // underestimates the streak for those players.
+    // If streakCount >= 7, all intermediate milestones (3, 5, 7) are awarded.
+    const streakPB        = Math.max(
+      allTimeStreakPB(player, st.sessions),
+      player.streakCount || 0
+    )
     const newStreakBadges = STREAK_BADGES
       .filter(sb => streakPB >= sb.milestone && !already[sb.id])
       .map(sb => toCircleBadge(sb))
+
     const allNewBadges   = [...newBadges, ...newStreakBadges]
     if (!allNewBadges.length) return
     const now = Date.now()
@@ -844,7 +877,7 @@ export default function App() {
     // Badge check — regular badges + streak milestones
     const already        = { ...(aPlayer.earnedBadges || {}) }
     const newBadges      = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
-    const streakPB        = allTimeStreakPB(aPlayer, updSessions)
+    const streakPB        = Math.max(allTimeStreakPB(aPlayer, updSessions), aPlayer.streakCount || 0)
     const newStreakBadges = STREAK_BADGES
       .filter(sb => streakPB >= sb.milestone && !already[sb.id])
       .map(sb => toCircleBadge(sb))
@@ -908,7 +941,7 @@ export default function App() {
     // Badge check — regular badges + streak milestones
     const already        = { ...(aPlayer.earnedBadges || {}) }
     const newBadges      = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
-    const streakPB        = allTimeStreakPB(aPlayer, updSessions)
+    const streakPB        = Math.max(allTimeStreakPB(aPlayer, updSessions), aPlayer.streakCount || 0)
     const newStreakBadges = STREAK_BADGES
       .filter(sb => streakPB >= sb.milestone && !already[sb.id])
       .map(sb => toCircleBadge(sb))
