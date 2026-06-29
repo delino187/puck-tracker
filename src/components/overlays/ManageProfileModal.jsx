@@ -90,9 +90,14 @@ export default function ManageProfileModal({ player, stats, onPhotoUpload, onRes
 
   // Unified career total: session shots + technique-mode pucks (matches Dashboard's careerTotal)
   const careerShots = (stats.totalShots ?? 0) + techniquePucks
-  // Authoritative streak: prefer the locally-computed value; fall back to player.streakCount
-  // (set by updateStreak() in Firestore) when dailyLog hasn't hydrated yet.
-  const displayStreak = Math.max(stats.streak ?? 0, player.streakCount ?? 0)
+  // Use the computed dayStreak() value from playerStats — same source as the
+  // Leaderboard.  The previous Math.max(stats.streak, player.streakCount) fallback
+  // was intended as a hydration guard but had the opposite effect: a stale high
+  // player.streakCount in Firestore (e.g. 8) overrode a correctly recalculated
+  // lower figure (e.g. 2), keeping the stale "8D" visible on every profile open.
+  // dayStreak() now handles all activity types correctly (session + dailyLog
+  // object-format entries) so the extra fallback is no longer needed.
+  const displayStreak = stats.streak ?? 0
 
   const level     = LEVELS[stats.li]
   const earnedIds = Object.keys(player.earnedBadges || {})

@@ -6,6 +6,8 @@
  * out of sync and re-awarding diamonds on quests that are already complete.
  */
 
+import { SHOT_SUFFIX_NORM } from '../constants/techniques.js'
+
 // Locale-independent local-date string (YYYY-MM-DD) — matches the format
 // written by localDateStr() in stats.js.  Duplicated here to avoid a circular
 // import (stats.js → questHelpers.js is the existing dependency direction).
@@ -76,7 +78,6 @@ export function computeQuestProgress(text, sessions, extraShots = 0, baseline = 
     // The regex captures "Wrist"/"Snap"/"Slap" from quest text like "Wrist Shots",
     // but TechniqueTracker stores breakdown keys as "Wrist Shot"/"Snap Shot"/"Slap Shot".
     // "Backhand" is stored as-is (no "Shot" suffix). Normalize the key before lookup.
-    const SHOT_SUFFIX_NORM = { Wrist: 'Wrist Shot', Snap: 'Snap Shot', Slap: 'Slap Shot' }
     const techniqueName = SHOT_SUFFIX_NORM[rawName] ?? rawName
 
     const techEntry  = techniqueByPlayer[playerId]

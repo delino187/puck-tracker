@@ -26,7 +26,6 @@ import ShootTracker     from './components/ShootTracker.jsx'
 import Games            from './components/Games.jsx'
 import StreakHub        from './components/StreakHub.jsx'
 import DailyQuests      from './components/screens/DailyQuests.jsx'
-import TeamLeaderboards from './components/TeamLeaderboards.jsx'
 import Leaderboard      from './components/screens/Leaderboard.jsx'
 import { updateStreak }      from './utils/streakService.js'
 import { applyQuestProgress } from './utils/questHelpers.js'
@@ -46,6 +45,7 @@ import GlobalStyles  from './components/shared/GlobalStyles.jsx'
 import Scaffold      from './components/shared/Scaffold.jsx'
 
 import BadgePopup           from './components/overlays/BadgePopup.jsx'
+import { WidgetErrorBoundary } from './components/shared/ErrorBoundary.jsx'
 import OnboardingModal     from './components/overlays/OnboardingModal.jsx'
 import EpicCelebration     from './components/overlays/EpicCelebration.jsx'
 import CelebOverlay              from './components/overlays/CelebOverlay.jsx'
@@ -282,7 +282,6 @@ export default function App() {
     retroactiveHorseRef.current = player.id
     const hasFinishedGame = puckGames.some(g => g.status !== 'active')
     if (hasFinishedGame) {
-      console.log('[milestone] retroactively granting horseGame — completed game found in history')
       markRookieQuest('horseGame')
     }
   }, [puckGames, st?.activePlayerId]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1595,16 +1594,18 @@ export default function App() {
 
         <div style={{ maxWidth: 520, margin: '0 auto' }}>
           {tab === 'dashboard' && (
-            <Dashboard
-              newBadgeIds={newBadgeIds}
-              onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
-              onStartSession={() => { startSession(); setTab('session') }}
-              onNavigate={handleDashNavigate}
-              peerChallenges={peerChallenges}
-              onAcceptChallenge={c => setChallengeScreen({ mode: 'respond', challenge: c })}
-              puckGames={puckGames}
-              onPlayPuckGame={game => { setDeepLinkPuckGameId(game.id); setTab('session') }}
-            />
+            <WidgetErrorBoundary label="Dashboard">
+              <Dashboard
+                newBadgeIds={newBadgeIds}
+                onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
+                onStartSession={() => { startSession(); setTab('session') }}
+                onNavigate={handleDashNavigate}
+                peerChallenges={peerChallenges}
+                onAcceptChallenge={c => setChallengeScreen({ mode: 'respond', challenge: c })}
+                puckGames={puckGames}
+                onPlayPuckGame={game => { setDeepLinkPuckGameId(game.id); setTab('session') }}
+              />
+            </WidgetErrorBoundary>
           )}
           {tab === 'session' && (
             <ShootTracker
@@ -1726,85 +1727,40 @@ export default function App() {
               }}
               onClaimQuest={async (questText, rewardValue) => {
                 const id = st.activePlayerId
-                console.log('[App.jsx onClaimQuest] ← Received from DailyQuests:', {
-                  questText,
-                  rewardValue,
-                  activePlayerId: id,
-                })
-
-                if (!id) {
-                  console.error('[App.jsx onClaimQuest] No active player ID')
-                  return
-                }
+                if (!id) return
 
                 const player = st.players.find(p => p.id === id)
-                if (!player) {
-                  console.error('[App.jsx onClaimQuest] Player not found:', id)
-                  return
-                }
+                if (!player) return
 
-                const quests = player.daily_quests || []
-                console.log(`[App.jsx onClaimQuest] Looking for quest with text: "${questText}"`)
-                console.log(`[App.jsx onClaimQuest] Available quests:`, quests.map(q => ({ text: q.text, claimed: q.claimed })))
+                const quest = (player.daily_quests || []).find(q => q.text === questText)
+                if (!quest || quest.claimed) return
 
-                // Find quest by text (the identifier passed from child)
-                const quest = quests.find(q => q.text === questText)
+                const diamondReward  = rewardValue || quest.reward || 0
+                const diamondsAfter  = (player.diamonds || 0) + diamondReward
 
-                if (!quest) {
-                  console.error('[App.jsx onClaimQuest] ✗ Quest not found:', questText)
-                  alert(`Quest not found: "${questText}"`)
-                  return
-                }
-
-                if (quest.claimed) {
-                  console.warn('[App.jsx onClaimQuest] Quest already claimed:', questText)
-                  return
-                }
-
-                const diamondReward = rewardValue || quest.reward || 0
-                const diamondsBefore = player.diamonds || 0
-                const diamondsAfter = diamondsBefore + diamondReward
-
-                console.log(`[App.jsx onClaimQuest] ✓ Quest found, preparing to claim:`, {
-                  questText: quest.text,
-                  diamondReward,
-                  diamondsBefore,
-                  diamondsAfter,
-                })
-
-                // Build the next state with claimed quest + diamonds awarded
                 const nextState = {
                   ...st,
                   players: st.players.map(p => {
                     if (p.id !== id) return p
-
                     return {
                       ...p,
-                      diamonds: diamondsAfter,
+                      diamonds:     diamondsAfter,
                       daily_quests: p.daily_quests.map(q =>
-                        q.text === questText
-                          ? { ...q, claimed: true }
-                          : q
+                        q.text === questText ? { ...q, claimed: true } : q
                       ),
                     }
                   }),
                 }
 
-                console.log(`[App.jsx onClaimQuest] 📤 Firestore write starting...`)
-
                 // Stamp the self-claim ref so the PlayerContext snapshot listener
                 // won't fire the coachAwardToast + flute for this write
                 selfDiamondClaimRef.current = Date.now()
 
-                // Persist to Firestore FIRST — only update UI on success
                 try {
                   await saveToFirestore(nextState, techniqueByPlayer, id)
-                  console.log(`[App.jsx onClaimQuest] ✓✓✓ Firestore write SUCCEEDED ✓✓✓`)
                   setSt(nextState)
-                  console.log(`[App.jsx onClaimQuest] ✓ Local state updated. Diamonds: ${diamondsBefore} → ${diamondsAfter}`)
                 } catch (err) {
-                  console.error('[App.jsx onClaimQuest] ✗✗✗ Firestore write FAILED ✗✗✗', err)
-                  alert(`Failed to claim quest "${questText}": ${err.message}`)
+                  console.error('[App.jsx onClaimQuest] Firestore write failed:', err)
                 }
               }}
               onInitWeeklyQuests={(newQuests) => {
@@ -1819,85 +1775,40 @@ export default function App() {
               }}
               onClaimWeeklyQuest={async (questText, rewardValue) => {
                 const id = st.activePlayerId
-                console.log('[App.jsx onClaimWeeklyQuest] ← Received from DailyQuests:', {
-                  questText,
-                  rewardValue,
-                  activePlayerId: id,
-                })
-
-                if (!id) {
-                  console.error('[App.jsx onClaimWeeklyQuest] No active player ID')
-                  return
-                }
+                if (!id) return
 
                 const player = st.players.find(p => p.id === id)
-                if (!player) {
-                  console.error('[App.jsx onClaimWeeklyQuest] Player not found:', id)
-                  return
-                }
+                if (!player) return
 
-                const quests = player.weekly_quests || []
-                console.log(`[App.jsx onClaimWeeklyQuest] Looking for quest with text: "${questText}"`)
-                console.log(`[App.jsx onClaimWeeklyQuest] Available quests:`, quests.map(q => ({ text: q.text, claimed: q.claimed })))
-
-                // Find quest by text (the identifier passed from child)
-                const quest = quests.find(q => q.text === questText)
-
-                if (!quest) {
-                  console.error('[App.jsx onClaimWeeklyQuest] ✗ Quest not found:', questText)
-                  alert(`Quest not found: "${questText}"`)
-                  return
-                }
-
-                if (quest.claimed) {
-                  console.warn('[App.jsx onClaimWeeklyQuest] Quest already claimed:', questText)
-                  return
-                }
+                const quest = (player.weekly_quests || []).find(q => q.text === questText)
+                if (!quest || quest.claimed) return
 
                 const diamondReward = rewardValue || quest.reward || 0
-                const diamondsBefore = player.diamonds || 0
-                const diamondsAfter = diamondsBefore + diamondReward
+                const diamondsAfter = (player.diamonds || 0) + diamondReward
 
-                console.log(`[App.jsx onClaimWeeklyQuest] ✓ Quest found, preparing to claim:`, {
-                  questText: quest.text,
-                  diamondReward,
-                  diamondsBefore,
-                  diamondsAfter,
-                })
-
-                // Build the next state with claimed quest + diamonds awarded
                 const nextState = {
                   ...st,
                   players: st.players.map(p => {
                     if (p.id !== id) return p
-
                     return {
                       ...p,
-                      diamonds: diamondsAfter,
+                      diamonds:      diamondsAfter,
                       weekly_quests: p.weekly_quests.map(q =>
-                        q.text === questText
-                          ? { ...q, claimed: true, completed: true }
-                          : q
+                        q.text === questText ? { ...q, claimed: true, completed: true } : q
                       ),
                     }
                   }),
                 }
 
-                console.log(`[App.jsx onClaimWeeklyQuest] 📤 Firestore write starting...`)
-
                 // Stamp the self-claim ref so the PlayerContext snapshot listener
                 // won't fire the coachAwardToast + flute for this write
                 selfDiamondClaimRef.current = Date.now()
 
-                // Persist to Firestore FIRST — only update UI on success
                 try {
                   await saveToFirestore(nextState, techniqueByPlayer, id)
-                  console.log(`[App.jsx onClaimWeeklyQuest] ✓✓✓ Firestore write SUCCEEDED ✓✓✓`)
                   setSt(nextState)
-                  console.log(`[App.jsx onClaimWeeklyQuest] ✓ Local state updated. Diamonds: ${diamondsBefore} → ${diamondsAfter}`)
                 } catch (err) {
-                  console.error('[App.jsx onClaimWeeklyQuest] ✗✗✗ Firestore write FAILED ✗✗✗', err)
-                  alert(`Failed to claim quest "${questText}": ${err.message}`)
+                  console.error('[App.jsx onClaimWeeklyQuest] Firestore write failed:', err)
                 }
               }}
               onWeeklySpinComplete={(prize) => setSt(prev => {
@@ -2010,15 +1921,29 @@ export default function App() {
               }}
             />
           )}
-          {tab === 'board' && <Leaderboard />}
-          {tab === 'stats' && <GoalHeatmap />}
-          {tab === 'badges' && (
-            <BadgeGrid
-              newBadgeIds={newBadgeIds}
-              onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
-            />
+          {tab === 'board' && (
+            <WidgetErrorBoundary label="Leaderboard">
+              <Leaderboard />
+            </WidgetErrorBoundary>
           )}
-          {tab === 'ranks' && <RanksTab openDetail={rankDetailOpen} onDetailClose={() => setRankDetailOpen(false)} />}
+          {tab === 'stats' && (
+            <WidgetErrorBoundary label="Stats">
+              <GoalHeatmap />
+            </WidgetErrorBoundary>
+          )}
+          {tab === 'badges' && (
+            <WidgetErrorBoundary label="Badge Collection">
+              <BadgeGrid
+                newBadgeIds={newBadgeIds}
+                onBadgeClick={(b, isEarned) => setBadgePreview({ badge: b, earned: isEarned })}
+              />
+            </WidgetErrorBoundary>
+          )}
+          {tab === 'ranks' && (
+            <WidgetErrorBoundary label="Ranks">
+              <RanksTab openDetail={rankDetailOpen} onDetailClose={() => setRankDetailOpen(false)} />
+            </WidgetErrorBoundary>
+          )}
         </div>
 
         {/* ── Rookie milestone completion toast ──────────────────────────── */}

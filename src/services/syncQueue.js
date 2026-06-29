@@ -27,7 +27,6 @@ class SyncQueue {
 
     queue.push(queuedAction);
     localStorage.setItem(this.QUEUE_KEY, JSON.stringify(queue));
-    console.log(`📦 Action [${actionType}] queued offline. Items in outbox: ${queue.length}`);
     return queuedAction.id;
   }
 
@@ -39,19 +38,14 @@ class SyncQueue {
     if (queue.length === 0) return;
 
     this.isSyncing = true;
-    console.log(`⚡ Connection detected. Processing ${queue.length} pending driveway workouts...`);
 
     // Process items in chronological order (FIFO)
     while (queue.length > 0) {
       const currentAction = queue[0];
       try {
-        // Attempt to process payload using passed API handler
         await apiSubmitCallback(currentAction.actionType, currentAction.data);
-
-        // Remove item from memory array on success
         queue.shift();
         localStorage.setItem(this.QUEUE_KEY, JSON.stringify(queue));
-        console.log(`✅ Successfully synchronized action item: ${currentAction.id}`);
       } catch (error) {
         console.error(`❌ Sync batch processing failed for item ${currentAction.id}. Halting queue to preserve order.`, error);
         break; // Stop draining the queue to maintain structural order if backend is throwing errors

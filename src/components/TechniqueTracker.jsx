@@ -1,25 +1,16 @@
 import { useState, useRef } from 'react'
 import { ChevronLeft, Zap, X, AlertCircle } from 'lucide-react'
-
-const TECHNIQUE_MODAL_KEY = 'puck_seenTechniqueModal'
 import confetti from 'canvas-confetti'
 import { C } from '../styles.js'
 import { useAppStore } from '../store/useAppStore.js'
 import { audioEngine } from '../services/audioEngine.js'
+import { TECHNIQUES } from '../constants/techniques.js'
 
-const QUICK_ADDS    = [1, 5, 10]
-const SESSION_LIMIT = 100
-const ANTI_SPAM_TAP_THRESHOLD = 3      // taps
-const ANTI_SPAM_TIME_WINDOW = 3000     // milliseconds
-// Core shooting techniques with display labels and emojis
-const TECHNIQUES    = [
-  { key: 'Wrist Shot', label: 'Wrist Shot 🏒' },
-  { key: 'Backhand', label: 'Backhand 🎯' },
-  { key: 'Snap Shot', label: 'Snap Shot ⚡' },
-  { key: 'Slap Shot', label: 'Slap Shot 💥' },
-  { key: 'One-Timer', label: 'One-Timer 🚀' },
-  { key: 'Toe Drag', label: 'Toe Drag 🔄' },
-]
+const TECHNIQUE_MODAL_KEY     = 'puck_seenTechniqueModal'
+const QUICK_ADDS              = [1, 5, 10]
+const SESSION_LIMIT           = 100
+const ANTI_SPAM_TAP_THRESHOLD = 3     // taps
+const ANTI_SPAM_TIME_WINDOW   = 3000  // milliseconds
 
 export default function TechniqueTracker({ player, onBack, onGoalReached }) {
   const [showModal,    setShowModal]    = useState(() => !localStorage.getItem(TECHNIQUE_MODAL_KEY))

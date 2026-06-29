@@ -170,22 +170,6 @@ export function PlayerProvider({ children }) {
       const incoming = teamData.players || []
       const activeId = activePlayerIdRef.current
 
-      // Diagnostic: log what Firestore is delivering for the active player.
-      if (activeId) {
-        const snap = incoming.find(p => p.id === activeId)
-        if (snap) {
-          console.log(
-            '[realtimeSync] team snapshot for active player:',
-            snap.name,
-            '| streakCount:', snap.streakCount ?? 'unset',
-            '| lastActivity:', snap.lastActivity
-              ? new Date(snap.lastActivity).toLocaleString()
-              : 'unset',
-            '| diamonds:', snap.diamonds ?? 0,
-            '| elo:', snap.elo ?? 'unset',
-          )
-        }
-      }
 
       // Diamond-increase toast: compare against the previous snapshot baseline.
       // Skip the very first fire (baseline = null) to avoid false toasts on login.

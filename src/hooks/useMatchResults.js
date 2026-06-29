@@ -185,10 +185,7 @@ export function useMatchResults(peerChallenges) {
       // Admin correction safety: skip matches completed before a stat rollback
       const winner = st.players.find(p => p.id === activeId)
       if (winner?.lastAdminAdjustmentTimestamp && challenge.respondedAt) {
-        if (challenge.respondedAt < winner.lastAdminAdjustmentTimestamp) {
-          console.log(`[useMatchResults] Skipping ${challenge.id} — before admin correction`)
-          continue
-        }
+        if (challenge.respondedAt < winner.lastAdminAdjustmentTimestamp) continue
       }
 
       // Optimistic lock — prevents rapid snapshot re-fires from double-claiming

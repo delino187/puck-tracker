@@ -5,6 +5,7 @@ import Avatar from '../shared/Avatar.jsx'
 import { BADGES } from '../../constants/badges.js'
 import { LEVELS } from '../../constants/levels.js'
 import { calcXP, getLevel } from '../../utils/stats.js'
+import { dayStreak } from '../../utils/badgeHelpers.js'
 import { getStreakAuraClass } from '../../utils/streakAura.js'
 import { STREAK_EXCLUSIVE_BADGES } from '../../constants/streakBadges.js'
 import { useAppStore } from '../../store/useAppStore.js'
@@ -64,7 +65,13 @@ export default function PlayerProfileCardModal({ player, currentPlayer, sessions
   const earnedMedals       = BADGES
     .filter(b => earnedIds.includes(b.id))
     .sort((a, b) => (player.earnedBadges?.[b.id]?.ts || 0) - (player.earnedBadges?.[a.id]?.ts || 0))
-  const activeStreak       = player.streakCount || 0
+  // Compute streak the same way the Leaderboard does — via dayStreak() which
+  // aggregates session dates, freeze-protected dates, AND dailyLog entries from
+  // all game modes (Technique, Versus, P-U-C-K).  player.streakCount is the raw
+  // Firestore field that may lag behind or hold a stale value from a prior session;
+  // using it directly caused the player card to show "8D" while the leaderboard
+  // correctly showed the recalculated figure.
+  const activeStreak       = dayStreak(player, sessions)
   const liveMedals         = STREAK_EXCLUSIVE_BADGES.filter(b => activeStreak >= b.minStreak)
   const medals             = [...liveMedals, ...earnedMedals].slice(0, 8)
   const isSelf             = player.id === currentPlayer?.id

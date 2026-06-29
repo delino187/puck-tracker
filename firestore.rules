@@ -1,0 +1,176 @@
+rules_version = '2';
+
+// ── Puck Tracker — Firestore Security Rules ───────────────────────────────────
+//
+// Data model (all game data lives under a single fixed team document):
+//
+//   teams/team_main                       ← team doc: embedded players[] array
+//   teams/team_main/sessions/{id}         ← one doc per shooting session
+//   teams/team_main/peerChallenges/{id}   ← Versus Quick Match documents
+//   teams/team_main/puckGames/{id}        ← P-U-C-K Horse game documents
+//   teams/team_main/notifications/{id}    ← rage-bait / compliment pushes
+//   video_reports/{id}                    ← moderation reports (root collection)
+//   migrations/{id}                       ← one-time migration guards
+//   admin_audit_logs/{id}                 ← coach action audit trail
+//
+// Authentication model:
+//   Players optionally register with Firebase Auth (email+password or phone).
+//   The app's internal player ID is a random string independent of auth.uid.
+//   For challenge/game participant enforcement, documents should store
+//   challengerUid / receiverUid / p1Uid / p2Uid (request.auth.uid at create
+//   time).  Documents that pre-date this field use the legacy fallback rules
+//   below until they are re-written with UID fields.
+//
+// Deployment: paste into the Firebase console → Firestore → Rules tab,
+// or deploy via `firebase deploy --only firestore:rules`.
+// ──────────────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    // All mutations require an authenticated session.
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Returns true when the incoming write does NOT try to alter a specific field.
+    function notChanging(field) {
+      return !(field in request.resource.data.diff(resource.data).affectedKeys());
+    }
+
+    // Participant check for challenge/puckGame documents.
+    // When uid fields exist on the document, enforce strict UID matching.
+    // When they are absent (legacy documents), fall back to auth-only enforcement
+    // until those documents are re-created with UID fields.
+    function isParticipant(uidFieldA, uidFieldB) {
+      let aPresent = resource.data.get(uidFieldA, null) != null;
+      let bPresent = resource.data.get(uidFieldB, null) != null;
+      return (
+        // Strict: at least one UID field set and it matches the caller
+        (aPresent && resource.data[uidFieldA] == request.auth.uid) ||
+        (bPresent && resource.data[uidFieldB] == request.auth.uid) ||
+        // Legacy fallback: neither UID field exists yet on this document
+        (!aPresent && !bPresent)
+      );
+    }
+
+    // ── teams/team_main ───────────────────────────────────────────────────────
+    //
+    // The team document contains the embedded players[] array that holds every
+    // player's stats, ELO, diamonds, and freeze state.  Because Firestore cannot
+    // validate individual array elements against request.auth.uid natively, we
+    // enforce authentication for all writes and rely on the application-layer
+    // purchaseDiamondItem / updateStreak transactions for data integrity.
+    // Unauthenticated clients — bots, scrapers — are blocked entirely.
+    //
+    // Only the fixed document 'team_main' is matched; a client cannot create
+    // sibling team documents because no other path under /teams/ is matched.
+    match /teams/team_main {
+      allow read:  if isAuth();
+      allow write: if isAuth();
+
+      // ── sessions ────────────────────────────────────────────────────────────
+      // Sessions are written at the end of a practice and contain sets[] with
+      // shot accuracy data.  Any authenticated team member can read all sessions
+      // (coach reviews, leaderboard history).  Deletes are admin-only.
+      match /sessions/{sessionId} {
+        allow read:          if isAuth();
+        allow create, update: if isAuth();
+        allow delete:         if false;
+      }
+
+      // ── peerChallenges ───────────────────────────────────────────────────────
+      // Versus Quick Match documents.  Any authenticated player can open a new
+      // challenge (create).  Updates (submitting video, claiming rewards, ELO
+      // processing) are restricted to the two participants identified by
+      // challengerUid / receiverUid.  Deletion is blocked to preserve history.
+      match /peerChallenges/{challengeId} {
+        allow read:   if isAuth();
+        allow create: if isAuth()
+                      // Creator must identify themselves
+                      && request.resource.data.challengerId is string
+                      && request.resource.data.receiverId   is string;
+
+        allow update: if isAuth()
+                      && isParticipant('challengerUid', 'receiverUid')
+                      // Core identity fields are immutable after creation
+                      && notChanging('challengerId')
+                      && notChanging('receiverId');
+
+        allow delete: if false;
+      }
+
+      // ── puckGames ────────────────────────────────────────────────────────────
+      // P-U-C-K Horse game documents.  Same participant-only enforcement as
+      // peerChallenges.  Stored UID fields: p1Uid / p2Uid.
+      match /puckGames/{gameId} {
+        allow read:   if isAuth();
+        allow create: if isAuth();
+
+        allow update: if isAuth()
+                      && isParticipant('p1Uid', 'p2Uid')
+                      && notChanging('p1Id')
+                      && notChanging('p2Id');
+
+        allow delete: if false;
+      }
+
+      // ── notifications ─────────────────────────────────────────────────────────
+      // Rage-bait and compliment push documents.  Any authenticated player can
+      // create a notification (send a prank/compliment).  Receivers delete their
+      // own notifications on dismiss.  Updates are never needed by the client.
+      match /notifications/{notifId} {
+        allow read:   if isAuth();
+        allow create: if isAuth()
+                      && request.resource.data.type in ['rage_bait', 'compliment'];
+        allow delete: if isAuth();
+        allow update: if false;
+      }
+    }
+
+    // ── video_reports ──────────────────────────────────────────────────────────
+    // Root-level moderation reports, isolated from game data so a compromised
+    // client write cannot inject data into the game subcollections.
+    // Any authenticated player can create a report.  Updates are made by the
+    // coach client; deletes are blocked to preserve the moderation trail.
+    match /video_reports/{reportId} {
+      allow read:   if isAuth();
+      allow create: if isAuth()
+                    && request.resource.data.type is string;
+      allow update: if isAuth();
+      allow delete: if false;
+    }
+
+    // ── migrations ─────────────────────────────────────────────────────────────
+    // One-time migration guard documents (e.g. retroXPAward migration ID).
+    // Authenticated clients can read (to check if migration already ran) and
+    // create (to set the guard after running).  Once written, they are immutable
+    // to prevent a re-run from a different device.
+    match /migrations/{migrationId} {
+      allow read:          if isAuth();
+      allow create:        if isAuth();
+      allow update, delete: if false;
+    }
+
+    // ── admin_audit_logs ───────────────────────────────────────────────────────
+    // Append-only coach action log.  Any authenticated user can read (coaches
+    // review their own entries) and create (coach portal writes on each action).
+    // Updates and deletes are permanently blocked — audit logs are immutable.
+    match /admin_audit_logs/{logId} {
+      allow read:          if isAuth();
+      allow create:        if isAuth();
+      allow update, delete: if false;
+    }
+
+    // ── Catch-all deny ─────────────────────────────────────────────────────────
+    // Any path not explicitly matched above — including any new collection that
+    // has not yet been added to these rules — is denied for all operations.
+    // This default-deny posture prevents accidental data exposure when the data
+    // model evolves.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

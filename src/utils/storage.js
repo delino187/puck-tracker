@@ -100,7 +100,6 @@ export async function loadSt() {
       }
 
       if (needsUpdate) {
-        console.log('[storage] Hydrating techniqueByPlayer from Firestore/merge:', candidate)
         // Use the function form of setState: if the computed candidate turns out
         // equal to current state, return the SAME state reference so Zustand
         // skips notifying subscribers and React skips the re-render entirely.
@@ -146,10 +145,6 @@ export async function loadSt() {
       const cloudSets = cs.sets?.length ?? 0
       const localSets = ls?.sets?.length ?? 0
       if (ls && localSets > cloudSets) {
-        console.log(
-          `[storage] Healing session ${cs.id}: cloud had ${cloudSets} sets, ` +
-          `local has ${localSets} — using local and pushing to Firestore.`
-        )
         // Push corrected session to Firestore asynchronously; doesn't block render.
         // Writing to the sessions subcollection does NOT trigger the team onSnapshot,
         // so there is no risk of creating the update-loop that previously caused crashes.
@@ -166,9 +161,6 @@ export async function loadSt() {
       ls => !cloudSessionIds.has(ls.id) && (ls.sets?.length ?? 0) > 0
     )
     if (localOnlySessions.length > 0) {
-      console.log(
-        `[storage] Found ${localOnlySessions.length} local-only session(s) — pushing to Firestore.`
-      )
       localOnlySessions.forEach(ls =>
         forceSessionSync(ls).catch(err =>
           console.warn('[storage] Local-only session push failed:', err.message)
@@ -199,10 +191,6 @@ export async function loadSt() {
       for (const player of (merged.players || [])) {
         const repaired = healPlayerStats(player, merged.sessions || [], latestTech[player.id])
         if (repaired) {
-          console.log(
-            `[Healer] Restored ${player.name}'s profile to ${repaired.totalPucks} pucks ` +
-            `/ ${repaired.bonusXP} XP based on unlocked milestone badge.`
-          )
           healedTech[player.id] = repaired
           isHealed = true
         }
@@ -225,12 +213,6 @@ export async function loadSt() {
 
   // ── Firestore unavailable — fall back to localStorage ─────────────────────
   console.warn('[storage] Firestore unavailable — loading from localStorage fallback.')
-  if (localData) {
-    console.log(
-      '[storage] localStorage fallback: players =', localData.players?.length ?? 0,
-      '| sessions =', localData.sessions?.length ?? 0,
-    )
-  }
   try {
     if (window.storage) {
       const r = await window.storage.get(SK)

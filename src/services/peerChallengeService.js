@@ -123,10 +123,7 @@ export async function respondToChallenge(challenge, receiverHits, videoUrl) {
 
         // Per-match idempotency guard — prevents double ELO application if the
         // receiver's device retries or the snapshot listener fires a second time.
-        if (challengeDoc.exists() && challengeDoc.data()?.eloProcessed) {
-          console.log(`[ELO] Already processed for challenge ${challenge.id} — skipping`)
-          return
-        }
+        if (challengeDoc.exists() && challengeDoc.data()?.eloProcessed) return
 
         const players    = teamDoc.data().players || []
         const challenger = players.find(p => p.id === challenge.challengerId)

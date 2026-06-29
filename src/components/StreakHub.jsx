@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Volume2, CheckCircle } from 'lucide-react'
+import { Volume2 } from 'lucide-react'
 import { audioEngine } from '../services/audioEngine.js'
 import PageHelpButton from './shared/PageHelpButton.jsx'
 import { playerStats } from '../utils/stats.js'

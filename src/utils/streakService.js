@@ -115,12 +115,6 @@ export async function updateStreak(playerId) {
         const prevDates = player.protectedDates || []
         newStreak       = (player.streakCount || 0) + 1
 
-        console.log(
-          `[Streak] 1-day freeze consumed for ${playerId}. `
-          + `Streak preserved at ${newStreak}. `
-          + `Remaining: ${(player.streak_freezes || 1) - 1}`
-        )
-
         tx.update(teamRef, {
           players: players.map(p =>
             p.id === playerId
@@ -142,12 +136,6 @@ export async function updateStreak(playerId) {
         // Sets weeklyFreezeUntil to 7 days from now.
         const prevDates = player.protectedDates || []
         newStreak       = (player.streakCount || 0) + 1
-
-        console.log(
-          `[Streak] Week freeze consumed for ${playerId}. `
-          + `Streak preserved at ${newStreak}. `
-          + `Remaining week freezes: ${(player.week_streak_freezes || 1) - 1}`
-        )
 
         tx.update(teamRef, {
           players: players.map(p =>

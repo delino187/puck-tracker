@@ -247,10 +247,7 @@ export default function PuckGame({ player, players, puckGames, onBack, onUpdate,
   useEffect(() => {
     if (!selectedGame?.id) return
     const fresh = puckGames.find(g => g.id === selectedGame.id)
-    if (fresh && fresh !== selectedGame) {
-      console.log('[PuckGame] selectedGame refreshed from live puckGames update, id:', fresh.id)
-      setSelectedGame(fresh)
-    }
+    if (fresh && fresh !== selectedGame) setSelectedGame(fresh)
   }, [puckGames]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Detect when it becomes the player's turn and show a brief alert

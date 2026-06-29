@@ -348,7 +348,7 @@ export default function Dashboard({ onStartSession, newBadgeIds, onBadgeClick, o
               title: 'Join Me on Puck Tracker',
               text: inviteMsg,
               url: inviteUrl,
-            }).catch(err => console.log('[invite] Share cancelled or failed:', err))
+            }).catch(() => {})
           } else {
             // Fallback: SMS on unsupported browsers
             const smsBody = encodeURIComponent(inviteMsg)

@@ -1,4 +1,4 @@
-import { Lock, ShoppingBag, Snowflake } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { C } from '../styles.js'
 import { useAppStore } from '../store/useAppStore.js'
 
