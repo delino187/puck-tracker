@@ -247,50 +247,43 @@ export default function App() {
     if (!st?.activePlayerId || !st) return
     const player = st.players.find(p => p.id === st.activePlayerId)
     if (!player) return
-    const already        = { ...(player.earnedBadges || {}) }
+    const already = { ...(player.earnedBadges || {}) }
 
-    // ── Step 1: migrate legacy name-keyed streak entries to canonical IDs ──────
-    // Earlier code inadvertently wrote badge display names (e.g. 'Hat Trick')
-    // as earnedBadges keys instead of the system IDs ('streak_3'). Remap them
-    // so the BadgeGrid's ID-based lookup finds them correctly.
+    // ── Step 1: migrate legacy name-keyed entries and purge junk streak_X keys ─
+    // Badge display names were previously written as earnedBadges keys by an old
+    // migration. Map them to the canonical BADGES IDs from badges.js (s3, s4, s5).
+    // Names that exist only in STREAK_BADGES (no BADGES equivalent) are purged.
+    // BadgeGrid's streak section uses allTimeStreakPB for lock/unlock display — it
+    // does NOT read earnedBadges for that — so streak_X keys are invisible
+    // duplicates that only inflate Object.keys(earnedBadges).length. Purge them.
+    let migrationDirty = false
     const STREAK_NAME_TO_ID = {
-      'The Spark':      'streak_1',
-      'Light the Lamp': 'streak_2',
-      'Hat Trick':      'streak_3',
-      'Five-Hole Fire': 'streak_5',
-      'Hot Stick':      'streak_7',
-      'Playoff Beard':  'streak_14',
-      'Iron Guard':     'streak_30',
-      'Barn Burner':    'streak_60',
-      'Living Legend':  'streak_90',
+      'The Spark':      's1',   // badges.js id
+      'Light the Lamp': 's4',   // badges.js id
+      'Hat Trick':      's3',   // badges.js id
+      'Hot Stick':      's5',   // badges.js id
+      'Five-Hole Fire': null,   // STREAK_BADGES only — no BADGES id, purge only
+      'Playoff Beard':  null,
+      'Iron Guard':     null,
+      'Barn Burner':    null,
+      'Living Legend':  null,
     }
-    Object.entries(STREAK_NAME_TO_ID).forEach(([name, id]) => {
-      if (already[name] && !already[id]) {
-        already[id] = already[name]
+    Object.entries(STREAK_NAME_TO_ID).forEach(([name, correctId]) => {
+      if (already[name]) {
+        if (correctId && !already[correctId]) already[correctId] = already[name]
         delete already[name]
-      } else if (already[name]) {
-        delete already[name]   // duplicate — correct ID already present
+        migrationDirty = true
       }
     })
+    // Purge any streak_X keys written by the previous (incorrect) migration run.
+    ;['streak_1','streak_2','streak_3','streak_5','streak_7',
+      'streak_14','streak_30','streak_60','streak_90'].forEach(k => {
+      if (k in already) { delete already[k]; migrationDirty = true }
+    })
 
-    const newBadges = BADGES.filter(b => !already[b.id] && b.check(player, st.sessions))
-
-    // ── Step 2: backfill STREAK_BADGES ────────────────────────────────────────
-    // Use the higher of allTimeStreakPB (from session history) and streakCount
-    // (stored in Firestore). Technique-only days and PUCK/Versus turns update
-    // streakCount without creating session documents, so allTimeStreakPB alone
-    // underestimates the streak for those players.
-    // If streakCount >= 7, all intermediate milestones (3, 5, 7) are awarded.
-    const streakPB        = Math.max(
-      allTimeStreakPB(player, st.sessions),
-      player.streakCount || 0
-    )
-    const newStreakBadges = STREAK_BADGES
-      .filter(sb => streakPB >= sb.milestone && !already[sb.id])
-      .map(sb => toCircleBadge(sb))
-
-    const allNewBadges   = [...newBadges, ...newStreakBadges]
-    if (!allNewBadges.length) return
+    // ── Step 2: award any newly qualifying BADGES ─────────────────────────────
+    const allNewBadges = BADGES.filter(b => !already[b.id] && b.check(player, st.sessions))
+    if (!allNewBadges.length && !migrationDirty) return
     const now = Date.now()
     allNewBadges.forEach(b => { already[b.id] = { ts: now } })
     // Award XP before setSt so Zustand is fresh when the save fires
@@ -875,13 +868,8 @@ export default function App() {
     }
 
     // Badge check — regular badges + streak milestones
-    const already        = { ...(aPlayer.earnedBadges || {}) }
-    const newBadges      = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
-    const streakPB        = Math.max(allTimeStreakPB(aPlayer, updSessions), aPlayer.streakCount || 0)
-    const newStreakBadges = STREAK_BADGES
-      .filter(sb => streakPB >= sb.milestone && !already[sb.id])
-      .map(sb => toCircleBadge(sb))
-    const allNewBadges   = [...newBadges, ...newStreakBadges]
+    const already      = { ...(aPlayer.earnedBadges || {}) }
+    const allNewBadges = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
 
     let updPlayers = st.players
     if (allNewBadges.length) {
@@ -939,13 +927,8 @@ export default function App() {
     }
 
     // Badge check — regular badges + streak milestones
-    const already        = { ...(aPlayer.earnedBadges || {}) }
-    const newBadges      = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
-    const streakPB        = Math.max(allTimeStreakPB(aPlayer, updSessions), aPlayer.streakCount || 0)
-    const newStreakBadges = STREAK_BADGES
-      .filter(sb => streakPB >= sb.milestone && !already[sb.id])
-      .map(sb => toCircleBadge(sb))
-    const allNewBadges   = [...newBadges, ...newStreakBadges]
+    const already      = { ...(aPlayer.earnedBadges || {}) }
+    const allNewBadges = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
 
     let updPlayers = st.players
     if (allNewBadges.length) {
@@ -1693,13 +1676,8 @@ export default function App() {
                 // Badge check — ATW completion may unlock atw_1 (Global Citizen)
                 // and other ATW milestone badges. Must run against updSessions so
                 // atwGamesPlayed() sees the new session immediately.
-                const already        = { ...(aPlayer.earnedBadges || {}) }
-                const newBadges      = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
-                const streakPB       = Math.max(allTimeStreakPB(aPlayer, updSessions), aPlayer.streakCount || 0)
-                const newStreakBadges = STREAK_BADGES
-                  .filter(sb => streakPB >= sb.milestone && !already[sb.id])
-                  .map(sb => toCircleBadge(sb))
-                const allNewBadges   = [...newBadges, ...newStreakBadges]
+                const already      = { ...(aPlayer.earnedBadges || {}) }
+                const allNewBadges = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
 
                 let updPlayers = st.players
                 if (allNewBadges.length) {

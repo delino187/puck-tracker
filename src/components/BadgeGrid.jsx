@@ -235,7 +235,10 @@ export default function BadgeGrid({ newBadgeIds, onBadgeClick }) {
 
         // ── Streak milestones — circular BadgeCircle tiles matching all other categories ──
         if (cat.id === 'streak') {
-          const streakPB      = allTimeStreakPB(player, sessions)
+          // Use the higher of computed PB and stored streakCount — technique-only
+          // days and PUCK/Versus turns increment streakCount without creating
+          // session documents, so allTimeStreakPB alone underestimates those players.
+          const streakPB      = Math.max(allTimeStreakPB(player, sessions), player.streakCount || 0)
           const unlockedCount = STREAK_BADGES.filter(b => streakPB >= b.milestone).length
           return (
             <div key={cat.id} style={{ ...C.card, padding: '20px 18px' }}>
