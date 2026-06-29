@@ -1688,7 +1688,43 @@ export default function App() {
                   source:   'atw',
                   sets,
                 }
-                upd({ sessions: [...st.sessions, atwSession] })
+                const updSessions = [...st.sessions, atwSession]
+
+                // Badge check — ATW completion may unlock atw_1 (Global Citizen)
+                // and other ATW milestone badges. Must run against updSessions so
+                // atwGamesPlayed() sees the new session immediately.
+                const already        = { ...(aPlayer.earnedBadges || {}) }
+                const newBadges      = BADGES.filter(b => !already[b.id] && b.check(aPlayer, updSessions))
+                const streakPB       = Math.max(allTimeStreakPB(aPlayer, updSessions), aPlayer.streakCount || 0)
+                const newStreakBadges = STREAK_BADGES
+                  .filter(sb => streakPB >= sb.milestone && !already[sb.id])
+                  .map(sb => toCircleBadge(sb))
+                const allNewBadges   = [...newBadges, ...newStreakBadges]
+
+                let updPlayers = st.players
+                if (allNewBadges.length) {
+                  const now = Date.now()
+                  allNewBadges.forEach(b => { already[b.id] = { ts: now } })
+                  const totalBadgeXP = allNewBadges.reduce((sum, b) => sum + getBadgeXP(b), 0)
+                  if (totalBadgeXP > 0) useAppStore.getState().logTechniqueShots(aPlayer.id, 0, totalBadgeXP)
+                  updPlayers = st.players.map(p =>
+                    p.id === aPlayer.id ? { ...p, earnedBadges: already } : p
+                  )
+                  setNewBadgeIds(prev => {
+                    const n = { ...prev }
+                    allNewBadges.forEach(b => { n[b.id] = true })
+                    return n
+                  })
+                  badgeQRef.current.push(...allNewBadges)
+                  setEpicCeleb(cur => {
+                    if (cur) return cur
+                    const next = badgeQRef.current.shift()
+                    if (next) audioEngine.playBadgeUnlock()
+                    return next ? { type: 'badge', badge: next } : null
+                  })
+                }
+
+                upd({ sessions: updSessions, players: updPlayers })
                 markRookieQuest('aroundWorld')
               }}
               onPuckGameUpdate={updated => {
