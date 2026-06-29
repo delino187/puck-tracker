@@ -148,7 +148,10 @@ export function allTimeStreakPB(p, s) {
 // ── Around the World helpers ─────────────────────────────────────────────────
 
 function _atwSess(p, s) {
-  return s.filter(x => x.playerId === p.id && x.source === 'atw')
+  return s.filter(x =>
+    x.playerId === p.id &&
+    (x.source === 'atw' || x.type === 'atw' || x.type === 'around_the_world')
+  )
 }
 
 function _atwScore(sess) {

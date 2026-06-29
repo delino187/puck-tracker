@@ -258,15 +258,18 @@ export default function App() {
     // duplicates that only inflate Object.keys(earnedBadges).length. Purge them.
     let migrationDirty = false
     const STREAK_NAME_TO_ID = {
-      'The Spark':      's1',   // badges.js id
-      'Light the Lamp': 's4',   // badges.js id
-      'Hat Trick':      's3',   // badges.js id
-      'Hot Stick':      's5',   // badges.js id
-      'Five-Hole Fire': null,   // STREAK_BADGES only — no BADGES id, purge only
+      'The Spark':      's1',     // badges.js id
+      'Light the Lamp': 's4',     // badges.js id
+      'Hat Trick':      's3',     // badges.js id
+      'Hot Stick':      's5',     // badges.js id
+      'Five-Hole Fire': null,     // STREAK_BADGES only — no BADGES id, purge only
       'Playoff Beard':  null,
       'Iron Guard':     null,
       'Barn Burner':    null,
       'Living Legend':  null,
+      // ATW name variants — migrate any old display-name keys to the canonical id
+      'Global Citizen': 'atw_1',
+      'global_citizen': 'atw_1',
     }
     Object.entries(STREAK_NAME_TO_ID).forEach(([name, correctId]) => {
       if (already[name]) {
