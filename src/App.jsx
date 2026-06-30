@@ -725,7 +725,7 @@ export default function App() {
         const newCounters = {
           versusMatchesPlayed: (pSnap.versusMatchesPlayed || 0) + 1,
           versusWins:          (pSnap.versusWins || 0) + (didWin ? 1 : 0),
-          ...(perfect && !pSnap.hasPerfectVersusScore ? { hasPerfectVersusScore: true } : {}),
+          ...(perfect ? { perfectVersusTurns: (pSnap.perfectVersusTurns || 0) + 1 } : {}),
         }
         const projPlayer   = { ...pSnap, ...newCounters }
         const already      = { ...(pSnap.earnedBadges || {}) }

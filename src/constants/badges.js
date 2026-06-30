@@ -89,12 +89,12 @@ export const BADGES = [
 
   // ── Challenges / Versus ───────────────────────────────────────────────────────
   // c1/c2/c3/u1 check player-level counters (versusMatchesPlayed, versusWins,
-  // hasPerfectVersusScore) incremented in handlePeerChallengeSubmit. They take
+  // perfectVersusTurns) incremented in handlePeerChallengeSubmit. They take
   // only (p) — no sessions arg needed.
   { id: 'c1',  name: 'First Blood',       desc: 'Complete your first Versus match',        cat: 'challenge', tier: 1, Icon: CheckCircle, innerBg: 'linear-gradient(135deg,#0c4a6e,#0369a1)', innerIcon: '#7dd3fc', check: (p)   => (p.versusMatchesPlayed || 0) >= 1   },
-  { id: 'c2',  name: 'Rink Regular',      desc: 'Complete 10 Versus matches',              cat: 'challenge', tier: 2, Icon: CheckCircle, innerBg: 'linear-gradient(135deg,#065f46,#0d9488)', innerIcon: '#99f6e4', check: (p)   => (p.versusMatchesPlayed || 0) >= 10  },
-  { id: 'c3',  name: 'King of the Sheet', desc: 'Win 10 Versus matches',                  cat: 'challenge', tier: 3, Icon: Trophy,      innerBg: 'linear-gradient(135deg,#1e3a8a,#2563eb)', innerIcon: '#bfdbfe', check: (p)   => (p.versusWins          || 0) >= 10  },
-  { id: 'u1',  name: 'Bar Down Sniper',   desc: 'Score a perfect turn in a Versus match', cat: 'challenge', tier: 3, Icon: Target,      innerBg: 'linear-gradient(135deg,#713f12,#f97316)', innerIcon: '#fed7aa', check: (p)   => !!p.hasPerfectVersusScore              },
+  { id: 'c2',  name: 'Rink Regular',      desc: 'Complete 5 Versus matches',               cat: 'challenge', tier: 2, Icon: CheckCircle, innerBg: 'linear-gradient(135deg,#065f46,#0d9488)', innerIcon: '#99f6e4', check: (p)   => (p.versusMatchesPlayed || 0) >= 5   },
+  { id: 'c3',  name: 'King of the Sheet', desc: 'Win 5 Versus matches',                   cat: 'challenge', tier: 3, Icon: Trophy,      innerBg: 'linear-gradient(135deg,#1e3a8a,#2563eb)', innerIcon: '#bfdbfe', check: (p)   => (p.versusWins          || 0) >= 5   },
+  { id: 'u1',  name: 'Bar Down Sniper',   desc: 'Hit a perfect score (5/5) in a Versus match turn', cat: 'challenge', tier: 3, Icon: Target, innerBg: 'linear-gradient(135deg,#713f12,#f97316)', innerIcon: '#fed7aa', check: (p)   => (p.perfectVersusTurns  || 0) >= 1   },
   { id: 'c5',  name: 'Challenger',        desc: 'Completed 5 challenges',  cat: 'challenge', tier: 2, Icon: CheckCircle, innerBg: 'linear-gradient(135deg,#1e3a8a,#2563eb)', innerIcon: '#bfdbfe', check: (p,s) => challengesCompleted(p,s)>=5  },
   { id: 'c10', name: 'Challenge King',    desc: 'Completed 10 challenges', cat: 'challenge', tier: 3, Icon: CheckCircle, innerBg: 'linear-gradient(135deg,#713f12,#b45309)', innerIcon: '#fde68a', check: (p,s) => challengesCompleted(p,s)>=10 },
   { id: 'c20', name: 'Weekend Warrior',   desc: 'Completed 20 challenges', cat: 'challenge', tier: 3, Icon: CheckCircle, innerBg: 'linear-gradient(135deg,#7c2d12,#dc2626)', innerIcon: '#fca5a5', check: (p,s) => challengesCompleted(p,s)>=20 },
@@ -163,7 +163,7 @@ export const BADGE_CATS = [
   { id: 'volume',    label: 'Volume',                  Icon: Zap         },
   { id: 'time',      label: 'Time',                    Icon: Clock       },
   { id: 'skill',     label: 'Skill & Onboarding',      Icon: Award       },
-  { id: 'challenge', label: 'Challenges',              Icon: CheckCircle },
+  { id: 'challenge', label: 'Versus Matches',           Icon: CheckCircle },
   { id: 'ultra',     label: 'Ultra-Rare Achievements', Icon: Gem         },
   { id: 'games',     label: 'Around the World',        Icon: Gamepad2    },
 ]
