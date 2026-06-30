@@ -27,7 +27,6 @@ const MEDALS = ['🥇', '🥈', '🥉']
 const FILTERS = [
   { id: 'elo',      label: '🏆 ELO',    color: '#f59e0b' },
   { id: 'xp',       label: '⚡ XP',      color: '#a855f7' },
-  { id: 'rank',     label: '🎯 RANK',    color: '#22c55e' },
   { id: 'shots',    label: '🏒 SHOTS',   color: '#3b82f6' },
   { id: 'accuracy', label: '📊 ACC',     color: '#06b6d4' },
   { id: 'streak',   label: '🔥 STREAK',  color: '#ef4444' },
@@ -36,7 +35,6 @@ const FILTERS = [
 const SUBTITLES = {
   elo:      'TOP 10 · RANKED BY ELO RATING',
   xp:       'TOP 10 · RANKED BY TOTAL XP EARNED',
-  rank:     'TOP 10 · RANKED BY TIER LEVEL',
   shots:    'TOP 10 · RANKED BY TOTAL SHOTS LOGGED',
   accuracy: 'TOP 10 · RANKED BY SESSION ACCURACY',
   streak:   'TOP 10 · RANKED BY LONGEST WINNING STREAK',
@@ -48,10 +46,6 @@ function getMetric(p, stats, sortBy) {
       return { value: (p.elo ?? 1000).toString(), label: 'ELO', color: '#f59e0b', large: true }
     case 'xp':
       return { value: Math.round(stats.xp).toLocaleString(), label: 'XP', color: '#a855f7', large: true }
-    case 'rank':
-      // For rank filter, show the XP-based tier (Bronze, Silver, Gold, etc)
-      const tier = stats.level
-      return { value: tier?.name ?? 'BRONZE', label: 'TIER', color: tier?.color ?? '#cd7f32', large: false }
     case 'shots':
       return { value: stats.totalShots.toLocaleString(), label: 'SHOTS', color: '#3b82f6', large: true }
     case 'accuracy':
@@ -393,7 +387,6 @@ export default function Leaderboard() {
       switch (sortBy) {
         case 'elo':      return (b.elo ?? 1000) - (a.elo ?? 1000)
         case 'xp':       return sb.xp       - sa.xp
-        case 'rank':     return (b.totalWins ?? 0) - (a.totalWins ?? 0)
         case 'shots':    return sb.totalShots - sa.totalShots
         case 'accuracy': return sb.acc       - sa.acc
         case 'streak':   return sb.streak     - sa.streak
