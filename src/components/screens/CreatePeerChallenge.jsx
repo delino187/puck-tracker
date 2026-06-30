@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { ChevronLeft, Video, Upload, CheckCircle, AlertCircle, Info } from 'lucide-react'
+import { ChevronLeft, Video, Upload, CheckCircle, AlertCircle, Info, MessageSquare } from 'lucide-react'
 import { ZONES } from '../../constants/zones.js'
 import { C } from '../../styles.js'
 import { useAppStore } from '../../store/useAppStore.js'
@@ -345,10 +345,30 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit,
         <strong style={{ color: '#a855f7' }}>{zoneName}</strong>
       </div>
       <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#64748b', marginBottom: 16 }}>They have 48 hours to respond.</div>
-      <CopyButton
-        inviteText={buildInviteText('versus', matchType, { made: myHits, attempts: shotCount, zoneName })}
-        style={{ marginBottom: 20 }}
-      />
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+        <CopyButton
+          inviteText={buildInviteText('versus', matchType, { made: myHits, attempts: shotCount, zoneName })}
+        />
+        <button
+          onClick={() => {
+            const inviteText = buildInviteText('versus', matchType, { made: myHits, attempts: shotCount, zoneName })
+            window.location.href = `sms:?body=${encodeURIComponent(inviteText)}`
+          }}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            background: '#059669',
+            border: '1px solid #059669',
+            borderRadius: 8, padding: '6px 12px',
+            fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12,
+            fontWeight: 700, letterSpacing: '0.06em',
+            color: '#fff',
+            cursor: 'pointer',
+          }}
+        >
+          <MessageSquare size={13} />
+          TEXT CHALLENGE
+        </button>
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#34d399', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, marginBottom: 32 }}>
         <CheckCircle size={15} /> +{shotCount} XP credited to your total
       </div>
