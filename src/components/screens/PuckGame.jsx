@@ -27,7 +27,7 @@ function uploadErrMsg(err) {
 }
 
 const TRICK_STYLES = ['Forehand', 'Backhand', 'One-Timer', 'Slap Shot', 'Snap Shot', 'Wrist Shot', 'Toe Drag', 'Inside Foot', 'Outside Foot']
-const MAX_SECS     = 30   // up to 30 seconds allowed
+const MAX_SECS     = 45   // up to 45 seconds allowed
 
 // ── Neon letter strip — individual P-U-C-K letters with per-player glow ────────
 const PUCK_WORD = ['P','U','C','K']
@@ -170,7 +170,7 @@ function VideoPicker({ previewUrl, onSelect, onClear, error, maxSecs = MAX_SECS 
     const vid  = document.createElement('video')
     vid.preload = 'metadata'
     vid.onloadedmetadata = () => {
-      if (vid.duration > maxSecs + 1.5) { URL.revokeObjectURL(url); onSelect(null, null, `Videos can be up to 30 seconds long! Trim it in your phone's video editor first.`); return }
+      if (vid.duration > maxSecs + 1.5) { URL.revokeObjectURL(url); onSelect(null, null, `Videos can be up to 45 seconds long! Trim it in your phone's video editor first.`); return }
       onSelect(file, url, null)
     }
     vid.src = url

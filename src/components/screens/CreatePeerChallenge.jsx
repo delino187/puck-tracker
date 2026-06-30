@@ -10,11 +10,11 @@ import { audioEngine } from '../../services/audioEngine.js'
 import RecordingTipsModal from '../overlays/RecordingTipsModal.jsx'
 import { playScoreSound } from '../../utils/arcadeSounds.js'
 
-const MAX_SECS = 30
+const MAX_SECS = 45
 
 function uploadErrMsg(err) {
   if (err?.message === 'FILE_TOO_LARGE')
-    return 'Video exceeds 150 MB — trim it down in your phone\'s editor, then re-upload. Videos can be up to 30 seconds long!'
+    return 'Video exceeds 150 MB — trim it down in your phone\'s editor, then re-upload. Videos can be up to 45 seconds long!'
   if (err?.message === 'UPLOAD_TIMEOUT')
     return 'Network timed out! Move closer to Wi-Fi and try again.'
   return 'Upload failed — check your connection and try again.'
@@ -53,7 +53,7 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit,
     vid.onloadedmetadata = () => {
       if (vid.duration > MAX_SECS + 1.5) {
         URL.revokeObjectURL(objectUrl)
-        setError(`Videos can be up to 30 seconds long! Trim it in your phone's video editor first.`)
+        setError(`Videos can be up to 45 seconds long! Trim it in your phone's video editor first.`)
         return
       }
       setVideoFile(file)
@@ -346,7 +346,7 @@ export default function CreatePeerChallenge({ player, players, onBack, onSubmit,
       </div>
       <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12, color: '#64748b', marginBottom: 16 }}>They have 48 hours to respond.</div>
       <CopyButton
-        inviteText={buildInviteText('versus', matchType)}
+        inviteText={buildInviteText('versus', matchType, { made: myHits, attempts: shotCount, zoneName })}
         style={{ marginBottom: 20 }}
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#34d399', fontFamily: "'Barlow Condensed',sans-serif", fontSize: 13, marginBottom: 32 }}>

@@ -49,14 +49,18 @@ export default function CopyButton({ inviteText, style }) {
   )
 }
 
-/** Build the correct invite string based on challenge type and match type. */
-export function buildInviteText(type, matchType) {
+/** Build the correct invite string based on challenge type and match type.
+ *  For versus challenges, pass { made, attempts, zoneName } to append the score taunt. */
+export function buildInviteText(type, matchType, { made, attempts, zoneName } = {}) {
   const url = window.location.origin
+  const taunt = (made != null && attempts != null && zoneName)
+    ? ` - Beat ${made}/${attempts} ${zoneName}!`
+    : ''
   if (type === 'puck') {
     return `I just challenged you to a match of P-U-C-K. First to spell it loses. Get in here: ${url}`
   }
   if (matchType === 'unranked') {
-    return `I just challenged you to a casual match of Versus. Zero ELO risk, let's settle this: ${url}`
+    return `I just challenged you to a casual match of Versus. Zero ELO risk, let's settle this: ${url}${taunt}`
   }
-  return `I just challenged you to a Ranked match of Versus. Don't be a benchwarmer, protect your ELO: ${url}`
+  return `I just challenged you to a Ranked match of Versus. Don't be a benchwarmer, protect your ELO: ${url}${taunt}`
 }
