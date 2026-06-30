@@ -98,7 +98,7 @@ export const BADGES = [
   { id: 'c5',  name: 'Sheet Shredder',     desc: 'Complete 15 Versus matches',                 cat: 'challenge', tier: 2, Icon: Swords,      innerBg: 'linear-gradient(135deg,#1e3a8a,#2563eb)', innerIcon: '#bfdbfe', check: (p)   => (p.versusMatchesPlayed || 0) >= 15 },
   { id: 'c10', name: 'Showdown Superstar', desc: 'Complete 30 Versus matches',                 cat: 'challenge', tier: 3, Icon: Trophy,      innerBg: 'linear-gradient(135deg,#713f12,#b45309)', innerIcon: '#fde68a', check: (p)   => (p.versusMatchesPlayed || 0) >= 30 },
   { id: 'c20', name: 'Dominator',          desc: 'Win 10 Versus matches against opponents',    cat: 'challenge', tier: 3, Icon: Trophy,      innerBg: 'linear-gradient(135deg,#7c2d12,#dc2626)', innerIcon: '#fca5a5', check: (p)   => (p.versusWins          || 0) >= 10 },
-  { id: 'c30', name: 'Challenge Master',  desc: 'Completed 30 challenges', cat: 'challenge', tier: 4, Icon: CheckCircle, innerBg: 'linear-gradient(135deg,#4c1d95,#7c3aed)', innerIcon: '#ddd6fe', check: (p,s) => challengesCompleted(p,s)>=30 },
+  { id: 'c30', name: 'Unstoppable Force', desc: 'Win 20 Versus matches against opponents', cat: 'challenge', tier: 4, Icon: Trophy, innerBg: 'linear-gradient(135deg,#4c1d95,#7c3aed)', innerIcon: '#ddd6fe', check: (p)   => (p.versusWins || 0) >= 20 },
 
   // ── Ultra-Rare ────────────────────────────────────────────────────────────────
   {
