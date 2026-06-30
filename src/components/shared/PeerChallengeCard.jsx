@@ -202,10 +202,28 @@ export default function PeerChallengeCard({ challenge, playerId, players = [], s
             </div>
           )}
 
-          {/* Nudge copy link — only on outgoing pending cards */}
+          {/* Nudge copy/text links — only on outgoing pending cards */}
           {isChallenger && !expired && (
-            <div style={{ marginTop: 6 }}>
-              <CopyButton inviteText={buildInviteText('versus', challenge.matchType)} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+              <button
+                onClick={e => {
+                  e.stopPropagation()
+                  const inviteText = buildInviteText('versus', challenge.matchType, { made: challenge.challengerHits, attempts: challenge.shotCount, zoneName })
+                  window.location.href = `sms:?body=${encodeURIComponent(inviteText)}`
+                }}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  background: 'transparent',
+                  border: '1px solid #1e3a5f',
+                  borderRadius: 8, padding: '6px 12px',
+                  fontFamily: "'Barlow Condensed',sans-serif", fontSize: 12,
+                  fontWeight: 700, letterSpacing: '0.06em',
+                  color: '#60a5fa', cursor: 'pointer',
+                }}
+              >
+                💬 TEXT INVITE
+              </button>
+              <CopyButton inviteText={buildInviteText('versus', challenge.matchType, { made: challenge.challengerHits, attempts: challenge.shotCount, zoneName })} />
             </div>
           )}
         </div>
